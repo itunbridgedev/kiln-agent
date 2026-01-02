@@ -1,0 +1,18 @@
+# Pottery Studio Manager
+
+Monorepo for a small pottery studio management app.
+
+## Stack
+
+- Postgres
+- Node.js + Express (TypeScript)
+- React + Vite (TypeScript)
+
+## Structure
+
+- /api — backend API
+- /web — frontend app
+
+## Requirements
+
+- Node.js 20 LTS

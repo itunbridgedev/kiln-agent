@@ -1,0 +1,20 @@
+# Use official Node LTS
+FROM node:24
+
+# Create app directory
+WORKDIR /usr/src/app
+
+# Copy package.json + package-lock.json first
+COPY package*.json ./
+
+# Install dependencies
+RUN npm install
+
+# Copy the rest of the app
+COPY . .
+
+# Expose port
+EXPOSE 4000
+
+# Default command
+CMD ["npm", "run", "dev"]

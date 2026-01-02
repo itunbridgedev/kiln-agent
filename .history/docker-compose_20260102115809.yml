@@ -1,0 +1,30 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:15
+    container_name: pottery-db
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pottery-db-data:/var/lib/postgresql/data
+
+  api:
+    build: ./api
+    container_name: pottery-api
+    restart: always
+    ports:
+      - "4000:4000"
+    env_file:
+      - ./api/.env
+    depends_on:
+      - db
+    command: sh -c "npx prisma migrate deploy && npm run dev"
+
+volumes:
+  pottery-db-data:
