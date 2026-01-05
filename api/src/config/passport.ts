@@ -1,8 +1,54 @@
 import { PrismaClient } from "@prisma/client";
 import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
+import { Strategy as LocalStrategy } from "passport-local";
+import { comparePassword } from "../utils/auth";
 
 const prisma = new PrismaClient();
+
+// ========== Local Strategy (Email/Password) ==========
+passport.use(
+  new LocalStrategy(
+    {
+      usernameField: "email",
+      passwordField: "password",
+    },
+    async (email, password, done) => {
+      try {
+        const customer = await prisma.customer.findUnique({
+          where: { email },
+          include: { roles: { include: { role: true } } },
+        });
+
+        if (!customer) {
+          return done(null, false, { message: "Invalid email or password" });
+        }
+
+        if (!customer.passwordHash) {
+          return done(null, false, {
+            message: "Please use OAuth to sign in (Google)",
+          });
+        }
+
+        const isValidPassword = await comparePassword(
+          password,
+          customer.passwordHash
+        );
+
+        if (!isValidPassword) {
+          return done(null, false, { message: "Invalid email or password" });
+        }
+
+        return done(null, customer);
+      } catch (error) {
+        console.error("Error in local strategy:", error);
+        return done(error);
+      }
+    }
+  )
+);
+
+// ========== Google OAuth Strategy ==========
 
 passport.use(
   new GoogleStrategy(

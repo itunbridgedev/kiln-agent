@@ -36,6 +36,7 @@ SESSION_SECRET=generate-a-random-32-character-string
 ```
 
 To generate a secure session secret, run:
+
 ```bash
 # Using Node.js (recommended)
 node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
@@ -66,11 +67,13 @@ docker compose up --build -d
 ### Backend (API)
 
 - **Database Schema** (`prisma/schema.prisma`):
+
   - Added `Account` model for OAuth provider accounts
   - Added `Session` model for session management
   - Updated `Customer` model with picture and timestamps
 
 - **Authentication Routes** (`src/routes/auth.ts`):
+
   - `GET /api/auth/google` - Initiates Google OAuth flow
   - `GET /api/auth/google/callback` - Handles OAuth callback
   - `GET /api/auth/me` - Returns current user info
@@ -78,6 +81,7 @@ docker compose up --build -d
   - `GET /api/auth/status` - Check authentication status
 
 - **Passport Configuration** (`src/config/passport.ts`):
+
   - Google OAuth strategy setup
   - User serialization/deserialization
   - Database integration for user management
@@ -89,11 +93,13 @@ docker compose up --build -d
 ### Frontend (Web)
 
 - **Authentication Context** (`src/context/AuthContext.tsx`):
+
   - Manages user state
   - Provides login/logout functions
   - Auto-checks authentication on app load
 
 - **Pages**:
+
   - `Login.tsx` - Login page with Google sign-in button
   - `Dashboard.tsx` - Protected dashboard showing user info
 
@@ -115,11 +121,13 @@ docker compose up --build -d
 Before deploying to production:
 
 1. Update `/api/.env.production` with:
+
    - Production Google OAuth credentials
    - Strong session secret
    - Production URLs
 
 2. Add your production domain to Google OAuth:
+
    - Authorized origins: `https://yourdomain.com`
    - Redirect URIs: `https://yourdomain.com/api/auth/google/callback`
 
@@ -135,6 +143,7 @@ Before deploying to production:
 ## Next Steps
 
 You can now:
+
 - Add role-based access control using the existing Role/CustomerRole models
 - Implement additional OAuth providers (GitHub, Facebook, etc.)
 - Add email/password authentication alongside OAuth
