@@ -70,6 +70,9 @@ export default function HomePage() {
             {user ? (
               <>
                 <span className="user-greeting">Hi, {user.name}</span>
+                <button onClick={() => router.push("/admin")} className="nav-btn">
+                  Admin
+                </button>
                 <button onClick={handleLogout} className="nav-btn">
                   Logout
                 </button>
