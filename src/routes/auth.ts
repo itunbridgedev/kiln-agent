@@ -23,7 +23,10 @@ router.post("/register", async (req, res) => {
         .json({ error: "Name, email, and password are required" });
     }
 
-    if (!agreedToTerms) {
+    // Convert agreedToTerms to boolean if it's a string
+    const agreedToTermsBool = agreedToTerms === true || agreedToTerms === "true";
+    
+    if (!agreedToTermsBool) {
       return res
         .status(400)
         .json({ error: "You must agree to the Terms & Conditions" });
@@ -53,14 +56,16 @@ router.post("/register", async (req, res) => {
 
     // Hash password and create user
     const passwordHash = await hashPassword(password);
+    const agreedToSmsBool = agreedToSms === true || agreedToSms === "true";
+    
     const user = await prisma.customer.create({
       data: {
         name,
         email,
         passwordHash,
         phone: phone || null,
-        agreedToTerms: agreedToTerms || false,
-        agreedToSms: agreedToSms || false,
+        agreedToTerms: agreedToTermsBool,
+        agreedToSms: agreedToSmsBool,
       },
       include: {
         roles: {
