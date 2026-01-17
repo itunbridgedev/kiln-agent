@@ -1,6 +1,7 @@
 "use client";
 
 import { useAuth } from "@/context/AuthContext";
+import "@/styles/Login.css";
 import { useRouter } from "next/navigation";
 import React, { useState } from "react";
 
@@ -69,7 +70,7 @@ export default function CompleteRegistrationPage() {
       <div className="login-card">
         <h1>Complete Your Registration</h1>
         <p>
-          Just a couple more details to get you started with Kiln Agent
+          Just a couple more details to get you started
         </p>
 
         <form onSubmit={handleSubmit} className="auth-form">
