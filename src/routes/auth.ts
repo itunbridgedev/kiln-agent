@@ -86,7 +86,7 @@ router.post("/register", async (req, res) => {
           name: user.name,
           email: user.email,
           picture: user.picture,
-          roles: user.roles?.map((r) => r.role?.name) || [],
+          roles: user.roles?.map((r: any) => r.role?.name) || [],
         },
       });
     });
@@ -361,7 +361,7 @@ router.post("/complete-registration", isAuthenticated, async (req, res) => {
         name: updatedUser.name,
         email: updatedUser.email,
         picture: updatedUser.picture,
-        roles: updatedUser.roles?.map((r) => r.role?.name) || [],
+        roles: updatedUser.roles?.map((r: any) => r.role?.name) || [],
       },
     });
   } catch (error) {

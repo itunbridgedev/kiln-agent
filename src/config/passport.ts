@@ -104,7 +104,7 @@ passport.use(
         } else {
           // Update or create account for existing customer
           const existingAccount = customer.accounts.find(
-            (acc) =>
+            (acc: any) =>
               acc.provider === "google" && acc.providerAccountId === googleId
           );
 
@@ -276,7 +276,7 @@ if (process.env.APPLE_CLIENT_ID && process.env.APPLE_TEAM_ID) {
           } else {
             // Update or create account for existing customer
             const existingAccount = customer.accounts.find(
-              (acc) =>
+              (acc: any) =>
                 acc.provider === "apple" && acc.providerAccountId === appleId
             );
 
