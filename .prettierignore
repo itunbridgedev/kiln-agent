@@ -3,14 +3,12 @@ node_modules/
 .pnp
 .pnp.js
 
-# Build outputs
-.next/
-out/
+# Build
 dist/
 build/
 
 # Prisma
-api/prisma/migrations/
+prisma/migrations/
 
 # Misc
 .DS_Store
@@ -25,7 +23,3 @@ api/prisma/migrations/
 package-lock.json
 yarn.lock
 pnpm-lock.yaml
-
-# Docker
-.dockerignore
-Dockerfile

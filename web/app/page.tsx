@@ -36,7 +36,7 @@ export default function DashboardPage() {
   return (
     <div className="dashboard-container">
       <header className="dashboard-header">
-        <h1>Pottery Studio Dashboard</h1>
+        <h1>Kiln Agent Dashboard</h1>
         <div className="user-info">
           {user.picture && (
             <img src={user.picture} alt={user.name} className="user-avatar" />

@@ -352,10 +352,8 @@ router.get("/clear-session", (req, res) => {
     // Manually set both Set-Cookie headers to clear both cookies
     // Express's res.clearCookie() can only be called once per cookie name
     const clearCookies = [
-      // Clear the www.kilnagent.com specific cookie (no Domain = host-only)
+      // Clear the www.kilnagent.com specific cookie
       "connect.sid=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; Secure; SameSite=Lax",
-      // Also try with explicit www subdomain
-      "connect.sid=; Path=/; Domain=www.kilnagent.com; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; Secure; SameSite=Lax",
       // Clear the legacy .kilnagent.com domain cookie
       "connect.sid=; Path=/; Domain=.kilnagent.com; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; Secure; SameSite=Lax",
     ];

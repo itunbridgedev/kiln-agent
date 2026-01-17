@@ -1,0 +1,117 @@
+import connectPgSimple from "connect-pg-simple";
+import cookieParser from "cookie-parser";
+import cors from "cors";
+import dotenv from "dotenv";
+import express from "express";
+import session from "express-session";
+import { Pool } from "pg";
+import passport from "./config/passport";
+import authRoutes from "./routes/auth";
+
+// Load environment variables
+dotenv.config({ path: `.env.${process.env.NODE_ENV || "development"}` });
+
+const app = express();
+
+// Middleware
+app.use(cookieParser());
+app.use(
+  cors({
+    origin: process.env.CLIENT_URL || "http://localhost:3000",
+    credentials: true,
+  })
+);
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Request logging middleware
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+  // console.log(`  Origin: ${req.headers.origin || "none"}`);
+  // console.log(`  Cookies: ${req.headers.cookie ? "present" : "none"}`);
+  // if (req.headers.cookie) {
+  //   console.log(`  Cookie value: ${req.headers.cookie}`);
+  // }
+  // console.log(`  Session ID: ${req.sessionID || "none"}`);
+  next();
+});
+
+// Session store configuration
+const PgStore = connectPgSimple(session);
+const pgPool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl:
+    process.env.NODE_ENV === "production"
+      ? { rejectUnauthorized: false }
+      : false,
+});
+
+// Session configuration
+app.use(
+  session({
+    store: new PgStore({
+      pool: pgPool,
+      createTableIfMissing: true,
+    }),
+    secret:
+      process.env.SESSION_SECRET || "your-secret-key-change-in-production",
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: process.env.NODE_ENV === "production",
+      httpOnly: true,
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      sameSite: "lax",
+      // No domain attribute - cookie will be set for www.kilnagent.com only
+      // This works with our proxy pattern where all requests go through www.kilnagent.com
+    },
+  })
+);
+
+// Session logging middleware
+// app.use((req, res, next) => {
+//   console.log(`  Session ID after middleware: ${req.sessionID || "none"}`);
+//   console.log(
+//     `  Session user: ${(req.session as any).passport?.user || "none"}`
+//   );
+//   console.log(`  Is authenticated: ${req.isAuthenticated?.() || false}`);
+//   next();
+// });
+
+// Clear invalid session cookies (unsigned cookies from old deployments)
+app.use((req, res, next) => {
+  const cookieHeader = req.headers.cookie;
+  if (cookieHeader && cookieHeader.includes("connect.sid=")) {
+    const cookies = cookieHeader.split(";");
+    const sessionCookie = cookies.find((c) =>
+      c.trim().startsWith("connect.sid=")
+    );
+    if (sessionCookie) {
+      const cookieValue = sessionCookie.split("=")[1];
+      // If cookie doesn't start with 's:', it's unsigned/invalid
+      if (cookieValue && !cookieValue.startsWith("s:")) {
+        console.log("[Session] Detected invalid unsigned cookie, clearing it");
+        res.clearCookie("connect.sid", { path: "/" });
+      }
+    }
+  }
+  next();
+});
+
+// Initialize passport
+app.use(passport.initialize());
+app.use(passport.session());
+
+// Routes
+app.use("/api/auth", authRoutes);
+
+// Example route
+app.get("/api/hello", (req, res) => {
+  res.json({ message: "Hello from API!" });
+});
+
+const port = process.env.PORT || 4000;
+app.listen(port, () => {
+  console.log(`API listening on port ${port}`);
+});

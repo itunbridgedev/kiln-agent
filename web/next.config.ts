@@ -3,10 +3,11 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   output: "standalone",
   async rewrites() {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://pottery-api:4000";
     return [
       {
         source: "/api/:path*",
-        destination: "http://pottery-api:4000/api/:path*",
+        destination: `${apiUrl}/api/:path*`,
       },
     ];
   },

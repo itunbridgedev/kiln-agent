@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Pottery Studio App",
-  description: "Manage your pottery studio with authentication",
+  title: "Kiln Agent",
+  description: "Manage your kiln with authentication",
 };
 
 export default function RootLayout({
