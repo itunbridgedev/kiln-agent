@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "Customer" ADD COLUMN "agreedToTerms" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN "agreedToSms" BOOLEAN NOT NULL DEFAULT false;

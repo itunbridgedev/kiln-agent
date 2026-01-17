@@ -13,13 +13,20 @@ const prisma = new PrismaClient();
 // Register new user
 router.post("/register", async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, phone, agreedToTerms, agreedToSms } =
+      req.body;
 
     // Validate input
     if (!name || !email || !password) {
       return res
         .status(400)
         .json({ error: "Name, email, and password are required" });
+    }
+
+    if (!agreedToTerms) {
+      return res
+        .status(400)
+        .json({ error: "You must agree to the Terms & Conditions" });
     }
 
     if (!validateEmail(email)) {
@@ -51,6 +58,9 @@ router.post("/register", async (req, res) => {
         name,
         email,
         passwordHash,
+        phone: phone || null,
+        agreedToTerms: agreedToTerms || false,
+        agreedToSms: agreedToSms || false,
       },
       include: {
         roles: {
@@ -149,7 +159,13 @@ router.get(
         `[Google Callback] Session cookie: ${JSON.stringify(req.session.cookie)}`
       );
 
-      const redirectUrl = `${process.env.CLIENT_URL || "http://localhost:3000"}/`;
+      // Check if user needs to complete registration
+      const user = req.user as any;
+      const needsCompletion = !user.agreedToTerms;
+      
+      const redirectUrl = needsCompletion
+        ? `${process.env.CLIENT_URL || "http://localhost:3000"}/complete-registration`
+        : `${process.env.CLIENT_URL || "http://localhost:3000"}/`;
 
       // Manually set signed cookie header for proxy to capture
       // Express-session doesn't automatically set cookie on redirects in our proxy setup
@@ -255,7 +271,13 @@ router.post("/apple/callback", (req, res, next) => {
             );
           }
 
-          const redirectUrl = `${process.env.CLIENT_URL || "http://localhost:3000"}/`;
+          // Check if user needs to complete registration
+          const needsCompletion = !(user as any).agreedToTerms;
+          
+          const redirectUrl = needsCompletion
+            ? `${process.env.CLIENT_URL || "http://localhost:3000"}/complete-registration`
+            : `${process.env.CLIENT_URL || "http://localhost:3000"}/`;
+          
           console.log(
             `[Apple Callback] Session saved, redirecting to: ${redirectUrl}`
           );
@@ -300,6 +322,53 @@ router.post("/apple/callback", (req, res, next) => {
     res.redirect(
       `${process.env.CLIENT_URL || "http://localhost:3000"}/login?error=exception`
     );
+  }
+});
+
+// Complete registration after OAuth (add phone and agreements)
+router.post("/complete-registration", isAuthenticated, async (req, res) => {
+  try {
+    const { phone, agreedToTerms, agreedToSms } = req.body;
+    const user = req.user as any;
+
+    if (!agreedToTerms) {
+      return res
+        .status(400)
+        .json({ error: "You must agree to the Terms & Conditions" });
+    }
+
+    // Update user with additional information
+    const updatedUser = await prisma.customer.update({
+      where: { id: user.id },
+      data: {
+        phone: phone || null,
+        agreedToTerms: agreedToTerms || false,
+        agreedToSms: agreedToSms || false,
+      },
+      include: {
+        roles: {
+          include: {
+            role: true,
+          },
+        },
+      },
+    });
+
+    res.json({
+      message: "Registration completed successfully",
+      user: {
+        id: updatedUser.id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        picture: updatedUser.picture,
+        roles: updatedUser.roles?.map((r) => r.role?.name) || [],
+      },
+    });
+  } catch (error) {
+    console.error("Complete registration error:", error);
+    res
+      .status(500)
+      .json({ error: "Internal server error completing registration" });
   }
 });
 

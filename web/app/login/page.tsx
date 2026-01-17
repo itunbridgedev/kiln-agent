@@ -14,6 +14,9 @@ export default function LoginPage() {
     email: "",
     password: "",
     confirmPassword: "",
+    phone: "",
+    agreedToTerms: false,
+    agreedToSms: false,
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -28,9 +31,10 @@ export default function LoginPage() {
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value, type, checked } = e.target;
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value,
+      [name]: type === "checkbox" ? checked : value,
     });
     setError("");
   };
@@ -47,7 +51,19 @@ export default function LoginPage() {
           setLoading(false);
           return;
         }
-        await register(formData.name, formData.email, formData.password);
+        if (!formData.agreedToTerms) {
+          setError("You must agree to the Terms & Conditions");
+          setLoading(false);
+          return;
+        }
+        await register(
+          formData.name,
+          formData.email,
+          formData.password,
+          formData.phone,
+          formData.agreedToTerms,
+          formData.agreedToSms
+        );
       } else {
         await loginWithEmail(formData.email, formData.password);
       }
@@ -123,6 +139,56 @@ export default function LoginPage() {
                 required
                 placeholder="Confirm your password"
               />
+            </div>
+          )}
+
+          {isRegistering && (
+            <div className="form-group">
+              <label htmlFor="phone">Phone Number (Optional)</label>
+              <input
+                type="tel"
+                id="phone"
+                name="phone"
+                value={formData.phone}
+                onChange={handleInputChange}
+                placeholder="(555) 123-4567"
+              />
+            </div>
+          )}
+
+          {isRegistering && (
+            <div className="form-group checkbox-group">
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  name="agreedToTerms"
+                  checked={formData.agreedToTerms}
+                  onChange={handleInputChange}
+                  required
+                />
+                <span>
+                  I agree to the{" "}
+                  <a href="/terms" target="_blank" rel="noopener noreferrer">
+                    Terms & Conditions
+                  </a>
+                </span>
+              </label>
+            </div>
+          )}
+
+          {isRegistering && (
+            <div className="form-group checkbox-group">
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  name="agreedToSms"
+                  checked={formData.agreedToSms}
+                  onChange={handleInputChange}
+                />
+                <span>
+                  I agree to receive SMS text messages from Kiln Agent
+                </span>
+              </label>
             </div>
           )}
 

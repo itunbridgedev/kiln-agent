@@ -17,7 +17,14 @@ interface AuthContextType {
   login: () => void;
   loginWithApple: () => void;
   loginWithEmail: (email: string, password: string) => Promise<void>;
-  register: (name: string, email: string, password: string) => Promise<void>;
+  register: (
+    name: string,
+    email: string,
+    password: string,
+    phone?: string,
+    agreedToTerms?: boolean,
+    agreedToSms?: boolean
+  ) => Promise<void>;
   logout: () => Promise<void>;
   checkAuth: () => Promise<void>;
 }
@@ -114,14 +121,28 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setUser(data.user);
   };
 
-  const register = async (name: string, email: string, password: string) => {
+  const register = async (
+    name: string,
+    email: string,
+    password: string,
+    phone?: string,
+    agreedToTerms?: boolean,
+    agreedToSms?: boolean
+  ) => {
     const response = await fetch("/api/auth/register", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       credentials: "include",
-      body: JSON.stringify({ name, email, password }),
+      body: JSON.stringify({
+        name,
+        email,
+        password,
+        phone,
+        agreedToTerms,
+        agreedToSms,
+      }),
     });
 
     const data = await response.json();
