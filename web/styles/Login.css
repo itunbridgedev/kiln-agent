@@ -55,6 +55,7 @@
   font-size: 0.95rem;
   transition: border-color 0.2s ease;
   box-sizing: border-box;
+  color: #000;
 }
 
 .form-group input:focus {
