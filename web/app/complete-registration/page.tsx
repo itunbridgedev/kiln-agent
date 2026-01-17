@@ -69,9 +69,7 @@ export default function CompleteRegistrationPage() {
     <div className="login-container">
       <div className="login-card">
         <h1>Complete Your Registration</h1>
-        <p>
-          Just a couple more details to get you started
-        </p>
+        <p>Just a couple more details to get you started</p>
 
         <form onSubmit={handleSubmit} className="auth-form">
           <div className="form-group">
@@ -95,6 +93,7 @@ export default function CompleteRegistrationPage() {
                 onChange={handleInputChange}
                 required
               />
+              &nbsp;
               <span>
                 I agree to the{" "}
                 <a href="/terms" target="_blank" rel="noopener noreferrer">
@@ -112,9 +111,8 @@ export default function CompleteRegistrationPage() {
                 checked={formData.agreedToSms}
                 onChange={handleInputChange}
               />
-              <span>
-                I agree to receive SMS text messages from Kiln Agent
-              </span>
+              &nbsp;
+              <span>I agree to receive SMS text messages from Kiln Agent</span>
             </label>
           </div>
 
