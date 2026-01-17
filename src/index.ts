@@ -7,6 +7,8 @@ import session from "express-session";
 import { Pool } from "pg";
 import passport from "./config/passport";
 import authRoutes from "./routes/auth";
+import productsRoutes from "./routes/products";
+import adminRoutes from "./routes/admin";
 
 // Load environment variables
 dotenv.config({ path: `.env.${process.env.NODE_ENV || "development"}` });
@@ -105,6 +107,8 @@ app.use(passport.session());
 
 // Routes
 app.use("/api/auth", authRoutes);
+app.use("/api/products", productsRoutes);
+app.use("/api/admin", adminRoutes);
 
 // Example route
 app.get("/api/hello", (req, res) => {
