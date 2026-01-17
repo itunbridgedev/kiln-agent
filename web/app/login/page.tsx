@@ -261,6 +261,9 @@ export default function LoginPage() {
                 email: "",
                 password: "",
                 confirmPassword: "",
+                phone: "",
+                agreedToTerms: false,
+                agreedToSms: false,
               });
             }}
             className="link-btn"
