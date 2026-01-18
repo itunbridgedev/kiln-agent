@@ -5,6 +5,7 @@ Full-stack web application for pottery studio management with authentication.
 ## Tech Stack
 
 ### Backend
+
 - **Node.js** with Express.js
 - **TypeScript**
 - **PostgreSQL** with Prisma ORM
@@ -15,6 +16,7 @@ Full-stack web application for pottery studio management with authentication.
 - **express-session** with Postgres store
 
 ### Frontend
+
 - **Next.js 16** (App Router)
 - **React 19**
 - **TypeScript**

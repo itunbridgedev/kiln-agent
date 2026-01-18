@@ -1,5 +1,5 @@
-import { Router, Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
+import { Request, Response, Router } from "express";
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -14,10 +14,7 @@ router.get("/", async (req: Request, res: Response) => {
       include: {
         category: true,
       },
-      orderBy: [
-        { category: { displayOrder: "asc" } },
-        { displayOrder: "asc" },
-      ],
+      orderBy: [{ category: { displayOrder: "asc" } }, { displayOrder: "asc" }],
     });
 
     res.json(products);
@@ -52,11 +49,11 @@ router.get("/categories", async (req: Request, res: Response) => {
 router.get("/category/:id", async (req: Request, res: Response) => {
   try {
     const categoryId = parseInt(req.params.id);
-    
+
     const products = await prisma.product.findMany({
-      where: { 
+      where: {
         categoryId,
-        isActive: true 
+        isActive: true,
       },
       include: {
         category: true,

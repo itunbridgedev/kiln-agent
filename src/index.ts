@@ -6,9 +6,9 @@ import express from "express";
 import session from "express-session";
 import { Pool } from "pg";
 import passport from "./config/passport";
+import adminRoutes from "./routes/admin";
 import authRoutes from "./routes/auth";
 import productsRoutes from "./routes/products";
-import adminRoutes from "./routes/admin";
 
 // Load environment variables
 dotenv.config({ path: `.env.${process.env.NODE_ENV || "development"}` });
@@ -30,12 +30,11 @@ app.use(express.urlencoded({ extended: true }));
 // Request logging middleware
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
-  // console.log(`  Origin: ${req.headers.origin || "none"}`);
-  // console.log(`  Cookies: ${req.headers.cookie ? "present" : "none"}`);
-  // if (req.headers.cookie) {
-  //   console.log(`  Cookie value: ${req.headers.cookie}`);
-  // }
-  // console.log(`  Session ID: ${req.sessionID || "none"}`);
+  console.log(`  Origin: ${req.headers.origin || "none"}`);
+  console.log(`  Cookies: ${req.headers.cookie ? "present" : "none"}`);
+  if (req.headers.cookie) {
+    console.log(`  Cookie value: ${req.headers.cookie.substring(0, 100)}`);
+  }
   next();
 });
 
@@ -72,14 +71,16 @@ app.use(
 );
 
 // Session logging middleware
-// app.use((req, res, next) => {
-//   console.log(`  Session ID after middleware: ${req.sessionID || "none"}`);
-//   console.log(
-//     `  Session user: ${(req.session as any).passport?.user || "none"}`
-//   );
-//   console.log(`  Is authenticated: ${req.isAuthenticated?.() || false}`);
-//   next();
-// });
+app.use((req, res, next) => {
+  console.log(`[Session Debug] ${req.method} ${req.path}`);
+  console.log(`  Cookie header: ${req.headers.cookie ? "present" : "NONE"}`);
+  console.log(`  Session ID: ${req.sessionID || "none"}`);
+  console.log(
+    `  Session user: ${(req.session as any).passport?.user || "none"}`
+  );
+  console.log(`  Is authenticated: ${req.isAuthenticated?.() || false}`);
+  next();
+});
 
 // Clear invalid session cookies (unsigned cookies from old deployments)
 app.use((req, res, next) => {
@@ -91,8 +92,12 @@ app.use((req, res, next) => {
     );
     if (sessionCookie) {
       const cookieValue = sessionCookie.split("=")[1];
-      // If cookie doesn't start with 's:', it's unsigned/invalid
-      if (cookieValue && !cookieValue.startsWith("s:")) {
+      // If cookie doesn't start with 's:' or 's%3A' (URL-encoded), it's unsigned/invalid
+      if (
+        cookieValue &&
+        !cookieValue.startsWith("s:") &&
+        !cookieValue.startsWith("s%3A")
+      ) {
         console.log("[Session] Detected invalid unsigned cookie, clearing it");
         res.clearCookie("connect.sid", { path: "/" });
       }

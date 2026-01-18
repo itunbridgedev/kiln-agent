@@ -24,8 +24,9 @@ router.post("/register", async (req, res) => {
     }
 
     // Convert agreedToTerms to boolean if it's a string
-    const agreedToTermsBool = agreedToTerms === true || agreedToTerms === "true";
-    
+    const agreedToTermsBool =
+      agreedToTerms === true || agreedToTerms === "true";
+
     if (!agreedToTermsBool) {
       return res
         .status(400)
@@ -57,7 +58,7 @@ router.post("/register", async (req, res) => {
     // Hash password and create user
     const passwordHash = await hashPassword(password);
     const agreedToSmsBool = agreedToSms === true || agreedToSms === "true";
-    
+
     const user = await prisma.customer.create({
       data: {
         name,
@@ -167,7 +168,7 @@ router.get(
       // Check if user needs to complete registration
       const user = req.user as any;
       const needsCompletion = !user.agreedToTerms;
-      
+
       const redirectUrl = needsCompletion
         ? `${process.env.CLIENT_URL || "http://localhost:3000"}/complete-registration`
         : `${process.env.CLIENT_URL || "http://localhost:3000"}/`;
@@ -278,11 +279,11 @@ router.post("/apple/callback", (req, res, next) => {
 
           // Check if user needs to complete registration
           const needsCompletion = !(user as any).agreedToTerms;
-          
+
           const redirectUrl = needsCompletion
             ? `${process.env.CLIENT_URL || "http://localhost:3000"}/complete-registration`
             : `${process.env.CLIENT_URL || "http://localhost:3000"}/`;
-          
+
           console.log(
             `[Apple Callback] Session saved, redirecting to: ${redirectUrl}`
           );

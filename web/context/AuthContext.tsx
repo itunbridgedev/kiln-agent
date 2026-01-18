@@ -51,33 +51,33 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       // Use relative URL to leverage Next.js rewrites - this makes the request appear
       // to come from www.kilnagent.com instead of api.kilnagent.com
-      // console.log("[AuthContext] === CHECKING AUTHENTICATION ===");
-      // console.log(
-      //   "[AuthContext] Requesting:",
-      //   window.location.origin + "/api/auth/me"
-      // );
-      // console.log(
-      //   "[AuthContext] Document cookie:",
-      //   document.cookie ? document.cookie.substring(0, 50) + "..." : "NONE"
-      // );
+      console.log("[AuthContext] === CHECKING AUTHENTICATION ===");
+      console.log(
+        "[AuthContext] Requesting:",
+        window.location.origin + "/api/auth/me"
+      );
+      console.log(
+        "[AuthContext] Document cookie:",
+        document.cookie ? document.cookie.substring(0, 50) + "..." : "NONE"
+      );
 
       const response = await fetch("/api/auth/me", {
         credentials: "include",
       });
 
-      // console.log("[AuthContext] Response status:", response.status);
+      console.log("[AuthContext] Response status:", response.status);
 
       if (response.ok) {
         const userData = await response.json();
-        // console.log("[AuthContext] ✓ Authentication SUCCESS");
-        // console.log("[AuthContext] User data:", userData);
-        // console.log("[AuthContext] === AUTHENTICATION COMPLETE ===");
+        console.log("[AuthContext] ✓ Authentication SUCCESS");
+        console.log("[AuthContext] User data:", userData);
+        console.log("[AuthContext] === AUTHENTICATION COMPLETE ===");
         setUser(userData);
       } else {
-        // const errorData = await response.json().catch(() => ({}));
-        // console.log("[AuthContext] ✗ Authentication FAILED");
-        // console.log("[AuthContext] Error:", errorData);
-        // console.log("[AuthContext] === REDIRECTING TO LOGIN ===");
+        const errorData = await response.json().catch(() => ({}));
+        console.log("[AuthContext] ✗ Authentication FAILED");
+        console.log("[AuthContext] Error:", errorData);
+        console.log("[AuthContext] === REDIRECTING TO LOGIN ===");
         setUser(null);
       }
     } catch (error) {
@@ -103,6 +103,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const loginWithEmail = async (email: string, password: string) => {
+    console.log("[AuthContext] === LOGIN ATTEMPT ===");
+    console.log("[AuthContext] Sending login request to /api/auth/login");
+    console.log(
+      "[AuthContext] Credentials before login:",
+      document.cookie || "NONE"
+    );
+
     const response = await fetch("/api/auth/login", {
       method: "POST",
       headers: {
@@ -112,13 +119,28 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       body: JSON.stringify({ email, password }),
     });
 
+    console.log("[AuthContext] Login response status:", response.status);
+    console.log("[AuthContext] Login response headers:");
+    response.headers.forEach((value, key) => {
+      console.log(`  ${key}: ${value}`);
+    });
+
     const data = await response.json();
+    console.log("[AuthContext] Login response data:", data);
 
     if (!response.ok) {
+      console.log("[AuthContext] ✗ LOGIN FAILED:", data.error);
       throw new Error(data.error || "Login failed");
     }
 
+    console.log("[AuthContext] ✓ LOGIN SUCCESS");
+    console.log(
+      "[AuthContext] Credentials after login:",
+      document.cookie || "STILL NONE!"
+    );
+    console.log("[AuthContext] Setting user in state:", data.user);
     setUser(data.user);
+    console.log("[AuthContext] === LOGIN COMPLETE ===");
   };
 
   const register = async (

@@ -329,17 +329,24 @@ if (process.env.APPLE_CLIENT_ID && process.env.APPLE_TEAM_ID) {
 }
 
 passport.serializeUser((user: any, done) => {
+  console.log("[Passport] Serializing user:", user.id);
   done(null, user.id);
 });
 
 passport.deserializeUser(async (id: number, done) => {
+  console.log("[Passport] Deserializing user ID:", id);
   try {
     const customer = await prisma.customer.findUnique({
       where: { id },
-      include: { accounts: true, roles: true },
+      include: { accounts: true, roles: { include: { role: true } } },
     });
+    console.log(
+      "[Passport] Deserialized customer:",
+      customer ? customer.email : "NOT FOUND"
+    );
     done(null, customer);
   } catch (error) {
+    console.error("[Passport] Deserialization error:", error);
     done(error, null);
   }
 });

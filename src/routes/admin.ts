@@ -1,5 +1,5 @@
-import { Router, Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
+import { Request, Response, Router } from "express";
 import { isAuthenticated } from "../middleware/auth";
 
 const router = Router();
@@ -8,12 +8,12 @@ const prisma = new PrismaClient();
 // Middleware to check if user is admin
 const isAdmin = async (req: Request, res: Response, next: any) => {
   try {
-    if (!req.user?.id) {
+    if (!(req.user as any)?.id) {
       return res.status(401).json({ error: "Not authenticated" });
     }
 
     const customer = await prisma.customer.findUnique({
-      where: { id: req.user.id },
+      where: { id: (req.user as any).id },
       include: {
         roles: {
           include: {
@@ -23,12 +23,12 @@ const isAdmin = async (req: Request, res: Response, next: any) => {
       },
     });
 
-    const hasAdminRole = customer?.roles.some(
-      (cr) => cr.role.name === "admin"
-    );
+    const hasAdminRole = customer?.roles.some((cr) => cr.role.name === "admin");
 
     if (!hasAdminRole) {
-      return res.status(403).json({ error: "Access denied. Admin role required." });
+      return res
+        .status(403)
+        .json({ error: "Access denied. Admin role required." });
     }
 
     next();
@@ -139,8 +139,9 @@ router.delete("/categories/:id", async (req: Request, res: Response) => {
     }
 
     if (category._count.products > 0) {
-      return res.status(400).json({ 
-        error: "Cannot delete category with existing products. Delete or reassign products first." 
+      return res.status(400).json({
+        error:
+          "Cannot delete category with existing products. Delete or reassign products first.",
       });
     }
 
@@ -167,10 +168,7 @@ router.get("/products", async (req: Request, res: Response) => {
       include: {
         category: true,
       },
-      orderBy: [
-        { category: { displayOrder: "asc" } },
-        { displayOrder: "asc" },
-      ],
+      orderBy: [{ category: { displayOrder: "asc" } }, { displayOrder: "asc" }],
     });
 
     res.json(products);
@@ -183,11 +181,19 @@ router.get("/products", async (req: Request, res: Response) => {
 // POST /api/admin/products - Create new product
 router.post("/products", async (req: Request, res: Response) => {
   try {
-    const { name, description, price, categoryId, imageUrl, displayOrder, isActive } = req.body;
+    const {
+      name,
+      description,
+      price,
+      categoryId,
+      imageUrl,
+      displayOrder,
+      isActive,
+    } = req.body;
 
     if (!name || !price || !categoryId) {
-      return res.status(400).json({ 
-        error: "Product name, price, and category are required" 
+      return res.status(400).json({
+        error: "Product name, price, and category are required",
       });
     }
 
@@ -220,7 +226,15 @@ router.post("/products", async (req: Request, res: Response) => {
 router.put("/products/:id", async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id);
-    const { name, description, price, categoryId, imageUrl, displayOrder, isActive } = req.body;
+    const {
+      name,
+      description,
+      price,
+      categoryId,
+      imageUrl,
+      displayOrder,
+      isActive,
+    } = req.body;
 
     const product = await prisma.product.update({
       where: { id },
