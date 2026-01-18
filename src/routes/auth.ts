@@ -106,11 +106,20 @@ router.post("/register", async (req, res) => {
 
 // Login with email/password
 router.post("/login", (req, res, next) => {
+  console.log("[Login] Received login request for:", req.body.email);
+  
   passport.authenticate("local", (err: any, user: any, info: any) => {
+    console.log("[Login] Passport authenticate callback");
+    console.log("[Login] Error:", err);
+    console.log("[Login] User:", user ? `Found user ${user.id}` : "No user");
+    console.log("[Login] Info:", info);
+    
     if (err) {
+      console.error("[Login] Authentication error:", err);
       return res.status(500).json({ error: "Internal server error" });
     }
     if (!user) {
+      console.log("[Login] Authentication failed:", info?.message);
       return res
         .status(401)
         .json({ error: info?.message || "Invalid credentials" });
