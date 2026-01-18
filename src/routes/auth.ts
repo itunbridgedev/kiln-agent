@@ -145,23 +145,36 @@ router.post("/login", (req, res, next) => {
         JSON.stringify(req.session.cookie)
       );
 
-      const responseData = {
-        message: "Login successful",
-        user: {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          picture: user.picture,
-          roles: user.roles?.map((r: any) => r.role?.name) || [],
-        },
-      };
+      // Mark session as modified to ensure express-session sets the cookie
+      req.session.touch();
+      
+      // Save session explicitly before responding
+      req.session.save((saveErr) => {
+        if (saveErr) {
+          console.log("[LOGIN] ✗ Session save failed:", saveErr);
+          return res.status(500).json({ error: "Session save failed" });
+        }
+        
+        console.log("[LOGIN] ✓ Session saved, should trigger Set-Cookie");
 
-      console.log("[LOGIN] Sending response:", responseData);
-      console.log("[LOGIN] express-session will set cookie after response");
-      
-      res.json(responseData);
-      
-      console.log("[LOGIN] === END LOGIN REQUEST ===");
+        const responseData = {
+          message: "Login successful",
+          user: {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            picture: user.picture,
+            roles: user.roles?.map((r: any) => r.role?.name) || [],
+          },
+        };
+
+        console.log("[LOGIN] Sending response:", responseData);
+        console.log("[LOGIN] express-session will set cookie after response");
+
+        res.json(responseData);
+
+        console.log("[LOGIN] === END LOGIN REQUEST ===");
+      });
     });
   })(req, res, next);
 });
