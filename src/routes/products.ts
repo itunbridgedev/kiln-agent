@@ -1,8 +1,8 @@
 import { PrismaClient } from "@prisma/client";
 import { Request, Response, Router } from "express";
+import prisma from "../prisma";
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // Public endpoints - no authentication required
 

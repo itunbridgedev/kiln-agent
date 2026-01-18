@@ -3,10 +3,10 @@ import signature from "cookie-signature";
 import { Router } from "express";
 import passport from "../config/passport";
 import { isAuthenticated } from "../middleware/auth";
+import prisma from "../prisma";
 import { hashPassword, validateEmail, validatePassword } from "../utils/auth";
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // ========== Email/Password Authentication ==========
 

@@ -1,9 +1,9 @@
 import { PrismaClient } from "@prisma/client";
 import { Request, Response, Router } from "express";
 import { isAuthenticated } from "../middleware/auth";
+import prisma from "../prisma";
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // Middleware to check if user is admin
 const isAdmin = async (req: Request, res: Response, next: any) => {

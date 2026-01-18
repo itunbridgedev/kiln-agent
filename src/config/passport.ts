@@ -3,9 +3,8 @@ import passport from "passport";
 import { Strategy as AppleStrategy } from "passport-apple";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { Strategy as LocalStrategy } from "passport-local";
+import prisma from "../prisma";
 import { comparePassword } from "../utils/auth";
-
-const prisma = new PrismaClient();
 
 // ========== Local Strategy (Email/Password) ==========
 passport.use(
