@@ -63,9 +63,8 @@ app.use(
       secure: process.env.NODE_ENV === "production",
       httpOnly: true,
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
-      sameSite: "lax",
-      // No domain attribute - cookie will be set for www.kilnagent.com only
-      // This works with our proxy pattern where all requests go through www.kilnagent.com
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      domain: process.env.NODE_ENV === "production" ? ".kilnagent.com" : undefined,
     },
   })
 );
