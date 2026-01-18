@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 interface AdminSidebarProps {
   activeTab: "categories" | "products";
   productCatalogExpanded: boolean;
@@ -22,6 +24,8 @@ export default function AdminSidebar({
   onBackHome,
   onLogout,
 }: AdminSidebarProps) {
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+
   return (
     <aside className="admin-sidebar">
       <div className="admin-sidebar-header">
@@ -30,24 +34,35 @@ export default function AdminSidebar({
 
       {/* User Profile Section */}
       <div className="admin-user-profile">
-        <div className="user-info">
+        <button
+          className="profile-trigger"
+          onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+        >
           <div className="user-avatar">
             {user.name.charAt(0).toUpperCase()}
           </div>
-          <div className="user-details">
-            <div className="user-name">{user.name}</div>
-            <div className="user-email">{user.email}</div>
-            <div className="user-role">Admin</div>
+          <span className="user-name">{user.name}</span>
+          <span className={`profile-arrow ${profileMenuOpen ? "open" : ""}`}>
+            ▼
+          </span>
+        </button>
+
+        {profileMenuOpen && (
+          <div className="profile-menu">
+            <button onClick={onBackHome} className="profile-menu-item">
+              <span className="menu-icon">🏠</span>
+              Back to Home
+            </button>
+            <button className="profile-menu-item" disabled>
+              <span className="menu-icon">👤</span>
+              Edit Profile
+            </button>
+            <button onClick={onLogout} className="profile-menu-item logout">
+              <span className="menu-icon">🚪</span>
+              Logout
+            </button>
           </div>
-        </div>
-        <div className="user-actions">
-          <button onClick={onBackHome} className="sidebar-action-btn" title="Go to Home">
-            🏠 Home
-          </button>
-          <button onClick={onLogout} className="sidebar-action-btn logout-btn" title="Logout">
-            🚪 Logout
-          </button>
-        </div>
+        )}
       </div>
 
       <nav>
