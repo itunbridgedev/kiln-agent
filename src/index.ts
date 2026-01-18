@@ -64,7 +64,8 @@ app.use(
       httpOnly: true,
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
       sameSite: "lax",
-      // No domain specified - cookie will be set for the request domain (www.kilnagent.com via Next.js rewrite)
+      // No domain attribute - cookie will be set for www.kilnagent.com only
+      // This works with our proxy pattern where all requests go through www.kilnagent.com
     },
   })
 );
@@ -108,18 +109,6 @@ app.use((req, res, next) => {
 // Initialize passport
 app.use(passport.initialize());
 app.use(passport.session());
-
-// Response header logging middleware
-app.use((req, res, next) => {
-  const originalJson = res.json;
-  res.json = function (data) {
-    console.log(`[Response] ${req.method} ${req.path}`);
-    console.log(`[Response] Set-Cookie header:`, res.getHeader("set-cookie") || "NOT SET");
-    console.log(`[Response] All headers:`, JSON.stringify(res.getHeaders()));
-    return originalJson.call(this, data);
-  };
-  next();
-});
 
 // Routes
 app.use("/api/auth", authRoutes);

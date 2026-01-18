@@ -105,45 +105,33 @@ router.post("/register", async (req, res) => {
 });
 
 // Login with email/password
-router.post("/login",
-  (req, res, next) => {
-    console.log("[LOGIN] === START LOGIN REQUEST ===");
-    console.log("[LOGIN] Request headers:", {
-      origin: req.headers.origin,
-      referer: req.headers.referer,
-      cookie: req.headers.cookie ? "present" : "NONE",
-      host: req.headers.host,
+router.post("/login", (req, res, next) => {
+  passport.authenticate("local", (err: any, user: any, info: any) => {
+    if (err) {
+      return res.status(500).json({ error: "Internal server error" });
+    }
+    if (!user) {
+      return res
+        .status(401)
+        .json({ error: info?.message || "Invalid credentials" });
+    }
+    req.login(user, (err) => {
+      if (err) {
+        return res.status(500).json({ error: "Login failed" });
+      }
+      res.json({
+        message: "Login successful",
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          picture: user.picture,
+          roles: user.roles?.map((r: any) => r.role?.name) || [],
+        },
+      });
     });
-    console.log("[LOGIN] Session ID before auth:", req.sessionID);
-    console.log("[LOGIN] Session before auth:", JSON.stringify(req.session));
-    next();
-  },
-  passport.authenticate("local", {
-    failureMessage: true,
-  }),
-  (req, res) => {
-    console.log("[LOGIN] ✓ Authentication successful");
-    console.log("[LOGIN] Session ID after auth:", req.sessionID);
-    console.log("[LOGIN] Session after auth:", JSON.stringify(req.session));
-    console.log("[LOGIN] User:", (req.user as any)?.email);
-    
-    const user = req.user as any;
-    const responseData = {
-      message: "Login successful",
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        picture: user.picture,
-        roles: user.roles?.map((r: any) => r.role?.name) || [],
-      },
-    };
-    
-    console.log("[LOGIN] Sending response:", responseData);
-    res.json(responseData);
-    console.log("[LOGIN] === END LOGIN REQUEST ===");
-  }
-);
+  })(req, res, next);
+});
 
 // ========== Google OAuth ==========
 
