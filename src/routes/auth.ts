@@ -45,7 +45,7 @@ router.post("/register", async (req, res) => {
     }
 
     // Check if user already exists
-    const existingUser = await prisma.customer.findUnique({
+    const existingUser = await prisma.customer.findFirst({
       where: { email },
     });
 
@@ -67,7 +67,7 @@ router.post("/register", async (req, res) => {
         phone: phone || null,
         agreedToTerms: agreedToTermsBool,
         agreedToSms: agreedToSmsBool,
-      },
+      } as any,
       include: {
         roles: {
           include: {
@@ -92,7 +92,7 @@ router.post("/register", async (req, res) => {
           name: user.name,
           email: user.email,
           picture: user.picture,
-          roles: user.roles?.map((r: any) => r.role?.name) || [],
+          roles: [],
         },
       });
     });

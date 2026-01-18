@@ -15,7 +15,7 @@ passport.use(
     },
     async (email, password, done) => {
       try {
-        const customer = await prisma.customer.findUnique({
+        const customer = await prisma.customer.findFirst({
           where: { email },
           include: { roles: { include: { role: true } } },
         });
@@ -71,7 +71,7 @@ passport.use(
         }
 
         // Find or create customer
-        let customer = await prisma.customer.findUnique({
+        let customer = await prisma.customer.findFirst({
           where: { email },
           include: { accounts: true },
         });
@@ -97,7 +97,7 @@ passport.use(
                   idToken: null,
                 },
               },
-            },
+            } as any,
             include: { accounts: true },
           });
         } else {
@@ -245,7 +245,7 @@ if (process.env.APPLE_CLIENT_ID && process.env.APPLE_TEAM_ID) {
           }
 
           // Find or create customer
-          let customer = await prisma.customer.findUnique({
+          let customer = await prisma.customer.findFirst({
             where: { email },
             include: { accounts: true },
           });
@@ -269,7 +269,7 @@ if (process.env.APPLE_CLIENT_ID && process.env.APPLE_TEAM_ID) {
                     idToken,
                   },
                 },
-              },
+              } as any,
               include: { accounts: true },
             });
           } else {

@@ -77,7 +77,7 @@ router.post("/categories", async (req: Request, res: Response) => {
         description,
         displayOrder: displayOrder || 0,
         isActive: isActive !== undefined ? isActive : true,
-      },
+      } as any,
     });
 
     res.status(201).json(category);
@@ -206,7 +206,7 @@ router.post("/products", async (req: Request, res: Response) => {
         imageUrl,
         displayOrder: displayOrder || 0,
         isActive: isActive !== undefined ? isActive : true,
-      },
+      } as any,
       include: {
         category: true,
       },
