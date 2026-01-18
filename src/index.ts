@@ -81,6 +81,28 @@ app.use((req, res, next) => {
   next();
 });
 
+// Response header logging to debug cookie setting
+app.use((req, res, next) => {
+  const originalJson = res.json;
+  const originalSend = res.send;
+  
+  res.json = function(data) {
+    const setCookieHeader = res.getHeader('Set-Cookie');
+    console.log(`[Response] ${req.method} ${req.path}`);
+    console.log(`  Set-Cookie header: ${setCookieHeader ? JSON.stringify(setCookieHeader) : 'NOT SET'}`);
+    return originalJson.call(this, data);
+  };
+  
+  res.send = function(data) {
+    const setCookieHeader = res.getHeader('Set-Cookie');
+    console.log(`[Response] ${req.method} ${req.path}`);
+    console.log(`  Set-Cookie header: ${setCookieHeader ? JSON.stringify(setCookieHeader) : 'NOT SET'}`);
+    return originalSend.call(this, data);
+  };
+  
+  next();
+});
+
 // Clear invalid session cookies (unsigned cookies from old deployments)
 app.use((req, res, next) => {
   const cookieHeader = req.headers.cookie;
