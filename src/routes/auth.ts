@@ -131,6 +131,24 @@ router.post("/login", (req, res, next) => {
         console.log("[Login] Session ID:", req.sessionID);
         console.log("[Login] Session data:", JSON.stringify(req.session));
         
+        // Manually set the Set-Cookie header since express-session isn't doing it
+        const signature = require("cookie-signature");
+        const secret = process.env.SESSION_SECRET || "your-secret-key-change-in-production";
+        const signedSessionId = `s:${signature.sign(req.sessionID, secret)}`;
+        
+        const cookieOptions = [
+          `connect.sid=${signedSessionId}`,
+          `Domain=.kilnagent.com`,
+          `Path=/`,
+          `Expires=${new Date(Date.now() + 24 * 60 * 60 * 1000).toUTCString()}`,
+          `HttpOnly`,
+          `Secure`,
+          `SameSite=None`
+        ].join('; ');
+        
+        res.setHeader('Set-Cookie', cookieOptions);
+        console.log("[Login] Manually set cookie:", cookieOptions);
+        
         res.json({
           message: "Login successful",
           user: {
