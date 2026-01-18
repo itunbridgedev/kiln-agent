@@ -119,15 +119,28 @@ router.post("/login", (req, res, next) => {
       if (err) {
         return res.status(500).json({ error: "Login failed" });
       }
-      res.json({
-        message: "Login successful",
-        user: {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          picture: user.picture,
-          roles: user.roles?.map((r: any) => r.role?.name) || [],
-        },
+      
+      // Explicitly save the session to ensure cookie is set
+      req.session.save((saveErr) => {
+        if (saveErr) {
+          console.error("[Login] Session save error:", saveErr);
+          return res.status(500).json({ error: "Session save failed" });
+        }
+        
+        console.log("[Login] Session saved successfully");
+        console.log("[Login] Session ID:", req.sessionID);
+        console.log("[Login] Session data:", JSON.stringify(req.session));
+        
+        res.json({
+          message: "Login successful",
+          user: {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            picture: user.picture,
+            roles: user.roles?.map((r: any) => r.role?.name) || [],
+          },
+        });
       });
     });
   })(req, res, next);
