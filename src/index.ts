@@ -64,7 +64,8 @@ app.use(
       httpOnly: true,
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
       sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-      domain: process.env.NODE_ENV === "production" ? ".kilnagent.com" : undefined,
+      domain:
+        process.env.NODE_ENV === "production" ? ".kilnagent.com" : undefined,
     },
   })
 );
@@ -85,21 +86,25 @@ app.use((req, res, next) => {
 app.use((req, res, next) => {
   const originalJson = res.json;
   const originalSend = res.send;
-  
-  res.json = function(data) {
-    const setCookieHeader = res.getHeader('Set-Cookie');
+
+  res.json = function (data) {
+    const setCookieHeader = res.getHeader("Set-Cookie");
     console.log(`[Response] ${req.method} ${req.path}`);
-    console.log(`  Set-Cookie header: ${setCookieHeader ? JSON.stringify(setCookieHeader) : 'NOT SET'}`);
+    console.log(
+      `  Set-Cookie header: ${setCookieHeader ? JSON.stringify(setCookieHeader) : "NOT SET"}`
+    );
     return originalJson.call(this, data);
   };
-  
-  res.send = function(data) {
-    const setCookieHeader = res.getHeader('Set-Cookie');
+
+  res.send = function (data) {
+    const setCookieHeader = res.getHeader("Set-Cookie");
     console.log(`[Response] ${req.method} ${req.path}`);
-    console.log(`  Set-Cookie header: ${setCookieHeader ? JSON.stringify(setCookieHeader) : 'NOT SET'}`);
+    console.log(
+      `  Set-Cookie header: ${setCookieHeader ? JSON.stringify(setCookieHeader) : "NOT SET"}`
+    );
     return originalSend.call(this, data);
   };
-  
+
   next();
 });
 

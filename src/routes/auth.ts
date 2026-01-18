@@ -107,13 +107,13 @@ router.post("/register", async (req, res) => {
 // Login with email/password
 router.post("/login", (req, res, next) => {
   console.log("[Login] Received login request for:", req.body.email);
-  
+
   passport.authenticate("local", (err: any, user: any, info: any) => {
     console.log("[Login] Passport authenticate callback");
     console.log("[Login] Error:", err);
     console.log("[Login] User:", user ? `Found user ${user.id}` : "No user");
     console.log("[Login] Info:", info);
-    
+
     if (err) {
       console.error("[Login] Authentication error:", err);
       return res.status(500).json({ error: "Internal server error" });
@@ -128,23 +128,24 @@ router.post("/login", (req, res, next) => {
       if (err) {
         return res.status(500).json({ error: "Login failed" });
       }
-      
+
       // Explicitly save the session to ensure cookie is set
       req.session.save((saveErr) => {
         if (saveErr) {
           console.error("[Login] Session save error:", saveErr);
           return res.status(500).json({ error: "Session save failed" });
         }
-        
+
         console.log("[Login] Session saved successfully");
         console.log("[Login] Session ID:", req.sessionID);
         console.log("[Login] Session data:", JSON.stringify(req.session));
-        
+
         // Manually set the Set-Cookie header since express-session isn't doing it
         const signature = require("cookie-signature");
-        const secret = process.env.SESSION_SECRET || "your-secret-key-change-in-production";
+        const secret =
+          process.env.SESSION_SECRET || "your-secret-key-change-in-production";
         const signedSessionId = `s:${signature.sign(req.sessionID, secret)}`;
-        
+
         const cookieOptions = [
           `connect.sid=${signedSessionId}`,
           `Domain=.kilnagent.com`,
@@ -152,12 +153,12 @@ router.post("/login", (req, res, next) => {
           `Expires=${new Date(Date.now() + 24 * 60 * 60 * 1000).toUTCString()}`,
           `HttpOnly`,
           `Secure`,
-          `SameSite=None`
-        ].join('; ');
-        
-        res.setHeader('Set-Cookie', cookieOptions);
+          `SameSite=None`,
+        ].join("; ");
+
+        res.setHeader("Set-Cookie", cookieOptions);
         console.log("[Login] Manually set cookie:", cookieOptions);
-        
+
         res.json({
           message: "Login successful",
           user: {
@@ -213,33 +214,30 @@ router.get(
         ? `${process.env.CLIENT_URL || "http://localhost:3000"}/complete-registration`
         : `${process.env.CLIENT_URL || "http://localhost:3000"}/`;
 
-      // Manually set signed cookie header for proxy to capture
-      // Express-session doesn't automatically set cookie on redirects in our proxy setup
+      // Manually set signed cookie header with correct domain
       const sessionSecret =
         process.env.SESSION_SECRET || "your-secret-key-change-in-production";
       const signedSessionId = `s:${signature.sign(req.sessionID, sessionSecret)}`;
 
-      const cookieValue = `connect.sid=${signedSessionId}`;
       const cookieOptions = [
+        `connect.sid=${signedSessionId}`,
+        req.session.cookie.domain ? `Domain=${req.session.cookie.domain}` : "",
         `Path=${req.session.cookie.path || "/"}`,
+        req.session.cookie.maxAge
+          ? `Expires=${new Date(Date.now() + req.session.cookie.maxAge).toUTCString()}`
+          : "",
         "HttpOnly",
         req.session.cookie.secure ? "Secure" : "",
         req.session.cookie.sameSite
           ? `SameSite=${req.session.cookie.sameSite}`
           : "",
-        req.session.cookie.maxAge
-          ? `Max-Age=${Math.floor(req.session.cookie.maxAge / 1000)}`
-          : "",
       ]
         .filter(Boolean)
         .join("; ");
 
-      const setCookieHeader = `${cookieValue}; ${cookieOptions}`;
-      console.log(
-        `[Google Callback] Setting signed cookie: ${setCookieHeader}`
-      );
+      console.log(`[Google Callback] Setting cookie: ${cookieOptions}`);
 
-      res.setHeader("Set-Cookie", setCookieHeader);
+      res.setHeader("Set-Cookie", cookieOptions);
       res.redirect(302, redirectUrl);
     });
   }
@@ -332,33 +330,33 @@ router.post("/apple/callback", (req, res, next) => {
             `[Apple Callback] Session cookie: ${JSON.stringify(req.session.cookie)}`
           );
 
-          // Manually set signed cookie header for proxy to capture
+          // Manually set signed cookie header with correct domain
           const sessionSecret =
             process.env.SESSION_SECRET ||
             "your-secret-key-change-in-production";
           const signedSessionId = `s:${signature.sign(req.sessionID, sessionSecret)}`;
 
-          const cookieValue = `connect.sid=${signedSessionId}`;
           const cookieOptions = [
+            `connect.sid=${signedSessionId}`,
+            req.session.cookie.domain
+              ? `Domain=${req.session.cookie.domain}`
+              : "",
             `Path=${req.session.cookie.path || "/"}`,
+            req.session.cookie.maxAge
+              ? `Expires=${new Date(Date.now() + req.session.cookie.maxAge).toUTCString()}`
+              : "",
             "HttpOnly",
             req.session.cookie.secure ? "Secure" : "",
             req.session.cookie.sameSite
               ? `SameSite=${req.session.cookie.sameSite}`
               : "",
-            req.session.cookie.maxAge
-              ? `Max-Age=${Math.floor(req.session.cookie.maxAge / 1000)}`
-              : "",
           ]
             .filter(Boolean)
             .join("; ");
 
-          const setCookieHeader = `${cookieValue}; ${cookieOptions}`;
-          console.log(
-            `[Apple Callback] Setting signed cookie: ${setCookieHeader}`
-          );
+          console.log(`[Apple Callback] Setting cookie: ${cookieOptions}`);
 
-          res.setHeader("Set-Cookie", setCookieHeader);
+          res.setHeader("Set-Cookie", cookieOptions);
           res.redirect(302, redirectUrl);
         });
       });
@@ -446,9 +444,11 @@ router.post("/logout", (req, res) => {
       }
       res.clearCookie("connect.sid", {
         path: "/",
+        domain:
+          process.env.NODE_ENV === "production" ? ".kilnagent.com" : undefined,
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       });
       res.json({ message: "Logged out successfully" });
     });
