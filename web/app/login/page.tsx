@@ -1,12 +1,12 @@
 "use client";
 
+import AuthToggle from "@/components/auth/AuthToggle";
+import LoginForm from "@/components/auth/LoginForm";
+import SocialLoginButtons from "@/components/auth/SocialLoginButtons";
 import { useAuth } from "@/context/AuthContext";
 import "@/styles/Login.css";
 import { useRouter } from "next/navigation";
 import React, { useState } from "react";
-import LoginForm from "@/components/auth/LoginForm";
-import SocialLoginButtons from "@/components/auth/SocialLoginButtons";
-import AuthToggle from "@/components/auth/AuthToggle";
 
 export default function LoginPage() {
   const { login, loginWithApple, loginWithEmail, register } = useAuth();
