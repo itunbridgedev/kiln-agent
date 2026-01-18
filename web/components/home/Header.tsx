@@ -2,6 +2,7 @@ interface User {
   id: number;
   name: string;
   email: string;
+  roles: string[];
 }
 
 interface HeaderProps {
@@ -17,6 +18,8 @@ export default function Header({
   onNavigateAdmin,
   onNavigateLogin,
 }: HeaderProps) {
+  const isAdmin = user?.roles?.includes("admin");
+
   return (
     <header className="home-header">
       <div className="header-content">
@@ -25,9 +28,11 @@ export default function Header({
           {user ? (
             <>
               <span className="user-greeting">Hi, {user.name}</span>
-              <button onClick={onNavigateAdmin} className="nav-btn">
-                Admin
-              </button>
+              {isAdmin && (
+                <button onClick={onNavigateAdmin} className="nav-btn">
+                  Admin
+                </button>
+              )}
               <button onClick={onLogout} className="nav-btn">
                 Logout
               </button>

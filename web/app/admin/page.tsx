@@ -40,7 +40,7 @@ interface Product {
 }
 
 export default function AdminPage() {
-  const { user, loading } = useAuth();
+  const { user, loading, logout } = useAuth();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"categories" | "products">(
     "categories"
@@ -50,6 +50,7 @@ export default function AdminPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [error, setError] = useState("");
+  const [accessDenied, setAccessDenied] = useState(false);
 
   // Category form state
   const [showCategoryForm, setShowCategoryForm] = useState(false);
@@ -62,11 +63,17 @@ export default function AdminPage() {
   useEffect(() => {
     if (!loading && !user) {
       router.push("/login");
+      return;
+    }
+
+    // Check if user has admin role
+    if (!loading && user && !user.roles?.includes("admin")) {
+      setAccessDenied(true);
     }
   }, [user, loading, router]);
 
   useEffect(() => {
-    if (user) {
+    if (user && user.roles?.includes("admin")) {
       fetchCategories();
       fetchProducts();
     }
@@ -218,10 +225,34 @@ export default function AdminPage() {
     setShowProductForm(true);
   };
 
+  const handleLogout = async () => {
+    await logout();
+    router.push("/login");
+  };
+
   if (loading || !user) {
     return (
       <div className="loading-container">
         <p>Loading...</p>
+      </div>
+    );
+  }
+
+  if (accessDenied) {
+    return (
+      <div className="loading-container">
+        <div className="error-message" style={{ maxWidth: "500px", textAlign: "center" }}>
+          <h2>Access Denied</h2>
+          <p>You do not have permission to access the admin area.</p>
+          <p>Only users with admin role can access this page.</p>
+          <button
+            onClick={() => router.push("/")}
+            className="nav-btn"
+            style={{ marginTop: "20px" }}
+          >
+            Go to Home
+          </button>
+        </div>
       </div>
     );
   }
@@ -232,6 +263,7 @@ export default function AdminPage() {
       <AdminSidebar
         activeTab={activeTab}
         productCatalogExpanded={productCatalogExpanded}
+        user={user}
         onTabChange={(tab) => {
           setActiveTab(tab);
           setProductCatalogExpanded(true);
@@ -240,6 +272,7 @@ export default function AdminPage() {
           setProductCatalogExpanded(!productCatalogExpanded)
         }
         onBackHome={() => router.push("/")}
+        onLogout={handleLogout}
       />
 
       {/* Main Content */}
@@ -249,13 +282,6 @@ export default function AdminPage() {
             {activeTab === "categories" ? "Product Categories" : "Products"}
           </h1>
           <p>Manage your product catalog</p>
-          <button
-            onClick={() => router.push("/")}
-            className="nav-btn"
-            style={{ marginTop: "10px" }}
-          >
-            Back to Home
-          </button>
         </div>
 
         {error && <div className="error-message">{error}</div>}

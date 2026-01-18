@@ -1,13 +1,13 @@
 "use client";
 
+import Footer from "@/components/home/Footer";
+import Header from "@/components/home/Header";
+import Hero from "@/components/home/Hero";
+import ProductCatalog from "@/components/home/ProductCatalog";
 import { useAuth } from "@/context/AuthContext";
 import "@/styles/Home.css";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import Header from "@/components/home/Header";
-import Hero from "@/components/home/Hero";
-import ProductCatalog from "@/components/home/ProductCatalog";
-import Footer from "@/components/home/Footer";
 
 interface Product {
   id: number;
