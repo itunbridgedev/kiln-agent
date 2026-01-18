@@ -64,10 +64,7 @@ app.use(
       httpOnly: true,
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
       sameSite: "lax",
-      domain:
-        process.env.NODE_ENV === "production"
-          ? ".kilnagent.com" // Allows cookie to work across api.kilnagent.com and www.kilnagent.com
-          : undefined,
+      // No domain specified - cookie will be set for the request domain (www.kilnagent.com via Next.js rewrite)
     },
   })
 );

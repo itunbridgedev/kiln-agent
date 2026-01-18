@@ -47,11 +47,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Use direct API URL for auth operations to ensure cookies are set correctly
-  const getApiUrl = () => {
-    return process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-  };
-
   const checkAuth = async () => {
     try {
       // Use relative URL to leverage Next.js rewrites - this makes the request appear
@@ -98,25 +93,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, []);
 
   const login = () => {
-    // Redirect to Google OAuth directly (not through rewrite) to ensure cookies are set
-    window.location.href = `${getApiUrl()}/api/auth/google`;
+    // Redirect to Google OAuth via Next.js rewrite
+    window.location.href = "/api/auth/google";
   };
 
   const loginWithApple = () => {
-    // Redirect to Apple OAuth directly (not through rewrite) to ensure cookies are set
-    window.location.href = `${getApiUrl()}/api/auth/apple`;
+    // Redirect to Apple OAuth via Next.js rewrite
+    window.location.href = "/api/auth/apple";
   };
 
   const loginWithEmail = async (email: string, password: string) => {
     console.log("[AuthContext] === LOGIN ATTEMPT ===");
-    console.log("[AuthContext] Sending login request to API directly");
+    console.log("[AuthContext] Sending login request to /api/auth/login");
     console.log(
       "[AuthContext] Credentials before login:",
       document.cookie || "NONE"
     );
 
-    const apiUrl = getApiUrl();
-    const response = await fetch(`${apiUrl}/api/auth/login`, {
+    const response = await fetch("/api/auth/login", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -157,8 +151,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     agreedToTerms?: boolean,
     agreedToSms?: boolean
   ) => {
-    const apiUrl = getApiUrl();
-    const response = await fetch(`${apiUrl}/api/auth/register`, {
+    const response = await fetch("/api/auth/register", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -185,8 +178,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const logout = async () => {
     try {
-      const apiUrl = getApiUrl();
-      const response = await fetch(`${apiUrl}/api/auth/logout`, {
+      const response = await fetch("/api/auth/logout", {
         method: "POST",
         credentials: "include",
       });

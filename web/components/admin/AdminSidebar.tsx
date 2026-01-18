@@ -38,9 +38,7 @@ export default function AdminSidebar({
           className="profile-trigger"
           onClick={() => setProfileMenuOpen(!profileMenuOpen)}
         >
-          <div className="user-avatar">
-            {user.name.charAt(0).toUpperCase()}
-          </div>
+          <div className="user-avatar">{user.name.charAt(0).toUpperCase()}</div>
           <span className="user-name">{user.name}</span>
           <span className={`profile-arrow ${profileMenuOpen ? "open" : ""}`}>
             ▼

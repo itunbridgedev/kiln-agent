@@ -1,17 +1,17 @@
 "use client";
 
+import AdminSidebar from "@/components/admin/AdminSidebar";
+import CategoryForm, {
+  CategoryFormData,
+} from "@/components/admin/CategoryForm";
+import CategoryTable from "@/components/admin/CategoryTable";
+import ProductForm, { ProductFormData } from "@/components/admin/ProductForm";
+import ProductTable from "@/components/admin/ProductTable";
 import { useAuth } from "@/context/AuthContext";
 import "@/styles/Admin.css";
 import "@/styles/AdminLayout.css";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import AdminSidebar from "@/components/admin/AdminSidebar";
-import CategoryForm, {
-  CategoryFormData,
-} from "@/components/admin/CategoryForm";
-import ProductForm, { ProductFormData } from "@/components/admin/ProductForm";
-import CategoryTable from "@/components/admin/CategoryTable";
-import ProductTable from "@/components/admin/ProductTable";
 
 interface Category {
   id: number;
@@ -91,9 +91,17 @@ export default function AdminPage() {
         console.log("[Admin] Categories loaded:", data.length);
         setCategories(data);
       } else {
-        const errorData = await response.json().catch(() => ({ error: "Unknown error" }));
-        console.error("[Admin] Failed to load categories:", response.status, errorData);
-        setError(`Failed to load categories: ${errorData.error || response.statusText}`);
+        const errorData = await response
+          .json()
+          .catch(() => ({ error: "Unknown error" }));
+        console.error(
+          "[Admin] Failed to load categories:",
+          response.status,
+          errorData
+        );
+        setError(
+          `Failed to load categories: ${errorData.error || response.statusText}`
+        );
       }
     } catch (err) {
       console.error("[Admin] Error loading categories:", err);
@@ -115,8 +123,14 @@ export default function AdminPage() {
         console.log("[Admin] Products loaded:", data.length);
         setProducts(data);
       } else {
-        const errorData = await response.json().catch(() => ({ error: "Unknown error" }));
-        console.error("[Admin] Failed to load products:", response.status, errorData);
+        const errorData = await response
+          .json()
+          .catch(() => ({ error: "Unknown error" }));
+        console.error(
+          "[Admin] Failed to load products:",
+          response.status,
+          errorData
+        );
       }
     } catch (err) {
       console.error("[Admin] Error loading products:", err);
@@ -253,7 +267,10 @@ export default function AdminPage() {
   if (accessDenied) {
     return (
       <div className="loading-container">
-        <div className="error-message" style={{ maxWidth: "500px", textAlign: "center" }}>
+        <div
+          className="error-message"
+          style={{ maxWidth: "500px", textAlign: "center" }}
+        >
           <h2>Access Denied</h2>
           <p>You do not have permission to access the admin area.</p>
           <p>Only users with admin role can access this page.</p>
