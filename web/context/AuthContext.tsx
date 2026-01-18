@@ -104,6 +104,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const loginWithEmail = async (email: string, password: string) => {
     console.log("[AuthContext] === LOGIN ATTEMPT ===");
+    console.log("[AuthContext] Current location:", window.location.href);
+    console.log("[AuthContext] Request URL:", window.location.origin + "/api/auth/login");
     console.log("[AuthContext] Sending login request to /api/auth/login");
     console.log(
       "[AuthContext] Credentials before login:",
@@ -124,6 +126,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     response.headers.forEach((value, key) => {
       console.log(`  ${key}: ${value}`);
     });
+    
+    // Check for Set-Cookie header specifically
+    const setCookie = response.headers.get("set-cookie");
+    console.log("[AuthContext] Set-Cookie header:", setCookie || "NOT PRESENT");
 
     const data = await response.json();
     console.log("[AuthContext] Login response data:", data);
@@ -134,10 +140,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
 
     console.log("[AuthContext] ✓ LOGIN SUCCESS");
+    
+    // Wait a moment for cookies to be set
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
     console.log(
-      "[AuthContext] Credentials after login:",
+      "[AuthContext] Credentials after login (immediate):",
       document.cookie || "STILL NONE!"
     );
+    
+    // Check again after a delay
+    setTimeout(() => {
+      console.log(
+        "[AuthContext] Credentials after login (delayed 500ms):",
+        document.cookie || "STILL NONE AFTER DELAY!"
+      );
+    }, 500);
+    
     console.log("[AuthContext] Setting user in state:", data.user);
     setUser(data.user);
     console.log("[AuthContext] === LOGIN COMPLETE ===");

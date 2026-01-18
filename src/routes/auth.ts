@@ -106,28 +106,69 @@ router.post("/register", async (req, res) => {
 
 // Login with email/password
 router.post("/login", (req, res, next) => {
+  console.log("[LOGIN] === START LOGIN REQUEST ===");
+  console.log("[LOGIN] Request headers:", {
+    origin: req.headers.origin,
+    referer: req.headers.referer,
+    cookie: req.headers.cookie ? "present" : "NONE",
+    host: req.headers.host,
+  });
+  console.log("[LOGIN] Session ID before auth:", req.sessionID);
+  console.log("[LOGIN] Session before auth:", JSON.stringify(req.session));
+  
   passport.authenticate("local", (err: any, user: any, info: any) => {
     if (err) {
+      console.log("[LOGIN] ✗ Authentication error:", err);
       return res.status(500).json({ error: "Internal server error" });
     }
     if (!user) {
+      console.log("[LOGIN] ✗ No user found:", info?.message);
       return res
         .status(401)
         .json({ error: info?.message || "Invalid credentials" });
     }
+    
+    console.log("[LOGIN] ✓ User authenticated:", user.email);
+    console.log("[LOGIN] Calling req.login...");
+    
     req.login(user, (err) => {
       if (err) {
+        console.log("[LOGIN] ✗ req.login failed:", err);
         return res.status(500).json({ error: "Login failed" });
       }
-      res.json({
-        message: "Login successful",
-        user: {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          picture: user.picture,
-          roles: user.roles?.map((r: any) => r.role?.name) || [],
-        },
+      
+      console.log("[LOGIN] ✓ req.login successful");
+      console.log("[LOGIN] Session ID after login:", req.sessionID);
+      console.log("[LOGIN] Session after login:", JSON.stringify(req.session));
+      console.log("[LOGIN] Session cookie config:", JSON.stringify(req.session.cookie));
+      
+      // Force session save before sending response
+      req.session.save((saveErr) => {
+        if (saveErr) {
+          console.log("[LOGIN] ✗ Session save error:", saveErr);
+          return res.status(500).json({ error: "Session save failed" });
+        }
+        
+        console.log("[LOGIN] ✓ Session saved to store");
+        console.log("[LOGIN] Response headers being set:");
+        console.log("[LOGIN]   Set-Cookie:", res.getHeader("set-cookie") || "NONE YET");
+        
+        const responseData = {
+          message: "Login successful",
+          user: {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            picture: user.picture,
+            roles: user.roles?.map((r: any) => r.role?.name) || [],
+          },
+        };
+        
+        console.log("[LOGIN] Sending response:", responseData);
+        res.json(responseData);
+        
+        console.log("[LOGIN] After res.json - Set-Cookie header:", res.getHeader("set-cookie") || "STILL NONE");
+        console.log("[LOGIN] === END LOGIN REQUEST ===");
       });
     });
   })(req, res, next);
