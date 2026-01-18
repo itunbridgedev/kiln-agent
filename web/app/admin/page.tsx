@@ -81,16 +81,22 @@ export default function AdminPage() {
 
   const fetchCategories = async () => {
     try {
+      console.log("[Admin] Fetching categories...");
       const response = await fetch("/api/admin/categories", {
         credentials: "include",
       });
+      console.log("[Admin] Categories response status:", response.status);
       if (response.ok) {
         const data = await response.json();
+        console.log("[Admin] Categories loaded:", data.length);
         setCategories(data);
       } else {
-        setError("Failed to load categories");
+        const errorData = await response.json().catch(() => ({ error: "Unknown error" }));
+        console.error("[Admin] Failed to load categories:", response.status, errorData);
+        setError(`Failed to load categories: ${errorData.error || response.statusText}`);
       }
     } catch (err) {
+      console.error("[Admin] Error loading categories:", err);
       setError("Error loading categories");
     } finally {
       setLoadingData(false);
@@ -99,15 +105,21 @@ export default function AdminPage() {
 
   const fetchProducts = async () => {
     try {
+      console.log("[Admin] Fetching products...");
       const response = await fetch("/api/admin/products", {
         credentials: "include",
       });
+      console.log("[Admin] Products response status:", response.status);
       if (response.ok) {
         const data = await response.json();
+        console.log("[Admin] Products loaded:", data.length);
         setProducts(data);
+      } else {
+        const errorData = await response.json().catch(() => ({ error: "Unknown error" }));
+        console.error("[Admin] Failed to load products:", response.status, errorData);
       }
     } catch (err) {
-      console.error("Error loading products:", err);
+      console.error("[Admin] Error loading products:", err);
     }
   };
 
