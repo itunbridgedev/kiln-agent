@@ -109,6 +109,18 @@ app.use((req, res, next) => {
 app.use(passport.initialize());
 app.use(passport.session());
 
+// Response header logging middleware
+app.use((req, res, next) => {
+  const originalJson = res.json;
+  res.json = function (data) {
+    console.log(`[Response] ${req.method} ${req.path}`);
+    console.log(`[Response] Set-Cookie header:`, res.getHeader("set-cookie") || "NOT SET");
+    console.log(`[Response] All headers:`, JSON.stringify(res.getHeaders()));
+    return originalJson.call(this, data);
+  };
+  next();
+});
+
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/products", productsRoutes);
