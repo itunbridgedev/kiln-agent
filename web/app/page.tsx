@@ -1,66 +1,85 @@
 "use client";
 
 import { useAuth } from "@/context/AuthContext";
-import "@/styles/Dashboard.css";
+import "@/styles/Home.css";
 import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import Header from "@/components/home/Header";
+import Hero from "@/components/home/Hero";
+import ProductCatalog from "@/components/home/ProductCatalog";
+import Footer from "@/components/home/Footer";
 
-export default function DashboardPage() {
+interface Product {
+  id: number;
+  name: string;
+  description: string | null;
+  price: string;
+  imageUrl: string | null;
+  category: {
+    id: number;
+    name: string;
+  };
+}
+
+interface Category {
+  id: number;
+  name: string;
+  description: string | null;
+  products: Product[];
+}
+
+export default function HomePage() {
   const { user, logout, loading } = useAuth();
   const router = useRouter();
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(true);
 
-  if (loading) {
-    return (
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          height: "100vh",
-        }}
-      >
-        <p>Loading...</p>
-      </div>
-    );
-  }
+  useEffect(() => {
+    fetchProducts();
+  }, []);
 
-  if (!user) {
-    router.push("/login");
-    return null;
-  }
+  const fetchProducts = async () => {
+    try {
+      const response = await fetch("/api/products/categories");
+      if (response.ok) {
+        const data = await response.json();
+        setCategories(data);
+      }
+    } catch (error) {
+      console.error("Error fetching products:", error);
+    } finally {
+      setLoadingProducts(false);
+    }
+  };
 
   const handleLogout = async () => {
     await logout();
     router.push("/login");
   };
 
+  if (loading) {
+    return (
+      <div className="loading-container">
+        <p>Loading...</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="dashboard-container">
-      <header className="dashboard-header">
-        <h1>Kiln Agent Dashboard</h1>
-        <div className="user-info">
-          {user.picture && (
-            <img src={user.picture} alt={user.name} className="user-avatar" />
-          )}
-          <div className="user-details">
-            <p className="user-name">{user.name}</p>
-            <p className="user-email">{user.email}</p>
-          </div>
-          <button onClick={handleLogout} className="logout-btn">
-            Logout
-          </button>
-        </div>
-      </header>
-      <main className="dashboard-content">
-        <div className="welcome-card">
-          <h2>Welcome back, {user.name.split(" ")[0]}!</h2>
-          <p>You're successfully authenticated with Next.js!</p>
-          {user.roles.length > 0 && (
-            <div className="roles">
-              <strong>Roles:</strong> {user.roles.join(", ")}
-            </div>
-          )}
-        </div>
+    <div className="home-container">
+      <Header
+        user={user}
+        onLogout={handleLogout}
+        onNavigateAdmin={() => router.push("/admin")}
+        onNavigateLogin={() => router.push("/login")}
+      />
+
+      <main className="home-main">
+        <Hero />
+        <ProductCatalog categories={categories} loading={loadingProducts} />
       </main>
+
+      <Footer />
     </div>
   );
 }
