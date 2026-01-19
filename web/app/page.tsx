@@ -4,8 +4,10 @@ import Footer from "@/components/home/Footer";
 import Header from "@/components/home/Header";
 import Hero from "@/components/home/Hero";
 import ProductCatalog from "@/components/home/ProductCatalog";
+import MarketingPage from "@/components/marketing/MarketingPage";
 import { useAuth } from "@/context/AuthContext";
 import "@/styles/Home.css";
+import "@/styles/Marketing.css";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -33,6 +35,7 @@ export default function HomePage() {
   const router = useRouter();
   const [categories, setCategories] = useState<Category[]>([]);
   const [studioName, setStudioName] = useState<string>("");
+  const [isRootDomain, setIsRootDomain] = useState<boolean>(false);
   const [loadingProducts, setLoadingProducts] = useState(true);
 
   useEffect(() => {
@@ -46,6 +49,7 @@ export default function HomePage() {
       if (response.ok) {
         const data = await response.json();
         setStudioName(data.name);
+        setIsRootDomain(data.isRootDomain || false);
       }
     } catch (error) {
       console.error("Error fetching studio info:", error);
@@ -77,6 +81,11 @@ export default function HomePage() {
         <p>Loading...</p>
       </div>
     );
+  }
+
+  // Show marketing page for root domain
+  if (isRootDomain) {
+    return <MarketingPage />;
   }
 
   return (

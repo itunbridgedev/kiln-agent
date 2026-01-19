@@ -11,19 +11,31 @@ export async function tenantMiddleware(
     // Extract subdomain from hostname
     const hostname = req.hostname;
     let subdomain = "demo"; // Default for development
+    let isRootDomain = false;
 
     // In production, extract subdomain
     if (process.env.NODE_ENV === "production") {
       const parts = hostname.split(".");
-      if (parts.length >= 3) {
+      if (parts.length === 2 && parts[1] === "com") {
+        // Root domain (kilnagent.com) - no subdomain
+        isRootDomain = true;
+      } else if (parts.length >= 3) {
         subdomain = parts[0]; // e.g., "pottery-place" from "pottery-place.kilnagent.com"
       }
     } else {
       // In development, check for X-Studio-Subdomain header (for testing)
       const headerSubdomain = req.headers["x-studio-subdomain"] as string;
-      if (headerSubdomain) {
+      if (headerSubdomain === "root" || headerSubdomain === "") {
+        isRootDomain = true;
+      } else if (headerSubdomain) {
         subdomain = headerSubdomain;
       }
+    }
+
+    // If root domain, skip tenant resolution (for marketing page)
+    if (isRootDomain) {
+      (req as any).isRootDomain = true;
+      return next();
     }
 
     // Look up studio by subdomain

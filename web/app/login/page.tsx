@@ -13,6 +13,7 @@ export default function LoginPage() {
   const router = useRouter();
   const [isRegistering, setIsRegistering] = useState(false);
   const [studioName, setStudioName] = useState<string>("");
+  const [isRootDomain, setIsRootDomain] = useState<boolean>(false);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -35,6 +36,15 @@ export default function LoginPage() {
       if (response.ok) {
         const data = await response.json();
         setStudioName(data.name);
+        setIsRootDomain(data.isRootDomain || false);
+        
+        // Redirect to demo if on root domain
+        if (data.isRootDomain) {
+          window.location.href =
+            process.env.NODE_ENV === "production"
+              ? "https://demo.kilnagent.com/login"
+              : "http://localhost:3000/login";
+        }
       }
     } catch (error) {
       console.error("Error fetching studio info:", error);
