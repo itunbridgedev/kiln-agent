@@ -1,12 +1,11 @@
-import { PrismaClient } from "@prisma/client";
 import signature from "cookie-signature";
 import { Router } from "express";
 import passport from "../config/passport";
 import { isAuthenticated } from "../middleware/auth";
+import prisma from "../prisma";
 import { hashPassword, validateEmail, validatePassword } from "../utils/auth";
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // ========== Email/Password Authentication ==========
 
@@ -45,7 +44,7 @@ router.post("/register", async (req, res) => {
     }
 
     // Check if user already exists
-    const existingUser = await prisma.customer.findUnique({
+    const existingUser = await prisma.customer.findFirst({
       where: { email },
     });
 
@@ -67,7 +66,7 @@ router.post("/register", async (req, res) => {
         phone: phone || null,
         agreedToTerms: agreedToTermsBool,
         agreedToSms: agreedToSmsBool,
-      },
+      } as any,
       include: {
         roles: {
           include: {
@@ -92,7 +91,7 @@ router.post("/register", async (req, res) => {
           name: user.name,
           email: user.email,
           picture: user.picture,
-          roles: user.roles?.map((r: any) => r.role?.name) || [],
+          roles: [],
         },
       });
     });

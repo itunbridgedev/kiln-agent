@@ -17,13 +17,24 @@
   width: 100%;
 }
 
+.login-branding {
+  margin-bottom: 1rem;
+}
+
 .login-card h1 {
   color: #333;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.25rem;
   font-size: 1.875rem;
 }
 
-.login-card p {
+.login-subtitle {
+  color: #999;
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 300;
+}
+
+.login-description {
   color: #666;
   margin-bottom: 2rem;
   font-size: 0.95rem;

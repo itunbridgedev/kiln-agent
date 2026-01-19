@@ -1,11 +1,9 @@
-import { PrismaClient } from "@prisma/client";
 import passport from "passport";
 import { Strategy as AppleStrategy } from "passport-apple";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { Strategy as LocalStrategy } from "passport-local";
+import prisma from "../prisma";
 import { comparePassword } from "../utils/auth";
-
-const prisma = new PrismaClient();
 
 // ========== Local Strategy (Email/Password) ==========
 passport.use(
@@ -16,7 +14,7 @@ passport.use(
     },
     async (email, password, done) => {
       try {
-        const customer = await prisma.customer.findUnique({
+        const customer = await prisma.customer.findFirst({
           where: { email },
           include: { roles: { include: { role: true } } },
         });
@@ -72,7 +70,7 @@ passport.use(
         }
 
         // Find or create customer
-        let customer = await prisma.customer.findUnique({
+        let customer = await prisma.customer.findFirst({
           where: { email },
           include: { accounts: true },
         });
@@ -98,7 +96,7 @@ passport.use(
                   idToken: null,
                 },
               },
-            },
+            } as any,
             include: { accounts: true },
           });
         } else {
@@ -246,7 +244,7 @@ if (process.env.APPLE_CLIENT_ID && process.env.APPLE_TEAM_ID) {
           }
 
           // Find or create customer
-          let customer = await prisma.customer.findUnique({
+          let customer = await prisma.customer.findFirst({
             where: { email },
             include: { accounts: true },
           });
@@ -270,7 +268,7 @@ if (process.env.APPLE_CLIENT_ID && process.env.APPLE_TEAM_ID) {
                     idToken,
                   },
                 },
-              },
+              } as any,
               include: { accounts: true },
             });
           } else {

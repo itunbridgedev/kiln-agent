@@ -7,10 +7,26 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Studio {
+  id          Int       @id @default(autoincrement())
+  name        String
+  subdomain   String    @unique
+  domain      String?   // Optional custom domain
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  customers   Customer[]
+  categories  ProductCategory[]
+  products    Product[]
+}
+
 model Customer {
   id            Int              @id @default(autoincrement())
+  studioId      Int
+  studio        Studio           @relation(fields: [studioId], references: [id], onDelete: Cascade)
   name          String
-  email         String           @unique
+  email         String
   phone         String?
   picture       String?
   passwordHash  String?          // For email/password auth
@@ -21,6 +37,9 @@ model Customer {
   roles         CustomerRole[]
   accounts      Account[]
   sessions      Session[]
+  
+  @@unique([studioId, email])
+  @@index([studioId])
 }
 
 model Role {
@@ -69,17 +88,26 @@ model Session {
 
 model ProductCategory {
   id          Int       @id @default(autoincrement())
-  name        String    @unique
+  studioId    Int
+  studio      Studio    @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  name        String
   description String?
   displayOrder Int      @default(0)
   isActive    Boolean   @default(true)
+  isSystemCategory Boolean @default(false)  // System categories can't be deleted
+  featureModule String?  // e.g., "class-management", "firing-workflow"
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   products    Product[]
+  
+  @@unique([studioId, name])
+  @@index([studioId])
 }
 
 model Product {
   id          Int             @id @default(autoincrement())
+  studioId    Int
+  studio      Studio          @relation(fields: [studioId], references: [id], onDelete: Cascade)
   name        String
   description String?
   price       Decimal         @db.Decimal(10, 2)
@@ -91,5 +119,6 @@ model Product {
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 
+  @@index([studioId])
   @@index([categoryId])
 }

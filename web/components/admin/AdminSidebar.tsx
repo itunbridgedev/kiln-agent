@@ -3,6 +3,7 @@ import { useState } from "react";
 interface AdminSidebarProps {
   activeTab: "categories" | "products";
   productCatalogExpanded: boolean;
+  studioName?: string;
   user: {
     id: number;
     name: string;
@@ -18,6 +19,7 @@ interface AdminSidebarProps {
 export default function AdminSidebar({
   activeTab,
   productCatalogExpanded,
+  studioName,
   user,
   onTabChange,
   onToggleExpanded,
@@ -29,7 +31,8 @@ export default function AdminSidebar({
   return (
     <aside className="admin-sidebar">
       <div className="admin-sidebar-header">
-        <h2>Admin Panel</h2>
+        <h2>{studioName || "Studio Name"}</h2>
+        <p className="sidebar-subtitle">Admin Panel</p>
       </div>
 
       {/* User Profile Section */}

@@ -12,6 +12,8 @@ export default function LoginPage() {
   const { login, loginWithApple, loginWithEmail, register } = useAuth();
   const router = useRouter();
   const [isRegistering, setIsRegistering] = useState(false);
+  const [studioName, setStudioName] = useState<string>("");
+  const [isRootDomain, setIsRootDomain] = useState<boolean>(false);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -23,6 +25,31 @@ export default function LoginPage() {
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  React.useEffect(() => {
+    fetchStudioInfo();
+  }, []);
+
+  const fetchStudioInfo = async () => {
+    try {
+      const response = await fetch("/api/studio");
+      if (response.ok) {
+        const data = await response.json();
+        setStudioName(data.name);
+        setIsRootDomain(data.isRootDomain || false);
+        
+        // Redirect to demo if on root domain
+        if (data.isRootDomain) {
+          window.location.href =
+            process.env.NODE_ENV === "production"
+              ? "https://demo.kilnagent.com/login"
+              : "http://localhost:3000/login";
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching studio info:", error);
+    }
+  };
 
   const clearSession = async () => {
     try {
@@ -95,8 +122,11 @@ export default function LoginPage() {
   return (
     <div className="login-container">
       <div className="login-card">
-        <h1>Kiln Agent</h1>
-        <p>
+        <div className="login-branding">
+          <h1>{studioName || "Kiln Agent"}</h1>
+          <p className="login-subtitle">powered by Kiln Agent</p>
+        </div>
+        <p className="login-description">
           {isRegistering
             ? "Create your account"
             : "Sign in to manage your kiln"}

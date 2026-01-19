@@ -6,6 +6,7 @@ import express from "express";
 import session from "express-session";
 import { Pool } from "pg";
 import passport from "./config/passport";
+import { tenantMiddleware } from "./middleware/tenantMiddleware";
 import adminRoutes from "./routes/admin";
 import authRoutes from "./routes/auth";
 import productsRoutes from "./routes/products";
@@ -136,10 +137,14 @@ app.use((req, res, next) => {
 app.use(passport.initialize());
 app.use(passport.session());
 
+// Multi-tenancy middleware - identifies studio from subdomain
+app.use(tenantMiddleware);
+
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/products", productsRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/studio", require("./routes/studio").default);
 
 // Example route
 app.get("/api/hello", (req, res) => {
