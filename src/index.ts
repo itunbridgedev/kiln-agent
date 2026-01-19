@@ -144,6 +144,7 @@ app.use(tenantMiddleware);
 app.use("/api/auth", authRoutes);
 app.use("/api/products", productsRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/studio", require("./routes/studio").default);
 
 // Example route
 app.get("/api/hello", (req, res) => {

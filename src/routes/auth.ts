@@ -1,4 +1,3 @@
-import { PrismaClient } from "@prisma/client";
 import signature from "cookie-signature";
 import { Router } from "express";
 import passport from "../config/passport";

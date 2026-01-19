@@ -1,6 +1,6 @@
-import { Request, Response, NextFunction } from "express";
+import { NextFunction, Request, Response } from "express";
 import prisma from "../prisma";
-import { setStudioContext, clearStudioContext } from "./tenant";
+import { clearStudioContext, setStudioContext } from "./tenant";
 
 export async function tenantMiddleware(
   req: Request,
@@ -41,7 +41,7 @@ export async function tenantMiddleware(
 
     // Set studio context for this request
     setStudioContext(studio.id);
-    
+
     // Store studio info in request for easy access
     (req as any).studio = studio;
 

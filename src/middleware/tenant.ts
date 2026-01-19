@@ -1,5 +1,3 @@
-import { PrismaClient } from "@prisma/client";
-
 let studioContext: number | null = null;
 
 export function setStudioContext(studioId: number | null) {

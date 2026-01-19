@@ -32,11 +32,25 @@ export default function HomePage() {
   const { user, logout, loading } = useAuth();
   const router = useRouter();
   const [categories, setCategories] = useState<Category[]>([]);
+  const [studioName, setStudioName] = useState<string>("");
   const [loadingProducts, setLoadingProducts] = useState(true);
 
   useEffect(() => {
+    fetchStudioInfo();
     fetchProducts();
   }, []);
+
+  const fetchStudioInfo = async () => {
+    try {
+      const response = await fetch("/api/studio");
+      if (response.ok) {
+        const data = await response.json();
+        setStudioName(data.name);
+      }
+    } catch (error) {
+      console.error("Error fetching studio info:", error);
+    }
+  };
 
   const fetchProducts = async () => {
     try {
@@ -69,6 +83,7 @@ export default function HomePage() {
     <div className="home-container">
       <Header
         user={user}
+        studioName={studioName}
         onLogout={handleLogout}
         onNavigateAdmin={() => router.push("/admin")}
         onNavigateLogin={() => router.push("/login")}

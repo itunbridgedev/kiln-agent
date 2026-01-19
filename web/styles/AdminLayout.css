@@ -26,6 +26,13 @@
   color: #333;
 }
 
+.sidebar-subtitle {
+  margin: 4px 0 0 0;
+  font-size: 12px;
+  color: #666;
+  font-weight: 400;
+}
+
 /* User Profile Section */
 .admin-user-profile {
   padding: 0 20px 20px;

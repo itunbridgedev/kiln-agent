@@ -27,9 +27,16 @@
   align-items: center;
 }
 
-.home-header h1 {
+.header-branding h1 {
   margin: 0;
   font-size: 1.75rem;
+}
+
+.header-subtitle {
+  margin: 0.25rem 0 0 0;
+  font-size: 0.75rem;
+  opacity: 0.8;
+  font-weight: 300;
 }
 
 .header-nav {

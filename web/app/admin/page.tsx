@@ -1,17 +1,17 @@
 "use client";
 
-import AdminSidebar from "@/components/admin/AdminSidebar";
-import CategoryForm, {
-  CategoryFormData,
-} from "@/components/admin/CategoryForm";
-import CategoryTable from "@/components/admin/CategoryTable";
-import ProductForm, { ProductFormData } from "@/components/admin/ProductForm";
-import ProductTable from "@/components/admin/ProductTable";
 import { useAuth } from "@/context/AuthContext";
 import "@/styles/Admin.css";
 import "@/styles/AdminLayout.css";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import AdminSidebar from "@/components/admin/AdminSidebar";
+import CategoryForm, {
+  CategoryFormData,
+} from "@/components/admin/CategoryForm";
+import ProductForm, { ProductFormData } from "@/components/admin/ProductForm";
+import CategoryTable from "@/components/admin/CategoryTable";
+import ProductTable from "@/components/admin/ProductTable";
 
 interface Category {
   id: number;
@@ -40,17 +40,17 @@ interface Product {
 }
 
 export default function AdminPage() {
-  const { user, loading, logout } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"categories" | "products">(
     "categories"
   );
   const [productCatalogExpanded, setProductCatalogExpanded] = useState(true);
+  const [studioName, setStudioName] = useState<string>("");
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [error, setError] = useState("");
-  const [accessDenied, setAccessDenied] = useState(false);
 
   // Category form state
   const [showCategoryForm, setShowCategoryForm] = useState(false);
@@ -63,48 +63,43 @@ export default function AdminPage() {
   useEffect(() => {
     if (!loading && !user) {
       router.push("/login");
-      return;
-    }
-
-    // Check if user has admin role
-    if (!loading && user && !user.roles?.includes("admin")) {
-      setAccessDenied(true);
     }
   }, [user, loading, router]);
 
   useEffect(() => {
-    if (user && user.roles?.includes("admin")) {
+    if (user) {
+      fetchStudioInfo();
       fetchCategories();
       fetchProducts();
     }
   }, [user]);
 
+  const fetchStudioInfo = async () => {
+    try {
+      const response = await fetch("/api/studio", {
+        credentials: "include",
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setStudioName(data.name);
+      }
+    } catch (error) {
+      console.error("Error fetching studio info:", error);
+    }
+  };
+
   const fetchCategories = async () => {
     try {
-      console.log("[Admin] Fetching categories...");
       const response = await fetch("/api/admin/categories", {
         credentials: "include",
       });
-      console.log("[Admin] Categories response status:", response.status);
       if (response.ok) {
         const data = await response.json();
-        console.log("[Admin] Categories loaded:", data.length);
         setCategories(data);
       } else {
-        const errorData = await response
-          .json()
-          .catch(() => ({ error: "Unknown error" }));
-        console.error(
-          "[Admin] Failed to load categories:",
-          response.status,
-          errorData
-        );
-        setError(
-          `Failed to load categories: ${errorData.error || response.statusText}`
-        );
+        setError("Failed to load categories");
       }
     } catch (err) {
-      console.error("[Admin] Error loading categories:", err);
       setError("Error loading categories");
     } finally {
       setLoadingData(false);
@@ -113,27 +108,15 @@ export default function AdminPage() {
 
   const fetchProducts = async () => {
     try {
-      console.log("[Admin] Fetching products...");
       const response = await fetch("/api/admin/products", {
         credentials: "include",
       });
-      console.log("[Admin] Products response status:", response.status);
       if (response.ok) {
         const data = await response.json();
-        console.log("[Admin] Products loaded:", data.length);
         setProducts(data);
-      } else {
-        const errorData = await response
-          .json()
-          .catch(() => ({ error: "Unknown error" }));
-        console.error(
-          "[Admin] Failed to load products:",
-          response.status,
-          errorData
-        );
       }
     } catch (err) {
-      console.error("[Admin] Error loading products:", err);
+      console.error("Error loading products:", err);
     }
   };
 
@@ -251,37 +234,10 @@ export default function AdminPage() {
     setShowProductForm(true);
   };
 
-  const handleLogout = async () => {
-    await logout();
-    router.push("/login");
-  };
-
   if (loading || !user) {
     return (
       <div className="loading-container">
         <p>Loading...</p>
-      </div>
-    );
-  }
-
-  if (accessDenied) {
-    return (
-      <div className="loading-container">
-        <div
-          className="error-message"
-          style={{ maxWidth: "500px", textAlign: "center" }}
-        >
-          <h2>Access Denied</h2>
-          <p>You do not have permission to access the admin area.</p>
-          <p>Only users with admin role can access this page.</p>
-          <button
-            onClick={() => router.push("/")}
-            className="nav-btn"
-            style={{ marginTop: "20px" }}
-          >
-            Go to Home
-          </button>
-        </div>
       </div>
     );
   }
@@ -292,7 +248,8 @@ export default function AdminPage() {
       <AdminSidebar
         activeTab={activeTab}
         productCatalogExpanded={productCatalogExpanded}
-        user={user}
+        studioName={studioName}
+        user={user!}
         onTabChange={(tab) => {
           setActiveTab(tab);
           setProductCatalogExpanded(true);
@@ -301,7 +258,13 @@ export default function AdminPage() {
           setProductCatalogExpanded(!productCatalogExpanded)
         }
         onBackHome={() => router.push("/")}
-        onLogout={handleLogout}
+        onLogout={async () => {
+          await fetch("/api/auth/logout", {
+            method: "POST",
+            credentials: "include",
+          });
+          router.push("/login");
+        }}
       />
 
       {/* Main Content */}
@@ -311,6 +274,13 @@ export default function AdminPage() {
             {activeTab === "categories" ? "Product Categories" : "Products"}
           </h1>
           <p>Manage your product catalog</p>
+          <button
+            onClick={() => router.push("/")}
+            className="nav-btn"
+            style={{ marginTop: "10px" }}
+          >
+            Back to Home
+          </button>
         </div>
 
         {error && <div className="error-message">{error}</div>}

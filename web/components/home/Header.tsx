@@ -7,6 +7,7 @@ interface User {
 
 interface HeaderProps {
   user: User | null;
+  studioName?: string;
   onLogout: () => void;
   onNavigateAdmin: () => void;
   onNavigateLogin: () => void;
@@ -14,6 +15,7 @@ interface HeaderProps {
 
 export default function Header({
   user,
+  studioName,
   onLogout,
   onNavigateAdmin,
   onNavigateLogin,
@@ -23,7 +25,10 @@ export default function Header({
   return (
     <header className="home-header">
       <div className="header-content">
-        <h1>Kiln Agent</h1>
+        <div className="header-branding">
+          <h1>{studioName || "Kiln Agent"}</h1>
+          <p className="header-subtitle">powered by Kiln Agent</p>
+        </div>
         <nav className="header-nav">
           {user ? (
             <>

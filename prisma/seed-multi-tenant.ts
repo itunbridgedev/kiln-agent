@@ -101,10 +101,7 @@ async function main() {
       agreedToTerms: true,
       agreedToSms: false,
       roles: {
-        create: [
-          { roleId: adminRole.id },
-          { roleId: userRole.id },
-        ],
+        create: [{ roleId: adminRole.id }, { roleId: userRole.id }],
       },
     },
   });

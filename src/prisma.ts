@@ -2,7 +2,13 @@ import { PrismaClient } from "@prisma/client";
 import { getStudioContext } from "./middleware/tenant";
 
 // Models that don't have studioId (non-tenant models)
-const nonTenantModels = ["studio", "role", "customerRole", "account", "session"];
+const nonTenantModels = [
+  "studio",
+  "role",
+  "customerRole",
+  "account",
+  "session",
+];
 
 // Create base Prisma client
 const basePrisma = new PrismaClient({
