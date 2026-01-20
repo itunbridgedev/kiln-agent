@@ -47,7 +47,7 @@ export default function HomePage() {
     try {
       const response = await fetch("/api/studio", {
         headers: {
-          'X-Original-Host': window.location.hostname,
+          "X-Original-Host": window.location.hostname,
         },
       });
       if (response.ok) {

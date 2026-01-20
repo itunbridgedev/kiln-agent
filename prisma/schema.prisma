@@ -96,12 +96,16 @@ model ProductCategory {
   isActive    Boolean   @default(true)
   isSystemCategory Boolean @default(false)  // System categories can't be deleted
   featureModule String?  // e.g., "class-management", "firing-workflow"
+  parentCategoryId Int?  // For subcategories
+  parentCategory ProductCategory? @relation("CategoryHierarchy", fields: [parentCategoryId], references: [id], onDelete: Cascade)
+  subcategories ProductCategory[] @relation("CategoryHierarchy")
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   products    Product[]
   
   @@unique([studioId, name])
   @@index([studioId])
+  @@index([parentCategoryId])
 }
 
 model Product {
