@@ -4,6 +4,8 @@ interface Category {
   description: string | null;
   displayOrder: number;
   isActive: boolean;
+  isSystemCategory: boolean;
+  featureModule: string | null;
   _count?: {
     products: number;
   };
@@ -45,7 +47,22 @@ export default function CategoryTable({
       <tbody>
         {categories.map((category) => (
           <tr key={category.id}>
-            <td>{category.name}</td>
+            <td>
+              {category.name}
+              {category.isSystemCategory && (
+                <span
+                  className="status-badge"
+                  style={{
+                    marginLeft: "8px",
+                    backgroundColor: "#6366f1",
+                    color: "white",
+                  }}
+                  title={category.featureModule ? `Feature: ${category.featureModule}` : "System category"}
+                >
+                  System
+                </span>
+              )}
+            </td>
             <td>{category.description || "-"}</td>
             <td>{category._count?.products || 0}</td>
             <td>{category.displayOrder}</td>
@@ -57,15 +74,23 @@ export default function CategoryTable({
               </span>
             </td>
             <td className="actions">
-              <button onClick={() => onEdit(category)} className="edit-btn">
-                Edit
-              </button>
-              <button
-                onClick={() => onDelete(category.id)}
-                className="delete-btn"
-              >
-                Delete
-              </button>
+              {category.isSystemCategory ? (
+                <span style={{ color: "#999", fontSize: "0.9em" }}>
+                  Protected
+                </span>
+              ) : (
+                <>
+                  <button onClick={() => onEdit(category)} className="edit-btn">
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => onDelete(category.id)}
+                    className="delete-btn"
+                  >
+                    Delete
+                  </button>
+                </>
+              )}
             </td>
           </tr>
         ))}

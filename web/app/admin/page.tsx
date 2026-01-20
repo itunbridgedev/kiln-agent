@@ -19,6 +19,8 @@ interface Category {
   description: string | null;
   displayOrder: number;
   isActive: boolean;
+  isSystemCategory: boolean;
+  featureModule: string | null;
   _count?: {
     products: number;
   };

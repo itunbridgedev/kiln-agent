@@ -6,6 +6,8 @@ interface Category {
   description: string | null;
   displayOrder: number;
   isActive: boolean;
+  isSystemCategory: boolean;
+  featureModule: string | null;
 }
 
 interface CategoryFormProps {
@@ -41,6 +43,19 @@ export default function CategoryForm({
   return (
     <form onSubmit={handleSubmit} className="admin-form">
       <h3>{editingCategory ? "Edit Category" : "New Category"}</h3>
+      {editingCategory?.isSystemCategory && (
+        <div style={{ 
+          padding: "12px", 
+          backgroundColor: "#eff6ff", 
+          border: "1px solid #3b82f6",
+          borderRadius: "4px",
+          marginBottom: "16px",
+          fontSize: "0.9em",
+          color: "#1e40af"
+        }}>
+          ⓘ This is a system category. The name cannot be changed.
+        </div>
+      )}
 
       <div className="form-group">
         <label>Name *</label>
@@ -48,6 +63,7 @@ export default function CategoryForm({
           type="text"
           value={formData.name}
           onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+          disabled={editingCategory?.isSystemCategory}
           required
         />
       </div>

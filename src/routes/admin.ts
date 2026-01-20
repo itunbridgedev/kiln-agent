@@ -95,6 +95,22 @@ router.put("/categories/:id", async (req: Request, res: Response) => {
     const id = parseInt(req.params.id);
     const { name, description, displayOrder, isActive } = req.body;
 
+    // Check if this is a system category
+    const existingCategory = await prisma.productCategory.findUnique({
+      where: { id },
+    });
+
+    if (!existingCategory) {
+      return res.status(404).json({ error: "Category not found" });
+    }
+
+    // Prevent editing core fields of system categories
+    if (existingCategory.isSystemCategory && name !== existingCategory.name) {
+      return res.status(403).json({
+        error: "Cannot rename system categories. System category names are protected.",
+      });
+    }
+
     const category = await prisma.productCategory.update({
       where: { id },
       data: {
@@ -135,6 +151,13 @@ router.delete("/categories/:id", async (req: Request, res: Response) => {
 
     if (!category) {
       return res.status(404).json({ error: "Category not found" });
+    }
+
+    // Prevent deletion of system categories
+    if (category.isSystemCategory) {
+      return res.status(403).json({
+        error: "Cannot delete system categories. System categories are protected.",
+      });
     }
 
     if (category._count.products > 0) {
