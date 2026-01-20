@@ -45,7 +45,11 @@ export default function HomePage() {
 
   const fetchStudioInfo = async () => {
     try {
-      const response = await fetch("/api/studio");
+      const response = await fetch("/api/studio", {
+        headers: {
+          'X-Original-Host': window.location.hostname,
+        },
+      });
       if (response.ok) {
         const data = await response.json();
         setStudioName(data.name);

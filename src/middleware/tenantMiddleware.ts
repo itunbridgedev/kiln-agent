@@ -9,7 +9,9 @@ export async function tenantMiddleware(
 ) {
   try {
     // Extract subdomain from hostname
-    const hostname = req.hostname;
+    // Check for X-Original-Host header from frontend proxy first
+    const originalHost = req.headers["x-original-host"] as string;
+    const hostname = originalHost || req.hostname;
     let subdomain = "demo"; // Default for development
     let isRootDomain = false;
 
@@ -17,12 +19,17 @@ export async function tenantMiddleware(
     if (process.env.NODE_ENV === "production") {
       const parts = hostname.split(".");
       if (parts.length === 2 && parts[1] === "com") {
-        // Root domain (kilnagent.com) - no subdomain
+        // Root domain (kilnagent.com or www.kilnagent.com) - no subdomain
         isRootDomain = true;
       } else if (parts.length >= 3) {
         const firstPart = parts[0];
-        // Treat "api" subdomain as default/demo for backend API access
-        subdomain = firstPart === "api" ? "demo" : firstPart;
+        // Check if it's www (treat as root domain)
+        if (firstPart === "www") {
+          isRootDomain = true;
+        } else {
+          // Treat "api" subdomain as default/demo for backend API access
+          subdomain = firstPart === "api" ? "demo" : firstPart;
+        }
       }
     } else {
       // In development, check for X-Studio-Subdomain header (for testing)
