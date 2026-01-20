@@ -37,7 +37,7 @@ export default function LoginPage() {
         const data = await response.json();
         setStudioName(data.name);
         setIsRootDomain(data.isRootDomain || false);
-        
+
         // Redirect to demo if on root domain
         if (data.isRootDomain) {
           window.location.href =

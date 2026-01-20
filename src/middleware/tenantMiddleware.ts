@@ -20,7 +20,9 @@ export async function tenantMiddleware(
         // Root domain (kilnagent.com) - no subdomain
         isRootDomain = true;
       } else if (parts.length >= 3) {
-        subdomain = parts[0]; // e.g., "pottery-place" from "pottery-place.kilnagent.com"
+        const firstPart = parts[0];
+        // Treat "api" subdomain as default/demo for backend API access
+        subdomain = firstPart === "api" ? "demo" : firstPart;
       }
     } else {
       // In development, check for X-Studio-Subdomain header (for testing)
