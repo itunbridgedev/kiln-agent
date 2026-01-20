@@ -21,6 +21,7 @@ interface Category {
   isActive: boolean;
   isSystemCategory: boolean;
   featureModule: string | null;
+  parentCategoryId: number | null;
   _count?: {
     products: number;
   };
@@ -302,6 +303,7 @@ export default function AdminPage() {
             {showCategoryForm && (
               <CategoryForm
                 editingCategory={editingCategory}
+                categories={categories}
                 onSubmit={handleCategorySubmit}
                 onCancel={resetCategoryForm}
               />

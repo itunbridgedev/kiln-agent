@@ -6,6 +6,7 @@ interface Category {
   isActive: boolean;
   isSystemCategory: boolean;
   featureModule: string | null;
+  parentCategoryId: number | null;
   _count?: {
     products: number;
   };
@@ -57,7 +58,11 @@ export default function CategoryTable({
                     backgroundColor: "#6366f1",
                     color: "white",
                   }}
-                  title={category.featureModule ? `Feature: ${category.featureModule}` : "System category"}
+                  title={
+                    category.featureModule
+                      ? `Feature: ${category.featureModule}`
+                      : "System category"
+                  }
                 >
                   System
                 </span>

@@ -6,7 +6,7 @@ export function middleware(request: NextRequest) {
   if (request.nextUrl.pathname.startsWith("/api/")) {
     const requestHeaders = new Headers(request.headers);
     requestHeaders.set("X-Original-Host", request.headers.get("host") || "");
-    
+
     return NextResponse.rewrite(request.nextUrl, {
       request: {
         headers: requestHeaders,
