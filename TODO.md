@@ -94,12 +94,12 @@
 - [x] Teaching role definitions (custom roles with any name - more flexible than predefined)
 - [x] Staff member management with role assignments
 - [x] Link classes to teaching roles (not specific teachers)
-- [ ] Staff profile pages with qualifications and assigned roles
-  - [ ] Create staff profile page component
-  - [ ] Display user's teaching roles and qualifications
-  - [ ] Show classes assigned to each staff member
-  - [ ] Add certification dates and notes display
-  - [ ] Link from staff table to individual profiles
+- [x] Staff profile pages with qualifications and assigned roles
+  - [x] Create staff profile page component
+  - [x] Display user's teaching roles and qualifications
+  - [x] Show classes assigned to each staff member
+  - [x] Add certification dates and notes display
+  - [x] Link from staff table to individual profiles
 
 ### Schema Design
 
