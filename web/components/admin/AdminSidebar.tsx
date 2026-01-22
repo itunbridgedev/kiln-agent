@@ -2,7 +2,6 @@ import { useState } from "react";
 
 interface AdminSidebarProps {
   activeTab: "categories" | "classes" | "teaching-roles" | "users";
-  productCatalogExpanded: boolean;
   classesExpanded: boolean;
   studioName?: string;
   user: {
@@ -14,7 +13,6 @@ interface AdminSidebarProps {
   onTabChange: (
     tab: "categories" | "classes" | "teaching-roles" | "users"
   ) => void;
-  onToggleExpanded: () => void;
   onToggleClassesExpanded: () => void;
   onBackHome: () => void;
   onLogout: () => void;
@@ -22,12 +20,10 @@ interface AdminSidebarProps {
 
 export default function AdminSidebar({
   activeTab,
-  productCatalogExpanded,
   classesExpanded,
   studioName,
   user,
   onTabChange,
-  onToggleExpanded,
   onToggleClassesExpanded,
   onBackHome,
   onLogout,
@@ -89,36 +85,6 @@ export default function AdminSidebar({
         <ul className="space-y-2">
           <li>
             <button
-              className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${productCatalogExpanded ? "bg-white/20" : "hover:bg-white/10"}`}
-              onClick={onToggleExpanded}
-            >
-              <span className="text-xl">📦</span>
-              <span className="flex-1 text-left font-medium">
-                Product Catalog
-              </span>
-              <span
-                className={`transition-transform text-sm ${productCatalogExpanded ? "rotate-90" : ""}`}
-              >
-                ▶
-              </span>
-            </button>
-
-            <ul
-              className={`mt-1 ml-4 space-y-1 overflow-hidden transition-all ${productCatalogExpanded ? "max-h-40" : "max-h-0"}`}
-            >
-              <li>
-                <button
-                  className={`w-full text-left px-4 py-2 rounded-md text-sm transition-colors ${activeTab === "categories" ? "bg-white/30 font-semibold" : "hover:bg-white/10"}`}
-                  onClick={() => onTabChange("categories")}
-                >
-                  Categories
-                </button>
-              </li>
-            </ul>
-          </li>
-
-          <li>
-            <button
               className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${classesExpanded ? "bg-white/20" : "hover:bg-white/10"}`}
               onClick={onToggleClassesExpanded}
             >
@@ -132,8 +98,16 @@ export default function AdminSidebar({
             </button>
 
             <ul
-              className={`mt-1 ml-4 space-y-1 overflow-hidden transition-all ${classesExpanded ? "max-h-40" : "max-h-0"}`}
+              className={`mt-1 ml-4 space-y-1 overflow-hidden transition-all ${classesExpanded ? "max-h-60" : "max-h-0"}`}
             >
+              <li>
+                <button
+                  className={`w-full text-left px-4 py-2 rounded-md text-sm transition-colors ${activeTab === "categories" ? "bg-white/30 font-semibold" : "hover:bg-white/10"}`}
+                  onClick={() => onTabChange("categories")}
+                >
+                  Categories
+                </button>
+              </li>
               <li>
                 <button
                   className={`w-full text-left px-4 py-2 rounded-md text-sm transition-colors ${activeTab === "classes" ? "bg-white/30 font-semibold" : "hover:bg-white/10"}`}
