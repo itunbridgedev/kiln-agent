@@ -43,6 +43,7 @@ export default function AdminPage() {
   const [classesExpanded, setClassesExpanded] = useState(true);
   const [studioName, setStudioName] = useState<string>("");
   const [categories, setCategories] = useState<Category[]>([]);
+  const [classesSystemCategoryId, setClassesSystemCategoryId] = useState<number | null>(null);
   const [classes, setClasses] = useState<any[]>([]);
   const [teachingRoles, setTeachingRoles] = useState<TeachingRole[]>([]);
   const [loadingData, setLoadingData] = useState(true);
@@ -128,7 +129,20 @@ export default function AdminPage() {
       });
       if (response.ok) {
         const data = await response.json();
-        setCategories(data);
+        // Find the Classes system category
+        const classesCategory = data.find(
+          (cat: Category) => cat.isSystemCategory && cat.name === "Classes"
+        );
+        if (classesCategory) {
+          setClassesSystemCategoryId(classesCategory.id);
+          // Only show subcategories of Classes
+          const classSubcategories = data.filter(
+            (cat: Category) => cat.parentCategoryId === classesCategory.id
+          );
+          setCategories(classSubcategories);
+        } else {
+          setCategories([]);
+        }
       } else {
         setError("Failed to load categories");
       }
@@ -483,7 +497,11 @@ export default function AdminPage() {
         onTabChange={(tab) => {
           setActiveTab(tab);
           // Expand Classes module for categories, classes, and teaching-roles
-          if (tab === "categories" || tab === "classes" || tab === "teaching-roles") {
+          if (
+            tab === "categories" ||
+            tab === "classes" ||
+            tab === "teaching-roles"
+          ) {
             setClassesExpanded(true);
           } else if (tab === "users") {
             // Collapse Classes module when Users tab is active
@@ -556,6 +574,7 @@ export default function AdminPage() {
                   <CategoryForm
                     editingCategory={editingCategory}
                     categories={categories}
+                    classesSystemCategoryId={classesSystemCategoryId}
                     onSubmit={handleCategorySubmit}
                     onCancel={resetCategoryForm}
                   />
