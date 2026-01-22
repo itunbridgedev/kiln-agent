@@ -3,11 +3,12 @@ import { getStudioContext } from "./middleware/tenant";
 
 // Models that don't have studioId (non-tenant models)
 const nonTenantModels = [
-  "studio",
-  "role",
-  "customerRole",
-  "account",
-  "session",
+  "Studio",
+  "Role",
+  "CustomerRole",
+  "StaffTeachingRole",
+  "Account",
+  "Session",
 ];
 
 // Create base Prisma client

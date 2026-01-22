@@ -27,10 +27,12 @@ export const isAdmin = (req: Request, res: Response, next: NextFunction) => {
   }
 
   const user = req.user as any;
-  const hasAdminRole = user.roles?.some((r: any) => r.role?.name === "admin");
+  const hasStaffAccess = user.roles?.some((r: any) =>
+    ["admin", "manager", "staff"].includes(r.role?.name)
+  );
 
-  if (!hasAdminRole) {
-    return res.status(403).json({ error: "Forbidden - Admin access required" });
+  if (!hasStaffAccess) {
+    return res.status(403).json({ error: "Forbidden - Staff access required" });
   }
 
   next();

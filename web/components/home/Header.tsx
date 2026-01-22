@@ -20,7 +20,9 @@ export default function Header({
   onNavigateAdmin,
   onNavigateLogin,
 }: HeaderProps) {
-  const isAdmin = user?.roles?.includes("admin");
+  const hasStaffAccess = user?.roles?.some((role) =>
+    ["admin", "manager", "staff"].includes(role)
+  );
 
   return (
     <header className="home-header">
@@ -33,7 +35,7 @@ export default function Header({
           {user ? (
             <>
               <span className="user-greeting">Hi, {user.name}</span>
-              {isAdmin && (
+              {hasStaffAccess && (
                 <button onClick={onNavigateAdmin} className="nav-btn">
                   Admin
                 </button>

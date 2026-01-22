@@ -68,11 +68,23 @@ async function main() {
     console.log(`✓ Created system category: ${category.name}`);
   }
 
-  // Create admin role
+  // Create system roles
   const adminRole = await prisma.role.upsert({
     where: { name: "admin" },
     update: {},
     create: { name: "admin" },
+  });
+
+  const managerRole = await prisma.role.upsert({
+    where: { name: "manager" },
+    update: {},
+    create: { name: "manager" },
+  });
+
+  const staffRole = await prisma.role.upsert({
+    where: { name: "staff" },
+    update: {},
+    create: { name: "staff" },
   });
 
   const userRole = await prisma.role.upsert({
@@ -84,7 +96,7 @@ async function main() {
   console.log("✓ Created roles");
 
   // Create admin user
-  const passwordHash = await hashPassword("Admin123!");
+  const adminPasswordHash = await hashPassword("Admin123!");
   const adminUser = await prisma.customer.upsert({
     where: {
       studioId_email: {
@@ -97,7 +109,7 @@ async function main() {
       studioId: studio.id,
       name: "Admin User",
       email: "admin@kilnagent.com",
-      passwordHash,
+      passwordHash: adminPasswordHash,
       agreedToTerms: true,
       agreedToSms: false,
       roles: {
@@ -106,9 +118,84 @@ async function main() {
     },
   });
 
-  console.log(`✓ Created admin user: ${adminUser.email}`);
+  console.log(`✓ Created admin user: ${adminUser.email} / Admin123!`);
 
-  // Create sample products
+  // Create manager user
+  const managerPasswordHash = await hashPassword("Manager123!");
+  const managerUser = await prisma.customer.upsert({
+    where: {
+      studioId_email: {
+        studioId: studio.id,
+        email: "manager@kilnagent.com",
+      },
+    },
+    update: {},
+    create: {
+      studioId: studio.id,
+      name: "Manager User",
+      email: "manager@kilnagent.com",
+      passwordHash: managerPasswordHash,
+      agreedToTerms: true,
+      agreedToSms: false,
+      roles: {
+        create: [{ roleId: managerRole.id }, { roleId: userRole.id }],
+      },
+    },
+  });
+
+  console.log(`✓ Created manager user: ${managerUser.email} / Manager123!`);
+
+  // Create staff user
+  const staffPasswordHash = await hashPassword("Staff123!");
+  const staffUser = await prisma.customer.upsert({
+    where: {
+      studioId_email: {
+        studioId: studio.id,
+        email: "staff@kilnagent.com",
+      },
+    },
+    update: {},
+    create: {
+      studioId: studio.id,
+      name: "Staff User",
+      email: "staff@kilnagent.com",
+      passwordHash: staffPasswordHash,
+      agreedToTerms: true,
+      agreedToSms: false,
+      roles: {
+        create: [{ roleId: staffRole.id }, { roleId: userRole.id }],
+      },
+    },
+  });
+
+  console.log(`✓ Created staff user: ${staffUser.email} / Staff123!`);
+
+  // Create customer user
+  const customerPasswordHash = await hashPassword("Customer123!");
+  const customerUser = await prisma.customer.upsert({
+    where: {
+      studioId_email: {
+        studioId: studio.id,
+        email: "customer@kilnagent.com",
+      },
+    },
+    update: {},
+    create: {
+      studioId: studio.id,
+      name: "Customer User",
+      email: "customer@kilnagent.com",
+      passwordHash: customerPasswordHash,
+      agreedToTerms: true,
+      agreedToSms: false,
+      roles: {
+        create: [{ roleId: userRole.id }],
+      },
+    },
+  });
+
+  console.log(`✓ Created customer user: ${customerUser.email} / Customer123!`);
+
+  // Create sample classes
   const classesCategory = await prisma.productCategory.findFirst({
     where: {
       studioId: studio.id,
@@ -117,31 +204,58 @@ async function main() {
   });
 
   if (classesCategory) {
-    await prisma.product.create({
+    await prisma.class.create({
       data: {
         studioId: studio.id,
         categoryId: classesCategory.id,
         name: "Beginner Wheel Throwing",
-        description: "Learn the basics of wheel throwing in this 6-week course",
+        description:
+          "Learn the basics of wheel throwing in this 6-week course. Perfect for students with little to no experience.",
+        classType: "multi-session",
+        durationWeeks: 6,
         price: 250.0,
+        maxStudents: 12,
+        instructorName: "Jane Smith",
+        skillLevel: "Beginner",
         isActive: true,
-        displayOrder: 1,
       },
     });
 
-    await prisma.product.create({
+    await prisma.class.create({
       data: {
         studioId: studio.id,
         categoryId: classesCategory.id,
         name: "Advanced Handbuilding",
-        description: "Take your handbuilding skills to the next level",
+        description:
+          "Take your handbuilding skills to the next level with advanced techniques including coiling, slab building, and sculptural forms.",
+        classType: "multi-session",
+        durationWeeks: 8,
         price: 300.0,
+        maxStudents: 10,
+        instructorName: "Michael Chen",
+        skillLevel: "Advanced",
         isActive: true,
-        displayOrder: 2,
       },
     });
 
-    console.log("✓ Created sample products");
+    await prisma.class.create({
+      data: {
+        studioId: studio.id,
+        categoryId: classesCategory.id,
+        name: "Date Night Pottery",
+        description:
+          "A fun evening workshop perfect for couples or friends. Create your own pottery pieces in a relaxed, social atmosphere.",
+        classType: "single-session",
+        durationHours: 2.5,
+        price: 75.0,
+        maxStudents: 16,
+        instructorName: "Sarah Williams",
+        skillLevel: "All Levels",
+        isActive: true,
+      },
+    });
+
+    console.log("✓ Created sample classes");
   }
 
   console.log("\n✅ Multi-tenant seed completed!");

@@ -1,8 +1,9 @@
 import { useState } from "react";
 
 interface AdminSidebarProps {
-  activeTab: "categories" | "products";
+  activeTab: "categories" | "classes" | "teaching-roles" | "users";
   productCatalogExpanded: boolean;
+  classesExpanded: boolean;
   studioName?: string;
   user: {
     id: number;
@@ -10,8 +11,11 @@ interface AdminSidebarProps {
     email: string;
     roles: string[];
   };
-  onTabChange: (tab: "categories" | "products") => void;
+  onTabChange: (
+    tab: "categories" | "classes" | "teaching-roles" | "users"
+  ) => void;
   onToggleExpanded: () => void;
+  onToggleClassesExpanded: () => void;
   onBackHome: () => void;
   onLogout: () => void;
 }
@@ -19,89 +23,144 @@ interface AdminSidebarProps {
 export default function AdminSidebar({
   activeTab,
   productCatalogExpanded,
+  classesExpanded,
   studioName,
   user,
   onTabChange,
   onToggleExpanded,
+  onToggleClassesExpanded,
   onBackHome,
   onLogout,
 }: AdminSidebarProps) {
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
   return (
-    <aside className="admin-sidebar">
-      <div className="admin-sidebar-header">
-        <h2>{studioName || "Studio Name"}</h2>
-        <p className="sidebar-subtitle">Admin Panel</p>
+    <aside className="w-64 bg-gradient-to-br from-primary to-secondary text-white flex-shrink-0 flex flex-col">
+      <div className="p-6 border-b border-white/20">
+        <h2 className="text-2xl font-bold">{studioName || "Studio Name"}</h2>
+        <p className="text-sm text-white/80 mt-1">Admin Panel</p>
       </div>
 
       {/* User Profile Section */}
-      <div className="admin-user-profile">
+      <div className="p-4 border-b border-white/20 relative">
         <button
-          className="profile-trigger"
+          className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-white/10 transition-colors"
           onClick={() => setProfileMenuOpen(!profileMenuOpen)}
         >
-          <div className="user-avatar">{user.name.charAt(0).toUpperCase()}</div>
-          <span className="user-name">{user.name}</span>
-          <span className={`profile-arrow ${profileMenuOpen ? "open" : ""}`}>
+          <div className="w-10 h-10 bg-white text-primary rounded-full flex items-center justify-center font-bold text-lg">
+            {user.name.charAt(0).toUpperCase()}
+          </div>
+          <span className="flex-1 text-left font-medium">{user.name}</span>
+          <span
+            className={`transition-transform ${profileMenuOpen ? "rotate-180" : ""}`}
+          >
             ▼
           </span>
         </button>
 
         {profileMenuOpen && (
-          <div className="profile-menu">
-            <button onClick={onBackHome} className="profile-menu-item">
-              <span className="menu-icon">🏠</span>
+          <div className="absolute left-4 right-4 top-full mt-2 bg-white rounded-lg shadow-lg py-2 z-50">
+            <button
+              onClick={onBackHome}
+              className="w-full flex items-center gap-3 px-4 py-2 hover:bg-gray-100 text-gray-700 text-sm"
+            >
+              <span>🏠</span>
               Back to Home
             </button>
-            <button className="profile-menu-item" disabled>
-              <span className="menu-icon">👤</span>
+            <button
+              className="w-full flex items-center gap-3 px-4 py-2 hover:bg-gray-100 text-gray-400 text-sm cursor-not-allowed"
+              disabled
+            >
+              <span>👤</span>
               Edit Profile
             </button>
-            <button onClick={onLogout} className="profile-menu-item logout">
-              <span className="menu-icon">🚪</span>
+            <button
+              onClick={onLogout}
+              className="w-full flex items-center gap-3 px-4 py-2 hover:bg-error/10 text-error text-sm"
+            >
+              <span>🚪</span>
               Logout
             </button>
           </div>
         )}
       </div>
 
-      <nav>
-        <ul className="admin-sidebar-nav">
-          <li className="nav-item">
+      <nav className="flex-1 overflow-y-auto p-4">
+        <ul className="space-y-2">
+          <li>
             <button
-              className={`nav-item-button ${productCatalogExpanded ? "active" : ""}`}
+              className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${productCatalogExpanded ? "bg-white/20" : "hover:bg-white/10"}`}
               onClick={onToggleExpanded}
             >
-              <span className="nav-item-icon">📦</span>
-              <span className="nav-item-label">Product Catalog</span>
+              <span className="text-xl">📦</span>
+              <span className="flex-1 text-left font-medium">
+                Product Catalog
+              </span>
               <span
-                className={`nav-item-arrow ${productCatalogExpanded ? "expanded" : ""}`}
+                className={`transition-transform text-sm ${productCatalogExpanded ? "rotate-90" : ""}`}
               >
                 ▶
               </span>
             </button>
 
             <ul
-              className={`nav-subitems ${productCatalogExpanded ? "expanded" : ""}`}
+              className={`mt-1 ml-4 space-y-1 overflow-hidden transition-all ${productCatalogExpanded ? "max-h-40" : "max-h-0"}`}
             >
-              <li className="nav-subitem">
+              <li>
                 <button
-                  className={`nav-subitem-button ${activeTab === "categories" ? "active" : ""}`}
+                  className={`w-full text-left px-4 py-2 rounded-md text-sm transition-colors ${activeTab === "categories" ? "bg-white/30 font-semibold" : "hover:bg-white/10"}`}
                   onClick={() => onTabChange("categories")}
                 >
                   Categories
                 </button>
               </li>
-              <li className="nav-subitem">
+            </ul>
+          </li>
+
+          <li>
+            <button
+              className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${classesExpanded ? "bg-white/20" : "hover:bg-white/10"}`}
+              onClick={onToggleClassesExpanded}
+            >
+              <span className="text-xl">🎓</span>
+              <span className="flex-1 text-left font-medium">Classes</span>
+              <span
+                className={`transition-transform text-sm ${classesExpanded ? "rotate-90" : ""}`}
+              >
+                ▶
+              </span>
+            </button>
+
+            <ul
+              className={`mt-1 ml-4 space-y-1 overflow-hidden transition-all ${classesExpanded ? "max-h-40" : "max-h-0"}`}
+            >
+              <li>
                 <button
-                  className={`nav-subitem-button ${activeTab === "products" ? "active" : ""}`}
-                  onClick={() => onTabChange("products")}
+                  className={`w-full text-left px-4 py-2 rounded-md text-sm transition-colors ${activeTab === "classes" ? "bg-white/30 font-semibold" : "hover:bg-white/10"}`}
+                  onClick={() => onTabChange("classes")}
                 >
-                  Products
+                  All Classes
+                </button>
+              </li>
+              <li>
+                <button
+                  className={`w-full text-left px-4 py-2 rounded-md text-sm transition-colors ${activeTab === "teaching-roles" ? "bg-white/30 font-semibold" : "hover:bg-white/10"}`}
+                  onClick={() => onTabChange("teaching-roles")}
+                >
+                  Teaching Roles
                 </button>
               </li>
             </ul>
+          </li>
+
+          <li>
+            <button
+              className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${activeTab === "users" ? "bg-white/20 font-semibold" : "hover:bg-white/10"}`}
+              onClick={() => onTabChange("users")}
+            >
+              <span className="text-xl">👥</span>
+              <span className="flex-1 text-left font-medium">Users</span>
+            </button>
           </li>
         </ul>
       </nav>
