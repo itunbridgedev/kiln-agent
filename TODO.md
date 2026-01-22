@@ -1,6 +1,6 @@
 # TODO & Roadmap
 
-## Current Sprint: Phase 3A - Teaching Roles & Staff Management ✓
+## Phase 3A - Teaching Roles & Staff Management ✓ COMPLETE
 
 ### Completed ✓
 
@@ -45,6 +45,21 @@
 - [x] Prisma middleware fix for StaffTeachingRole tenant filtering
 - [x] Sidebar collapse behavior for Users tab
 
+#### Category Management UX Improvements ✓
+
+- [x] Moved Categories from Product Catalog to Classes module
+- [x] Removed Product Catalog section from sidebar
+- [x] Filter categories to show only Classes subcategories (hide system categories)
+- [x] Auto-set parent category to Classes system category in form
+- [x] Remove parent category selector from category form
+- [x] Remove display order input field from form
+- [x] Implement drag-and-drop reordering for categories
+- [x] Add drag handle icon to category table
+- [x] Replace Edit text with pencil icon
+- [x] Replace Delete text with trash icon
+- [x] Visual feedback for drag operations (opacity, border)
+- [x] Batch API updates for reordering
+
 ---
 
 ## Current Sprint: Classes Module - Basic Setup ✓
@@ -70,16 +85,21 @@
 
 # Classes Module - Advanced Features Breakdown
 
-## Phase 3A: Teaching Roles & Staff Management
+## Phase 3A: Teaching Roles & Staff Management ✓ COMPLETE
 
 **Goal:** Enable role-based teaching assignments and staff scheduling
 
 ### Features
 
-- [ ] Teaching role definitions (Basic Teacher, Intermediate Teacher, Advanced Teacher, custom roles)
-- [ ] Staff member management with role assignments
-- [ ] Link classes to teaching roles (not specific teachers)
+- [x] Teaching role definitions (custom roles with any name - more flexible than predefined)
+- [x] Staff member management with role assignments
+- [x] Link classes to teaching roles (not specific teachers)
 - [ ] Staff profile pages with qualifications and assigned roles
+  - [ ] Create staff profile page component
+  - [ ] Display user's teaching roles and qualifications
+  - [ ] Show classes assigned to each staff member
+  - [ ] Add certification dates and notes display
+  - [ ] Link from staff table to individual profiles
 
 ### Schema Design
 
@@ -117,11 +137,11 @@ model Class {
 
 ### Implementation Steps
 
-1. [ ] Create TeachingRole and StaffTeachingRole models
-2. [ ] Build admin UI for role management
-3. [ ] Add staff management interface (assign roles to users)
-4. [ ] Update ClassForm to select teaching role instead of instructor string
-5. [ ] API endpoints for role CRUD operations
+1. [x] Create TeachingRole and StaffTeachingRole models
+2. [x] Build admin UI for role management
+3. [x] Add staff management interface (assign roles to users)
+4. [x] Update ClassForm to select teaching role instead of instructor string
+5. [x] API endpoints for role CRUD operations
 
 ### Estimated Effort: 1-2 weeks
 
