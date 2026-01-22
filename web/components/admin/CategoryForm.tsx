@@ -14,6 +14,7 @@ interface Category {
 interface CategoryFormProps {
   editingCategory: Category | null;
   categories: Category[];
+  classesSystemCategoryId: number | null;
   onSubmit: (data: CategoryFormData) => Promise<void>;
   onCancel: () => void;
 }
@@ -29,6 +30,7 @@ export interface CategoryFormData {
 export default function CategoryForm({
   editingCategory,
   categories,
+  classesSystemCategoryId,
   onSubmit,
   onCancel,
 }: CategoryFormProps) {
@@ -37,7 +39,8 @@ export default function CategoryForm({
     description: editingCategory?.description || "",
     displayOrder: editingCategory?.displayOrder || 0,
     isActive: editingCategory?.isActive ?? true,
-    parentCategoryId: editingCategory?.parentCategoryId || null,
+    parentCategoryId:
+      editingCategory?.parentCategoryId || classesSystemCategoryId,
   });
 
   // Filter out current category and its descendants to prevent circular references
@@ -95,63 +98,19 @@ export default function CategoryForm({
         />
       </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Parent Category (Optional)
-        </label>
-        <select
-          value={formData.parentCategoryId || ""}
+      <div className="flex items-center">
+        <input
+          type="checkbox"
+          id="isActive"
+          checked={formData.isActive}
           onChange={(e) =>
-            setFormData({
-              ...formData,
-              parentCategoryId: e.target.value
-                ? parseInt(e.target.value)
-                : null,
-            })
+            setFormData({ ...formData, isActive: e.target.checked })
           }
-          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-primary focus:border-primary"
-        >
-          <option value="">None (Top-level category)</option>
-          {availableParentCategories.map((cat) => (
-            <option key={cat.id} value={cat.id}>
-              {cat.name}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Display Order
-          </label>
-          <input
-            type="number"
-            value={formData.displayOrder}
-            onChange={(e) =>
-              setFormData({
-                ...formData,
-                displayOrder: parseInt(e.target.value) || 0,
-              })
-            }
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-primary focus:border-primary"
-          />
-        </div>
-
-        <div className="flex items-center">
-          <input
-            type="checkbox"
-            id="isActive"
-            checked={formData.isActive}
-            onChange={(e) =>
-              setFormData({ ...formData, isActive: e.target.checked })
-            }
-            className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
-          />
-          <label htmlFor="isActive" className="ml-2 text-sm text-gray-700">
-            Active
-          </label>
-        </div>
+          className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+        />
+        <label htmlFor="isActive" className="ml-2 text-sm text-gray-700">
+          Active
+        </label>
       </div>
 
       <div className="flex gap-3 pt-4">

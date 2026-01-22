@@ -40,10 +40,12 @@ export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<
     "categories" | "classes" | "teaching-roles" | "users"
   >("categories");
-  const [productCatalogExpanded, setProductCatalogExpanded] = useState(true);
   const [classesExpanded, setClassesExpanded] = useState(true);
   const [studioName, setStudioName] = useState<string>("");
   const [categories, setCategories] = useState<Category[]>([]);
+  const [classesSystemCategoryId, setClassesSystemCategoryId] = useState<
+    number | null
+  >(null);
   const [classes, setClasses] = useState<any[]>([]);
   const [teachingRoles, setTeachingRoles] = useState<TeachingRole[]>([]);
   const [loadingData, setLoadingData] = useState(true);
@@ -129,7 +131,20 @@ export default function AdminPage() {
       });
       if (response.ok) {
         const data = await response.json();
-        setCategories(data);
+        // Find the Classes system category
+        const classesCategory = data.find(
+          (cat: Category) => cat.isSystemCategory && cat.name === "Classes"
+        );
+        if (classesCategory) {
+          setClassesSystemCategoryId(classesCategory.id);
+          // Only show subcategories of Classes
+          const classSubcategories = data.filter(
+            (cat: Category) => cat.parentCategoryId === classesCategory.id
+          );
+          setCategories(classSubcategories);
+        } else {
+          setCategories([]);
+        }
       } else {
         setError("Failed to load categories");
       }
@@ -204,6 +219,31 @@ export default function AdminPage() {
   const resetCategoryForm = () => {
     setEditingCategory(null);
     setShowCategoryForm(false);
+  };
+
+  const handleCategoryReorder = async (reorderedCategories: Category[]) => {
+    try {
+      // Update each category's displayOrder
+      const updates = reorderedCategories.map((cat) =>
+        fetch(`/api/admin/categories/${cat.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            name: cat.name,
+            description: cat.description || "",
+            displayOrder: cat.displayOrder,
+            isActive: cat.isActive,
+            parentCategoryId: cat.parentCategoryId,
+          }),
+        })
+      );
+
+      await Promise.all(updates);
+      await fetchCategories();
+    } catch (err) {
+      setError("Error reordering categories");
+    }
   };
 
   const resetClassForm = () => {
@@ -478,27 +518,23 @@ export default function AdminPage() {
       {/* Sidebar Navigation */}
       <AdminSidebar
         activeTab={activeTab}
-        productCatalogExpanded={productCatalogExpanded}
         classesExpanded={classesExpanded}
         studioName={studioName}
         user={user!}
         onTabChange={(tab) => {
           setActiveTab(tab);
-          if (tab === "classes" || tab === "teaching-roles") {
+          // Expand Classes module for categories, classes, and teaching-roles
+          if (
+            tab === "categories" ||
+            tab === "classes" ||
+            tab === "teaching-roles"
+          ) {
             setClassesExpanded(true);
-            setProductCatalogExpanded(false);
-          } else if (tab === "categories") {
-            setProductCatalogExpanded(true);
-            setClassesExpanded(false);
           } else if (tab === "users") {
-            // Collapse all sections when Users tab is active
+            // Collapse Classes module when Users tab is active
             setClassesExpanded(false);
-            setProductCatalogExpanded(false);
           }
         }}
-        onToggleExpanded={() =>
-          setProductCatalogExpanded(!productCatalogExpanded)
-        }
         onToggleClassesExpanded={() => setClassesExpanded(!classesExpanded)}
         onBackHome={() => router.push("/")}
         onLogout={async () => {
@@ -516,7 +552,7 @@ export default function AdminPage() {
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
               {activeTab === "categories"
-                ? "Product Categories"
+                ? "Class Categories"
                 : activeTab === "classes"
                   ? "Classes"
                   : activeTab === "teaching-roles"
@@ -524,13 +560,13 @@ export default function AdminPage() {
                     : "User Management"}
             </h1>
             <p className="text-gray-600 mb-4">
-              {activeTab === "classes"
-                ? "Manage your class offerings"
-                : activeTab === "teaching-roles"
-                  ? "Manage teaching roles and staff assignments"
-                  : activeTab === "users"
-                    ? "Search for users and manage their roles"
-                    : "Manage your product categories"}
+              {activeTab === "categories"
+                ? "Manage your class categories and subcategories"
+                : activeTab === "classes"
+                  ? "Manage your class offerings"
+                  : activeTab === "teaching-roles"
+                    ? "Manage teaching roles and staff assignments"
+                    : "Search for users and manage their roles"}
             </p>
             <button
               onClick={() => router.push("/")}
@@ -550,7 +586,7 @@ export default function AdminPage() {
             <div>
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-semibold text-gray-800">
-                  Product Categories
+                  Class Categories
                 </h2>
                 <button
                   className="px-6 py-2 bg-primary text-white font-medium rounded-md hover:bg-primary-dark transition-colors"
@@ -565,6 +601,7 @@ export default function AdminPage() {
                   <CategoryForm
                     editingCategory={editingCategory}
                     categories={categories}
+                    classesSystemCategoryId={classesSystemCategoryId}
                     onSubmit={handleCategorySubmit}
                     onCancel={resetCategoryForm}
                   />
@@ -576,6 +613,7 @@ export default function AdminPage() {
                 loading={loadingData}
                 onEdit={editCategory}
                 onDelete={deleteCategory}
+                onReorder={handleCategoryReorder}
               />
             </div>
           )}
