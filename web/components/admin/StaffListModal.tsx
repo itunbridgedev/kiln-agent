@@ -1,5 +1,7 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+
 interface StaffMember {
   id: number;
   customerId: number;
@@ -25,6 +27,8 @@ export default function StaffListModal({
   roleName,
   staffMembers,
 }: StaffListModalProps) {
+  const router = useRouter();
+
   if (!isOpen) return null;
 
   const formatDate = (dateString: string | null) => {
@@ -104,6 +108,16 @@ export default function StaffListModal({
                         </p>
                       )}
                     </div>
+                    <button
+                      onClick={() => {
+                        onClose();
+                        router.push(`/admin/staff/${staff.customerId}`);
+                      }}
+                      className="ml-4 text-primary hover:text-primary/80 text-sm font-medium"
+                      title="View Profile"
+                    >
+                      View Profile →
+                    </button>
                   </div>
                 </div>
               ))}
