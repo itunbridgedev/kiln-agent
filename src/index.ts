@@ -9,7 +9,11 @@ import passport from "./config/passport";
 import { tenantMiddleware } from "./middleware/tenantMiddleware";
 import adminRoutes from "./routes/admin";
 import authRoutes from "./routes/auth";
+import classesRoutes from "./routes/classes";
 import productsRoutes from "./routes/products";
+import studioRoutes from "./routes/studio";
+import teachingRolesRoutes from "./routes/teaching-roles";
+import usersRoutes from "./routes/users";
 
 // Load environment variables
 dotenv.config({ path: `.env.${process.env.NODE_ENV || "development"}` });
@@ -76,9 +80,9 @@ app.use((req, res, next) => {
   console.log(`[Session Debug] ${req.method} ${req.path}`);
   console.log(`  Cookie header: ${req.headers.cookie ? "present" : "NONE"}`);
   console.log(`  Session ID: ${req.sessionID || "none"}`);
-  console.log(
-    `  Session user: ${(req.session as any).passport?.user || "none"}`
-  );
+  const sessionUser = (req.session as { passport?: { user?: number } }).passport
+    ?.user;
+  console.log(`  Session user: ${sessionUser || "none"}`);
   console.log(`  Is authenticated: ${req.isAuthenticated?.() || false}`);
   next();
 });
@@ -144,7 +148,10 @@ app.use(tenantMiddleware);
 app.use("/api/auth", authRoutes);
 app.use("/api/products", productsRoutes);
 app.use("/api/admin", adminRoutes);
-app.use("/api/studio", require("./routes/studio").default);
+app.use("/api/admin/classes", classesRoutes);
+app.use("/api/admin/teaching-roles", teachingRolesRoutes);
+app.use("/api/admin/users", usersRoutes);
+app.use("/api/studio", studioRoutes);
 
 // Example route
 app.get("/api/hello", (req, res) => {

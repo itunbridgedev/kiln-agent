@@ -165,14 +165,14 @@ if (process.env.APPLE_CLIENT_ID && process.env.APPLE_TEAM_ID) {
   // Replace literal \n with actual newlines in the private key
   const privateKey = process.env.APPLE_PRIVATE_KEY!.replace(/\\n/g, "\n");
 
-  console.log("[Apple Strategy] Initializing with config:");
-  console.log(`[Apple Strategy] Client ID: ${process.env.APPLE_CLIENT_ID}`);
-  console.log(`[Apple Strategy] Team ID: ${process.env.APPLE_TEAM_ID}`);
-  console.log(`[Apple Strategy] Key ID: ${process.env.APPLE_KEY_ID}`);
-  console.log(`[Apple Strategy] Private key length: ${privateKey.length}`);
-  console.log(
-    `[Apple Strategy] Private key starts with: ${privateKey.substring(0, 30)}`
-  );
+  // console.log("[Apple Strategy] Initializing with config:");
+  // console.log(`[Apple Strategy] Client ID: ${process.env.APPLE_CLIENT_ID}`);
+  // console.log(`[Apple Strategy] Team ID: ${process.env.APPLE_TEAM_ID}`);
+  // console.log(`[Apple Strategy] Key ID: ${process.env.APPLE_KEY_ID}`);
+  // console.log(`[Apple Strategy] Private key length: ${privateKey.length}`);
+  // console.log(
+  //   `[Apple Strategy] Private key starts with: ${privateKey.substring(0, 30)}`
+  // );
 
   passport.use(
     new AppleStrategy(
