@@ -4,7 +4,7 @@ import prisma from "../prisma";
 
 const router = Router();
 
-// Middleware to check if user is admin
+// Middleware to check if user has staff access (admin, manager, or staff)
 const isAdmin = async (req: Request, res: Response, next: any) => {
   try {
     if (!(req.user as any)?.id) {
@@ -22,18 +22,20 @@ const isAdmin = async (req: Request, res: Response, next: any) => {
       },
     });
 
-    const hasAdminRole = customer?.roles.some((cr) => cr.role.name === "admin");
+    const hasStaffAccess = customer?.roles.some((cr) =>
+      ["admin", "manager", "staff"].includes(cr.role.name)
+    );
 
-    if (!hasAdminRole) {
+    if (!hasStaffAccess) {
       return res
         .status(403)
-        .json({ error: "Access denied. Admin role required." });
+        .json({ error: "Access denied. Staff access required." });
     }
 
     next();
   } catch (error) {
-    console.error("Error checking admin role:", error);
-    res.status(500).json({ error: "Failed to verify admin status" });
+    console.error("Error checking staff access:", error);
+    res.status(500).json({ error: "Failed to verify access status" });
   }
 };
 
@@ -48,7 +50,7 @@ router.get("/categories", async (req: Request, res: Response) => {
     const categories = await prisma.productCategory.findMany({
       include: {
         _count: {
-          select: { products: true },
+          select: { classes: true },
         },
       },
       orderBy: { displayOrder: "asc" },
@@ -64,7 +66,8 @@ router.get("/categories", async (req: Request, res: Response) => {
 // POST /api/admin/categories - Create new category
 router.post("/categories", async (req: Request, res: Response) => {
   try {
-    const { name, description, displayOrder, isActive, parentCategoryId } = req.body;
+    const { name, description, displayOrder, isActive, parentCategoryId } =
+      req.body;
 
     if (!name) {
       return res.status(400).json({ error: "Category name is required" });
@@ -94,7 +97,8 @@ router.post("/categories", async (req: Request, res: Response) => {
 router.put("/categories/:id", async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id);
-    const { name, description, displayOrder, isActive, parentCategoryId } = req.body;
+    const { name, description, displayOrder, isActive, parentCategoryId } =
+      req.body;
 
     // Check if this is a system category
     const existingCategory = await prisma.productCategory.findUnique({
@@ -115,7 +119,9 @@ router.put("/categories/:id", async (req: Request, res: Response) => {
 
     // Prevent circular references
     if (parentCategoryId === id) {
-      return res.status(400).json({ error: "Category cannot be its own parent" });
+      return res
+        .status(400)
+        .json({ error: "Category cannot be its own parent" });
     }
 
     const category = await prisma.productCategory.update({
@@ -147,12 +153,12 @@ router.delete("/categories/:id", async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id);
 
-    // Check if category has products
+    // Check if category has classes
     const category = await prisma.productCategory.findUnique({
       where: { id },
       include: {
         _count: {
-          select: { products: true },
+          select: { classes: true },
         },
       },
     });
@@ -169,10 +175,10 @@ router.delete("/categories/:id", async (req: Request, res: Response) => {
       });
     }
 
-    if (category._count.products > 0) {
+    if (category._count.classes > 0) {
       return res.status(400).json({
         error:
-          "Cannot delete category with existing products. Delete or reassign products first.",
+          "Cannot delete category with existing classes. Delete or reassign classes first.",
       });
     }
 
@@ -187,131 +193,6 @@ router.delete("/categories/:id", async (req: Request, res: Response) => {
       return res.status(404).json({ error: "Category not found" });
     }
     res.status(500).json({ error: "Failed to delete category" });
-  }
-});
-
-// ============= PRODUCT MANAGEMENT =============
-
-// GET /api/admin/products - Get all products (including inactive)
-router.get("/products", async (req: Request, res: Response) => {
-  try {
-    const products = await prisma.product.findMany({
-      include: {
-        category: true,
-      },
-      orderBy: [{ category: { displayOrder: "asc" } }, { displayOrder: "asc" }],
-    });
-
-    res.json(products);
-  } catch (error) {
-    console.error("Error fetching products:", error);
-    res.status(500).json({ error: "Failed to fetch products" });
-  }
-});
-
-// POST /api/admin/products - Create new product
-router.post("/products", async (req: Request, res: Response) => {
-  try {
-    const {
-      name,
-      description,
-      price,
-      categoryId,
-      imageUrl,
-      displayOrder,
-      isActive,
-    } = req.body;
-
-    if (!name || !price || !categoryId) {
-      return res.status(400).json({
-        error: "Product name, price, and category are required",
-      });
-    }
-
-    const product = await prisma.product.create({
-      data: {
-        name,
-        description,
-        price,
-        categoryId: parseInt(categoryId),
-        imageUrl,
-        displayOrder: displayOrder || 0,
-        isActive: isActive !== undefined ? isActive : true,
-      } as any,
-      include: {
-        category: true,
-      },
-    });
-
-    res.status(201).json(product);
-  } catch (error: any) {
-    console.error("Error creating product:", error);
-    if (error.code === "P2003") {
-      return res.status(400).json({ error: "Invalid category ID" });
-    }
-    res.status(500).json({ error: "Failed to create product" });
-  }
-});
-
-// PUT /api/admin/products/:id - Update product
-router.put("/products/:id", async (req: Request, res: Response) => {
-  try {
-    const id = parseInt(req.params.id);
-    const {
-      name,
-      description,
-      price,
-      categoryId,
-      imageUrl,
-      displayOrder,
-      isActive,
-    } = req.body;
-
-    const product = await prisma.product.update({
-      where: { id },
-      data: {
-        name,
-        description,
-        price,
-        categoryId: categoryId ? parseInt(categoryId) : undefined,
-        imageUrl,
-        displayOrder,
-        isActive,
-      },
-      include: {
-        category: true,
-      },
-    });
-
-    res.json(product);
-  } catch (error: any) {
-    console.error("Error updating product:", error);
-    if (error.code === "P2025") {
-      return res.status(404).json({ error: "Product not found" });
-    }
-    if (error.code === "P2003") {
-      return res.status(400).json({ error: "Invalid category ID" });
-    }
-    res.status(500).json({ error: "Failed to update product" });
-  }
-});
-
-// DELETE /api/admin/products/:id - Delete product
-router.delete("/products/:id", async (req: Request, res: Response) => {
-  try {
-    const id = parseInt(req.params.id);
-
-    await prisma.product.delete({
-      where: { id },
-    });
-
-    res.json({ message: "Product deleted successfully" });
-  } catch (error: any) {
-    console.error("Error deleting product:", error);
-    if (error.code === "P2025") {
-      return res.status(404).json({ error: "Product not found" });
-    }
-    res.status(500).json({ error: "Failed to delete product" });
   }
 });
 

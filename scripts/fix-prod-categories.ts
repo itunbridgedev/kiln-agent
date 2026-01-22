@@ -149,7 +149,9 @@ async function main() {
           parentCategoryId: null,
         },
       });
-      console.log(`    - Keeping: ${keepCategory.name} (ID: ${keepCategory.id})`);
+      console.log(
+        `    - Keeping: ${keepCategory.name} (ID: ${keepCategory.id})`
+      );
 
       // Move products from duplicates to the kept category
       for (const dupCat of deleteCategories) {
