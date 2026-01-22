@@ -1,8 +1,6 @@
 "use client";
 
 import { useAuth } from "@/context/AuthContext";
-import "@/styles/Admin.css";
-import "@/styles/AdminLayout.css";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
