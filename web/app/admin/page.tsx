@@ -43,7 +43,9 @@ export default function AdminPage() {
   const [classesExpanded, setClassesExpanded] = useState(true);
   const [studioName, setStudioName] = useState<string>("");
   const [categories, setCategories] = useState<Category[]>([]);
-  const [classesSystemCategoryId, setClassesSystemCategoryId] = useState<number | null>(null);
+  const [classesSystemCategoryId, setClassesSystemCategoryId] = useState<
+    number | null
+  >(null);
   const [classes, setClasses] = useState<any[]>([]);
   const [teachingRoles, setTeachingRoles] = useState<TeachingRole[]>([]);
   const [loadingData, setLoadingData] = useState(true);
@@ -217,6 +219,31 @@ export default function AdminPage() {
   const resetCategoryForm = () => {
     setEditingCategory(null);
     setShowCategoryForm(false);
+  };
+
+  const handleCategoryReorder = async (reorderedCategories: Category[]) => {
+    try {
+      // Update each category's displayOrder
+      const updates = reorderedCategories.map((cat) =>
+        fetch(`/api/admin/categories/${cat.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            name: cat.name,
+            description: cat.description || "",
+            displayOrder: cat.displayOrder,
+            isActive: cat.isActive,
+            parentCategoryId: cat.parentCategoryId,
+          }),
+        })
+      );
+
+      await Promise.all(updates);
+      await fetchCategories();
+    } catch (err) {
+      setError("Error reordering categories");
+    }
   };
 
   const resetClassForm = () => {
@@ -586,6 +613,7 @@ export default function AdminPage() {
                 loading={loadingData}
                 onEdit={editCategory}
                 onDelete={deleteCategory}
+                onReorder={handleCategoryReorder}
               />
             </div>
           )}
