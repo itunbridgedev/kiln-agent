@@ -12,6 +12,7 @@ import authRoutes from "./routes/auth";
 import classesRoutes from "./routes/classes";
 import productsRoutes from "./routes/products";
 import schedulePatternRoutes from "./routes/schedule-patterns";
+import staffRoutes from "./routes/staff";
 import studioRoutes from "./routes/studio";
 import teachingRolesRoutes from "./routes/teaching-roles";
 import usersRoutes from "./routes/users";
@@ -157,6 +158,7 @@ app.use("/api/admin/classes", classesRoutes);
 app.use("/api/admin/schedule-patterns", schedulePatternRoutes);
 app.use("/api/admin/teaching-roles", teachingRolesRoutes);
 app.use("/api/admin/users", usersRoutes);
+app.use("/api/staff", staffRoutes);
 app.use("/api/studio", studioRoutes);
 
 // Example route

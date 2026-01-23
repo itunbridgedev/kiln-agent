@@ -1,6 +1,6 @@
-import { RRule, RRuleSet, rrulestr } from 'rrule';
-import { addHours, parseISO, format } from 'date-fns';
-import prisma from '../prisma';
+import { addHours, format } from "date-fns";
+import { rrulestr } from "rrule";
+import prisma from "../prisma";
 
 export interface SchedulePatternInput {
   classId: number;
@@ -42,21 +42,24 @@ export function generateSessionDates(
     const dates = rule.all();
     return dates;
   } catch (error) {
-    console.error('Error parsing RRULE:', error);
-    throw new Error('Invalid recurrence rule format');
+    console.error("Error parsing RRULE:", error);
+    throw new Error("Invalid recurrence rule format");
   }
 }
 
 /**
  * Calculate end time from start time and duration
  */
-export function calculateEndTime(startTime: string, durationHours: number): string {
-  const [hours, minutes] = startTime.split(':').map(Number);
+export function calculateEndTime(
+  startTime: string,
+  durationHours: number
+): string {
+  const [hours, minutes] = startTime.split(":").map(Number);
   const startDate = new Date();
   startDate.setHours(hours, minutes, 0, 0);
-  
+
   const endDate = addHours(startDate, durationHours);
-  return format(endDate, 'HH:mm');
+  return format(endDate, "HH:mm");
 }
 
 /**
@@ -71,9 +74,17 @@ export function previewSessions(
 ): SessionPreview[] {
   const dates = generateSessionDates(recurrenceRule, startDate, endDate);
   const endTime = calculateEndTime(startTime, durationHours);
-  
-  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  
+
+  const dayNames = [
+    "Sunday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+  ];
+
   return dates.map((date, index) => ({
     sessionNumber: index + 1,
     sessionDate: date,
@@ -89,7 +100,7 @@ export function previewSessions(
 export async function createSchedulePattern(data: SchedulePatternInput) {
   // Validate the RRULE by trying to parse it
   generateSessionDates(data.recurrenceRule, data.startDate, data.endDate);
-  
+
   const pattern = await prisma.classSchedulePattern.create({
     data: {
       studioId: data.studioId,
@@ -136,11 +147,11 @@ export async function generateSessionsFromPattern(patternId: number) {
   });
 
   if (!pattern) {
-    throw new Error('Schedule pattern not found');
+    throw new Error("Schedule pattern not found");
   }
 
   if (!pattern.isActive) {
-    throw new Error('Cannot generate sessions from inactive pattern');
+    throw new Error("Cannot generate sessions from inactive pattern");
   }
 
   // Generate session dates from pattern
@@ -150,7 +161,10 @@ export async function generateSessionsFromPattern(patternId: number) {
     pattern.endDate || undefined
   );
 
-  const endTime = calculateEndTime(pattern.startTime, Number(pattern.durationHours));
+  const endTime = calculateEndTime(
+    pattern.startTime,
+    Number(pattern.durationHours)
+  );
 
   // Create sessions in batch
   const sessions = await prisma.$transaction(
@@ -167,7 +181,7 @@ export async function generateSessionsFromPattern(patternId: number) {
           endTime,
           maxStudents: pattern.maxStudents,
           location: pattern.location,
-          status: 'scheduled',
+          status: "scheduled",
         },
       })
     )
@@ -252,7 +266,7 @@ export async function updateSingleSession(
 export async function cancelSession(sessionId: number, notes?: string) {
   return updateSingleSession(sessionId, {
     isCancelled: true,
-    notes: notes || 'Session cancelled',
+    notes: notes || "Session cancelled",
   });
 }
 
@@ -260,7 +274,7 @@ export async function cancelSession(sessionId: number, notes?: string) {
  * Build RRULE string from pattern components
  */
 export interface RRuleComponents {
-  freq: 'DAILY' | 'WEEKLY' | 'MONTHLY';
+  freq: "DAILY" | "WEEKLY" | "MONTHLY";
   interval?: number; // Default 1
   count?: number; // Total occurrences
   until?: Date; // End date
@@ -270,30 +284,30 @@ export interface RRuleComponents {
 
 export function buildRRule(components: RRuleComponents): string {
   let rrule = `FREQ=${components.freq}`;
-  
+
   if (components.interval && components.interval > 1) {
     rrule += `;INTERVAL=${components.interval}`;
   }
-  
+
   if (components.count) {
     rrule += `;COUNT=${components.count}`;
   }
-  
+
   if (components.until) {
     const untilStr = format(components.until, "yyyyMMdd'T'HHmmss'Z'");
     rrule += `;UNTIL=${untilStr}`;
   }
-  
+
   if (components.byweekday && components.byweekday.length > 0) {
-    const days = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'];
-    const byDay = components.byweekday.map(d => days[d]).join(',');
+    const days = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"];
+    const byDay = components.byweekday.map((d) => days[d]).join(",");
     rrule += `;BYDAY=${byDay}`;
   }
-  
+
   if (components.bymonthday) {
     rrule += `;BYMONTHDAY=${components.bymonthday}`;
   }
-  
+
   return rrule;
 }
 
@@ -302,14 +316,14 @@ export function buildRRule(components: RRuleComponents): string {
  */
 export const PATTERN_PRESETS = {
   weeklyOnce: (dayOfWeek: number, count: number) =>
-    buildRRule({ freq: 'WEEKLY', byweekday: [dayOfWeek], count }),
-  
+    buildRRule({ freq: "WEEKLY", byweekday: [dayOfWeek], count }),
+
   weeklyTwice: (days: [number, number], count: number) =>
-    buildRRule({ freq: 'WEEKLY', byweekday: days, count }),
-  
+    buildRRule({ freq: "WEEKLY", byweekday: days, count }),
+
   biWeekly: (dayOfWeek: number, count: number) =>
-    buildRRule({ freq: 'WEEKLY', interval: 2, byweekday: [dayOfWeek], count }),
-  
+    buildRRule({ freq: "WEEKLY", interval: 2, byweekday: [dayOfWeek], count }),
+
   monthly: (dayOfMonth: number, count: number) =>
-    buildRRule({ freq: 'MONTHLY', bymonthday: dayOfMonth, count }),
+    buildRRule({ freq: "MONTHLY", bymonthday: dayOfMonth, count }),
 };
