@@ -5,6 +5,7 @@ Apple Sign In (OAuth) has been fully implemented in the Pottery Studio App. This
 ## Overview
 
 Apple Sign In setup is more complex than Google OAuth and requires:
+
 - An Apple Developer account ($99/year)
 - A Service ID for each environment
 - Proper domain verification
@@ -13,6 +14,7 @@ Apple Sign In setup is more complex than Google OAuth and requires:
 We use **separate Apple Service IDs** for each environment to maintain proper isolation.
 
 Unlike Google OAuth which uses OAuth 2.0 with traditional secrets, Apple requires JWT-based authentication with:
+
 - Service ID (Client ID)
 - Team ID
 - Key ID
@@ -43,17 +45,20 @@ Unlike Google OAuth which uses OAuth 2.0 with traditional secrets, Apple require
 ### Local Development Options
 
 **Option 1: Test on Production (Recommended)**
+
 - Configure only production domain in Apple Services ID
 - Deploy and test on your live server with HTTPS
 - Most reliable approach
 
 **Option 2: Use localhost**
+
 - Domain field: Leave empty or use production domain
 - Return URL: `http://localhost:4000/api/auth/apple/callback`
 - Access app at `http://localhost:3000`
 - Limited testing, but works for basic flow
 
 **Option 3: Set up Local HTTPS (Advanced)**
+
 1. Use [mkcert](https://github.com/FiloSottile/mkcert) to create local SSL certificates
 2. Configure development server to use HTTPS
 3. Add `https://kilnagentdev.com:4000/api/auth/apple/callback` to Apple
@@ -91,18 +96,22 @@ Repeat these steps **for each environment**:
 4. Configure the Service ID:
 
 #### For DEV:
+
 - **Description**: Pottery Studio - DEV
 - **Identifier**: `com.kilnagent.pottery-studio.dev`
 
 #### For STAGING:
+
 - **Description**: Pottery Studio - STAGING
 - **Identifier**: `com.kilnagent.pottery-studio.staging`
 
 #### For PROD:
+
 - **Description**: Pottery Studio - PROD
 - **Identifier**: `com.kilnagent.pottery-studio.prod`
 
 #### For Local Development (Optional):
+
 - **Description**: Pottery Studio - Local
 - **Identifier**: `com.kilnagent.pottery-studio.local`
 
@@ -117,6 +126,7 @@ For each Service ID:
 2. **Domains and Subdomains**: Add your environment's domain
 
 **Important for Domains Field:**
+
 - ❌ Do NOT add `localhost` - Apple web authentication rejects it
 - ❌ Do NOT include ports (e.g., `:4000`)
 - ❌ Do NOT include `www` subdomain
@@ -124,21 +134,25 @@ For each Service ID:
 - ✅ For production, use root domain only (e.g., `kilnagent.com`)
 
 **For Local Development:**
+
 ```
 (Leave empty - Apple will allow localhost callback URLs without domain verification)
 ```
 
 **For DEV:**
+
 ```
 kilnagent-dev.com
 ```
 
 **For STAGING:**
+
 ```
 kilnagent-stage.com
 ```
 
 **For PROD:**
+
 ```
 kilnagent.com
 ```
@@ -146,21 +160,25 @@ kilnagent.com
 3. **Return URLs**: Add the callback URL for this environment
 
 **For Local Development:**
+
 ```
 http://localhost:4000/api/auth/apple/callback
 ```
 
 **For DEV:**
+
 ```
 https://api.kilnagent-dev.com/api/auth/apple/callback
 ```
 
 **For STAGING:**
+
 ```
 https://api.kilnagent-stage.com/api/auth/apple/callback
 ```
 
 **For PROD:**
+
 ```
 https://api.kilnagent.com/api/auth/apple/callback
 ```
@@ -168,6 +186,7 @@ https://api.kilnagent.com/api/auth/apple/callback
 4. Click **Next**, **Done**, **Continue**, and **Register**
 
 **Important Notes on Return URLs:**
+
 - Apple may show validation warnings when you click Save/Done - this is normal
 - Click through the warnings if testing with localhost
 - For production domains, ensure HTTPS is configured before adding
@@ -184,6 +203,7 @@ Apple requires you to verify that you own each domain.
 ### Upload Verification File
 
 The verification file must be accessible at:
+
 ```
 https://[your-domain]/.well-known/apple-developer-domain-association.txt
 ```
@@ -191,16 +211,19 @@ https://[your-domain]/.well-known/apple-developer-domain-association.txt
 For our setup, we need to add this file to the web app:
 
 1. Create the directory structure in your web app:
+
 ```bash
 mkdir -p web/public/.well-known
 ```
 
 2. Copy the verification file:
+
 ```bash
 cp apple-developer-domain-association.txt web/public/.well-known/
 ```
 
 3. Commit and push the changes:
+
 ```bash
 git add web/public/.well-known/apple-developer-domain-association.txt
 git commit -m "Add Apple domain verification file"
@@ -256,6 +279,7 @@ You need **one private key** that will be used across all environments.
 ### Note Your Key Details
 
 After creating the key, note:
+
 - **Key ID**: A 10-character string (e.g., `ABCDEFGH12`)
 - **Team ID**: Found at the top right of the Apple Developer Console (or in Membership section)
 
@@ -285,6 +309,7 @@ SESSION_SECRET=your-session-secret
 **Important Notes on Private Key Format:**
 
 **Option 1: Multi-line (Using quotes)**
+
 ```bash
 APPLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----
 MIGTAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBHkwdwIBAQQg...
@@ -292,17 +317,20 @@ MIGTAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBHkwdwIBAQQg...
 ```
 
 **Option 2: Single Line (Using \n)**
+
 ```bash
 APPLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIGTAgEA...\n-----END PRIVATE KEY-----"
 ```
 
 To convert .p8 to single line:
+
 ```bash
 # On macOS/Linux
 awk 'NF {sub(/\r/, ""); printf "%s\\n",$0;}' AuthKey_ABC123DEF4.p8
 ```
 
 After updating environment variables, restart your Docker containers:
+
 ```bash
 docker compose down
 docker compose up --build -d
@@ -364,7 +392,8 @@ heroku config:set \
 In your Passport Apple strategy configuration, convert the `|` back to newlines:
 
 ```typescript
-const applePrivateKey = process.env.APPLE_PRIVATE_KEY?.replace(/\|/g, '\n') || '';
+const applePrivateKey =
+  process.env.APPLE_PRIVATE_KEY?.replace(/\|/g, "\n") || "";
 ```
 
 ## Testing Apple Sign In
@@ -390,6 +419,7 @@ npm run studio
 ```
 
 Check:
+
 - **Customer** table has new user
 - **Account** table has provider = "apple"
 - User's email and name (if shared) are stored
@@ -406,18 +436,21 @@ Check:
 ### Apple Sign In Behavior
 
 **First-Time Sign In:**
+
 - User sees Apple login screen
 - Can choose to hide email (Apple provides relay email)
 - Name is shared only on first sign-in
 - App receives: email, name (if shared), Apple ID
 
 **Subsequent Sign Ins:**
+
 - User sees consent screen again
 - Name is **not** provided (already shared on first login)
 - Only email and Apple ID returned
 
 **Email Privacy:**
 If user chooses "Hide My Email":
+
 - Apple provides a relay email: `abc123@privaterelay.appleid.com`
 - Emails sent to this address forward to user's real email
 - This relay email is unique per app
@@ -445,12 +478,14 @@ heroku config:get APPLE_CALLBACK_URL --app kilnagent-api
 ### "invalid_client" Error
 
 This usually means:
+
 - The Service ID (Client ID) is incorrect
 - The Team ID is incorrect
 - The Key ID is incorrect
 - The private key is malformed
 
 **Solution:**
+
 1. Double-check all credentials in Apple Developer Console
 2. Verify the private key format (ensure newlines are properly converted)
 3. Ensure the Service ID matches the environment
@@ -461,6 +496,7 @@ This usually means:
 This means Apple cannot access your verification file:
 
 **Solution:**
+
 1. Verify the file is accessible via curl
 2. Check that the file is at exactly `/.well-known/apple-developer-domain-association.txt`
 3. Ensure HTTPS is working correctly
@@ -472,12 +508,14 @@ This means Apple cannot access your verification file:
 This means the callback URL doesn't match what's configured:
 
 **Solution:**
+
 1. Check the callback URL in Apple Developer Console
 2. Verify the `APPLE_CALLBACK_URL` environment variable
 3. Ensure the URL matches exactly (including https://)
 4. Check that you're using the correct Service ID for the environment
 
 **Common Issues with localhost:**
+
 - ❌ Domain: `localhost` in Domains field → Apple rejects this
 - ❌ Domain: `localhost:4000` → Never include ports
 - ✅ Domain: (empty) → Works for localhost testing
@@ -489,6 +527,7 @@ This means the callback URL doesn't match what's configured:
 Apple allows users to hide their email. Your app needs to handle this:
 
 **Solution:**
+
 1. Apple provides a relay email (e.g., `abc123@privaterelay.appleid.com`)
 2. Store this relay email as the user's email
 3. You can send emails to this relay address, and Apple will forward them to the user
@@ -499,6 +538,7 @@ Apple allows users to hide their email. Your app needs to handle this:
 If you're getting JWT signing errors:
 
 **Solution:**
+
 1. Verify the private key is the complete key including BEGIN/END markers
 2. Check that newlines are properly handled (converted from `|` back to `\n`)
 3. Ensure there are no extra spaces or characters
@@ -670,7 +710,6 @@ The integration works alongside Google OAuth and email/password authentication, 
 - [CI/CD Documentation](../development/CI_CD.md)
 - [Multi-Tenancy Summary](../architecture/MULTI_TENANCY_SUMMARY.md)
 - [Architecture Overview](../architecture/ARCHITECTURE.md)
-
 
 ## Additional Resources
 

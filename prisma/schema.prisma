@@ -140,6 +140,7 @@ model Class {
   updatedAt       DateTime        @updatedAt
   
   schedules       ClassSchedule[]
+  schedulePatterns ClassSchedulePattern[]
   steps           ClassStep[]     // For multi-step classes
   sessions        ClassSession[]  // Direct sessions for series classes
   
@@ -165,6 +166,7 @@ model ClassStep {
   updatedAt       DateTime        @updatedAt
   
   schedules       ClassSchedule[]
+  schedulePatterns ClassSchedulePattern[]
   sessions        ClassSession[]
   enrollments     ClassStepEnrollment[]
   
@@ -199,29 +201,77 @@ model ClassSchedule {
   @@index([startDate])
 }
 
-model ClassSession {
+// Recurring schedule patterns using RRULE standard
+model ClassSchedulePattern {
   id              Int             @id @default(autoincrement())
   studioId        Int
-  scheduleId      Int?            // Null for series classes without pre-defined schedules
-  schedule        ClassSchedule?  @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
-  classId         Int             // Direct link to class for series tracking
+  classId         Int
   class           Class           @relation(fields: [classId], references: [id], onDelete: Cascade)
   classStepId     Int?            // For multi-step classes
   classStep       ClassStep?      @relation(fields: [classStepId], references: [id], onDelete: Cascade)
-  sessionNumber   Int?            // Week 1, Week 2, etc. (null for series classes)
-  sessionDate     DateTime        // Specific date for this session
+  
+  // Pattern definition using RRULE (RFC 5545 iCalendar format)
+  recurrenceRule  String          // RRULE format: "FREQ=WEEKLY;BYDAY=TU;COUNT=8"
+  startDate       DateTime        // Pattern starts on this date
+  endDate         DateTime?       // Pattern ends on this date (or COUNT in RRULE)
+  
+  // Time slots
   startTime       String          // Format: "HH:MM" (24-hour)
-  endTime         String          // Format: "HH:MM" (24-hour)
-  topic           String?         // Optional topic for the session
-  notes           String?         // Instructor notes
-  status          String          @default("scheduled") // "scheduled", "in-progress", "completed", "cancelled"
+  durationHours   Decimal         @db.Decimal(4, 2) // Duration in hours (e.g., 2.5)
+  
+  // Capacity
+  maxStudents     Int             // Default max students per session
+  location        String?         // Default location for sessions
+  
+  // Status
+  isActive        Boolean         @default(true)
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
   
-  attendances     ClassAttendance[]
+  sessions        ClassSession[]
+  
+  @@index([studioId])
+  @@index([classId])
+  @@index([classStepId])
+  @@index([startDate])
+}
+
+model ClassSession {
+  id                  Int             @id @default(autoincrement())
+  studioId            Int
+  scheduleId          Int?            // Null for series classes without pre-defined schedules
+  schedule            ClassSchedule?  @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  schedulePatternId   Int?            // Link to pattern (null for one-off sessions)
+  schedulePattern     ClassSchedulePattern? @relation(fields: [schedulePatternId], references: [id], onDelete: SetNull)
+  classId             Int             // Direct link to class for series tracking
+  class               Class           @relation(fields: [classId], references: [id], onDelete: Cascade)
+  classStepId         Int?            // For multi-step classes
+  classStep           ClassStep?      @relation(fields: [classStepId], references: [id], onDelete: Cascade)
+  sessionNumber       Int?            // Week 1, Week 2, etc. (null for series classes)
+  sessionDate         DateTime        // Specific date for this session
+  startTime           String          // Format: "HH:MM" (24-hour)
+  endTime             String          // Format: "HH:MM" (24-hour)
+  maxStudents         Int?            // Override pattern default if needed
+  currentEnrollment   Int             @default(0)
+  location            String?         // Override pattern default if needed
+  topic               String?         // Optional topic for the session
+  notes               String?         // Instructor notes
+  isCancelled         Boolean         @default(false)
+  status              String          @default("scheduled") // "scheduled", "in-progress", "completed", "cancelled"
+  
+  // Calendar sync metadata
+  externalEventId     String?         // Google/Outlook event ID
+  calendarSyncStatus  String?         // 'synced', 'pending', 'error'
+  lastSyncedAt        DateTime?
+  
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  
+  attendances         ClassAttendance[]
   
   @@index([studioId])
   @@index([scheduleId])
+  @@index([schedulePatternId])
   @@index([classId])
   @@index([classStepId])
   @@index([sessionDate])

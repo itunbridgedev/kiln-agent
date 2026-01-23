@@ -303,16 +303,16 @@ model StaffCalendarConnection {
   user                User     @relation(fields: [userId])
   studioId            Int
   studio              Studio   @relation(fields: [studioId])
-  
+
   provider            String   // 'ical' (future: 'google', 'microsoft')
   isActive            Boolean  @default(true)
-  
+
   // iCal subscription
   subscriptionToken   String?  @unique
-  
+
   createdAt           DateTime @default(now())
   lastAccessedAt      DateTime?
-  
+
   @@unique([userId, studioId, provider])
 }
 ```
@@ -393,11 +393,11 @@ model SessionStaffAssignment {
   session         ClassSession @relation(fields: [sessionId])
   userId          Int
   user            User     @relation(fields: [userId])
-  
+
   assignedAt      DateTime @default(now())
   assignedBy      Int      // Admin/Manager user ID
   assignedByUser  User     @relation("AssignmentCreator", fields: [assignedBy])
-  
+
   studioId        Int
   studio          Studio   @relation(fields: [studioId])
 
@@ -419,10 +419,10 @@ model StaffScheduleException {
 
   studioId    Int
   studio      Studio   @relation(fields: [studioId])
-  
+
   createdAt   DateTime @default(now())
   createdBy   Int
-  
+
   @@index([userId, date])
 }
 ```
@@ -551,23 +551,23 @@ model StaffCalendarConnection {
   user                User     @relation(fields: [userId])
   studioId            Int
   studio              Studio   @relation(fields: [studioId])
-  
+
   provider            String   // 'ical', 'google', 'microsoft'
   isActive            Boolean  @default(true)
   syncDirection       String   // 'push', 'pull', 'both'
-  
+
   // OAuth tokens (encrypted)
   accessToken         String?
   refreshToken        String?
   expiresAt           DateTime?
-  
+
   // iCal subscription
   subscriptionToken   String?  @unique
-  
+
   createdAt           DateTime @default(now())
   lastSyncedAt        DateTime?
   syncErrors          String?  // JSON array of recent errors
-  
+
   @@unique([userId, studioId, provider])
 }
 
@@ -577,7 +577,7 @@ model CalendarSyncLog {
   connection      StaffCalendarConnection @relation(fields: [connectionId])
   sessionId       Int?
   session         ClassSession? @relation(fields: [sessionId])
-  
+
   action          String   // 'create', 'update', 'delete'
   status          String   // 'success', 'error'
   errorMessage    String?
@@ -606,6 +606,7 @@ npm install @microsoft/microsoft-graph-client @azure/msal-node  # MS Graph
 ### Estimated Effort: 3-4 weeks
 
 **Decision Point:** Only implement if:
+
 - Staff report high usage of Phase 3B calendar features
 - Manual iCal subscription feeds prove insufficient
 - Budget allows for FullCalendar Premium license

@@ -11,6 +11,7 @@ This document outlines the vision for a rich calendar and scheduling system for 
 **User Story:** As a staff member, I want to see my personal schedule in a familiar calendar interface so I can manage my teaching commitments.
 
 **Features:**
+
 - Outlook-style week/month/day views
 - Color-coded sessions by class type or teaching role
 - Click-through to class details
@@ -26,6 +27,7 @@ This document outlines the vision for a rich calendar and scheduling system for 
 **User Story:** As an admin, I want to see all scheduled classes across the studio so I can manage capacity and avoid conflicts.
 
 **Features:**
+
 - Multi-resource calendar view (shows all staff schedules simultaneously)
 - Filter by:
   - Teaching role
@@ -42,12 +44,14 @@ This document outlines the vision for a rich calendar and scheduling system for 
 **User Story:** As a staff member, I want my teaching schedule to sync with my personal calendar so I don't have to maintain two calendars.
 
 **Supported Platforms:**
+
 - Google Calendar (via Google Calendar API)
 - Microsoft Outlook/Office 365 (via Microsoft Graph API)
 - iOS Calendar (via CalDAV or subscription feeds)
 - Generic iCal/ICS subscription feeds (universal compatibility)
 
 **Sync Types:**
+
 - **One-way sync (Push):** Studio schedule → Personal calendar (recommended to start)
 - **Two-way sync (Advanced):** Availability blocking in personal calendar affects studio availability
 
@@ -56,6 +60,7 @@ This document outlines the vision for a rich calendar and scheduling system for 
 **User Story:** As an admin, I want to create a class that meets every Tuesday for 8 weeks and make changes that apply to all future sessions.
 
 **Features:**
+
 - Create recurring patterns with RRULE standard
 - Modify pattern:
   - "This session only" - one-off override
@@ -71,6 +76,7 @@ This document outlines the vision for a rich calendar and scheduling system for 
 Instead of building from scratch, leverage proven calendar libraries:
 
 #### Option 1: FullCalendar (Recommended)
+
 - **Website:** https://fullcalendar.io/
 - **License:** MIT (free) + Premium plugins (paid)
 - **React Integration:** `@fullcalendar/react`
@@ -86,6 +92,7 @@ Instead of building from scratch, leverage proven calendar libraries:
 - **Best For:** Studio-wide admin calendar
 
 **Free Features:**
+
 - Month, week, day, list views
 - Event rendering and styling
 - Click/hover interactions
@@ -93,12 +100,14 @@ Instead of building from scratch, leverage proven calendar libraries:
 - Recurring events
 
 **Premium Features ($450/dev):**
+
 - Resource timeline view (perfect for staff scheduling)
 - Vertical resource view
 - Resource grouping
 - Drag-to-create events
 
 #### Option 2: React Big Calendar
+
 - **GitHub:** https://github.com/jquense/react-big-calendar
 - **License:** MIT (fully free)
 - **Pros:**
@@ -113,6 +122,7 @@ Instead of building from scratch, leverage proven calendar libraries:
 - **Best For:** Staff individual calendars
 
 #### Option 3: TUI Calendar
+
 - **Website:** https://ui.toast.com/tui-calendar
 - **License:** MIT (free)
 - **Pros:**
@@ -129,11 +139,13 @@ Instead of building from scratch, leverage proven calendar libraries:
 #### 1. Google Calendar API
 
 **Implementation:**
+
 - Use Google Calendar API v3
 - OAuth 2.0 for user authorization
 - Create calendar events via API
 
 **Features We Can Support:**
+
 - Create/update/delete events
 - Set reminders
 - Add descriptions with links back to studio app
@@ -141,36 +153,38 @@ Instead of building from scratch, leverage proven calendar libraries:
 - Send email notifications via Google
 
 **npm packages:**
+
 ```bash
 npm install googleapis @google-cloud/local-auth
 ```
 
 **Basic Flow:**
+
 ```typescript
-import { google } from 'googleapis';
+import { google } from "googleapis";
 
 // After OAuth, create event
-const calendar = google.calendar({ version: 'v3', auth });
+const calendar = google.calendar({ version: "v3", auth });
 
 await calendar.events.insert({
-  calendarId: 'primary',
+  calendarId: "primary",
   requestBody: {
-    summary: 'Pottery Class - Wheel Throwing 101',
-    description: 'View details: https://kilnagent.com/classes/123',
+    summary: "Pottery Class - Wheel Throwing 101",
+    description: "View details: https://kilnagent.com/classes/123",
     start: {
-      dateTime: '2026-01-25T10:00:00-07:00',
-      timeZone: 'America/Denver',
+      dateTime: "2026-01-25T10:00:00-07:00",
+      timeZone: "America/Denver",
     },
     end: {
-      dateTime: '2026-01-25T12:00:00-07:00',
-      timeZone: 'America/Denver',
+      dateTime: "2026-01-25T12:00:00-07:00",
+      timeZone: "America/Denver",
     },
-    colorId: '10', // Green for teaching
+    colorId: "10", // Green for teaching
     reminders: {
       useDefault: false,
       overrides: [
-        { method: 'email', minutes: 24 * 60 }, // 1 day before
-        { method: 'popup', minutes: 30 },
+        { method: "email", minutes: 24 * 60 }, // 1 day before
+        { method: "popup", minutes: 30 },
       ],
     },
   },
@@ -184,11 +198,13 @@ await calendar.events.insert({
 #### 2. Microsoft Graph API (Outlook/Office 365)
 
 **Implementation:**
+
 - Use Microsoft Graph API
 - OAuth 2.0 with Microsoft identity platform
 - Create events in user's Outlook calendar
 
 **Features We Can Support:**
+
 - Create/update/delete calendar events
 - Set reminders and categories
 - Handle recurring events
@@ -196,34 +212,37 @@ await calendar.events.insert({
 - Access availability (for two-way sync)
 
 **npm packages:**
+
 ```bash
 npm install @microsoft/microsoft-graph-client @azure/msal-node
 ```
 
 **Basic Flow:**
+
 ```typescript
-import { Client } from '@microsoft/microsoft-graph-client';
+import { Client } from "@microsoft/microsoft-graph-client";
 
 const event = {
-  subject: 'Pottery Class - Wheel Throwing 101',
+  subject: "Pottery Class - Wheel Throwing 101",
   body: {
-    contentType: 'HTML',
-    content: '<a href="https://kilnagent.com/classes/123">View class details</a>',
+    contentType: "HTML",
+    content:
+      '<a href="https://kilnagent.com/classes/123">View class details</a>',
   },
   start: {
-    dateTime: '2026-01-25T10:00:00',
-    timeZone: 'Mountain Standard Time',
+    dateTime: "2026-01-25T10:00:00",
+    timeZone: "Mountain Standard Time",
   },
   end: {
-    dateTime: '2026-01-25T12:00:00',
-    timeZone: 'Mountain Standard Time',
+    dateTime: "2026-01-25T12:00:00",
+    timeZone: "Mountain Standard Time",
   },
-  categories: ['Pottery Studio', 'Teaching'],
+  categories: ["Pottery Studio", "Teaching"],
   isReminderOn: true,
   reminderMinutesBeforeStart: 30,
 };
 
-await client.api('/me/events').post(event);
+await client.api("/me/events").post(event);
 ```
 
 **Cost:** Free for users with Microsoft 365/Outlook.com accounts
@@ -233,37 +252,41 @@ await client.api('/me/events').post(event);
 #### 3. iCal/ICS Feeds (iOS Calendar & Universal)
 
 **Implementation:**
+
 - Generate ICS (iCalendar) files
 - Provide webcal:// subscription URLs
 - Works with iOS Calendar, Google Calendar, Outlook, and most calendar apps
 
 **Approach: Calendar Subscription (Read-Only)**
+
 - User subscribes to their personal feed URL
 - Calendar auto-updates when schedule changes
 - No OAuth required, just unique token per user
 
 **npm packages:**
+
 ```bash
 npm install ical-generator
 ```
 
 **Basic Flow:**
+
 ```typescript
-import ical from 'ical-generator';
+import ical from "ical-generator";
 
 // Generate calendar feed
-const calendar = ical({ name: 'My Pottery Studio Schedule' });
+const calendar = ical({ name: "My Pottery Studio Schedule" });
 
-staffSessions.forEach(session => {
+staffSessions.forEach((session) => {
   calendar.createEvent({
     start: session.startDateTime,
     end: session.endDateTime,
     summary: `${session.class.name} - ${session.class.teachingRole.name}`,
     description: `View details: https://kilnagent.com/classes/${session.classId}`,
-    location: session.location || 'Main Studio',
+    location: session.location || "Main Studio",
     url: `https://kilnagent.com/classes/${session.classId}`,
     categories: [session.class.category.name],
-    status: session.isCancelled ? 'cancelled' : 'confirmed',
+    status: session.isCancelled ? "cancelled" : "confirmed",
   });
 });
 
@@ -272,16 +295,19 @@ return calendar.toString();
 ```
 
 **iOS Setup:**
+
 1. Settings → Calendar → Accounts → Add Account → Other → Add Subscribed Calendar
 2. Enter URL: `webcal://kilnagent.com/api/calendar/feed/user123/token456`
 
 **Pros:**
+
 - Universal compatibility (works everywhere)
 - No OAuth complexity
 - Auto-updates
 - Easy setup for users
 
 **Cons:**
+
 - Read-only (can't create events from iOS Calendar)
 - Requires polling/updates to see changes
 
@@ -290,6 +316,7 @@ return calendar.toString();
 ### Recommended Architecture
 
 #### Phase 1: Foundation (MVP)
+
 **Timeline: 2-3 weeks**
 
 1. **Database Schema**
@@ -312,6 +339,7 @@ return calendar.toString();
 **Deliverable:** Staff can view their schedule and subscribe to updates in any calendar app.
 
 #### Phase 2: Admin Studio Calendar
+
 **Timeline: 2-3 weeks**
 
 1. **Studio-Wide View**
@@ -334,6 +362,7 @@ return calendar.toString();
 **Deliverable:** Admin has powerful scheduling tool with visual overview.
 
 #### Phase 3: Active Calendar Sync (Advanced)
+
 **Timeline: 3-4 weeks**
 
 1. **Google Calendar Integration**
@@ -455,6 +484,7 @@ model CalendarSyncLog {
 ## Cost Analysis
 
 ### Option A: Free/Low-Cost (MVP)
+
 - React Big Calendar: Free
 - iCal feeds: Free
 - Google/Microsoft APIs: Free (within quotas)
@@ -462,12 +492,14 @@ model CalendarSyncLog {
 - **Limitation:** Basic calendar UI, subscription feeds only
 
 ### Option B: Premium Features
+
 - FullCalendar Premium: $450/developer (one-time)
 - Google/Microsoft APIs: Free
 - **Total: $450 one-time**
 - **Benefits:** Professional resource timeline, drag-drop, better UX
 
 ### Option C: Third-Party Scheduling Service
+
 - Calendly: $16-$67/user/month
 - Acuity Scheduling: $20-$61/month
 - **Total: $500-2000/month for 25 staff**
@@ -479,6 +511,7 @@ model CalendarSyncLog {
 ## Alternative: Embedded Solutions
 
 ### Option: Nylas Calendar API
+
 - **Website:** https://www.nylas.com/
 - **What it does:** Unified API for Google, Microsoft, Apple calendars
 - **Pricing:** $9/user/month
@@ -543,21 +576,25 @@ model CalendarSyncLog {
 ## Phased Rollout Plan
 
 ### Month 1: MVP
+
 - Staff individual calendar (read-only)
 - iCal subscription feeds
 - Basic admin calendar view
 
 ### Month 2: Enhancement
+
 - Admin drag-drop scheduling
 - Conflict detection
 - Google Calendar OAuth integration
 
 ### Month 3: Advanced
+
 - Microsoft Outlook integration
 - Two-way availability sync
 - Mobile optimization
 
 ### Month 4: Polish
+
 - Advanced filtering and search
 - Calendar analytics
 - Performance optimization
@@ -593,6 +630,7 @@ model CalendarSyncLog {
 This approach delivers value quickly while maintaining flexibility to enhance based on real usage patterns. The calendar integration will be a major differentiator and productivity boost for your studio management app.
 
 **Key Decision Point:** You don't need to "reinvent Outlook" - you need to provide the 20% of features that solve 80% of scheduling problems:
+
 - See your schedule
 - Sync to personal calendar
 - Reschedule easily
