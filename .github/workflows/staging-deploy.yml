@@ -38,12 +38,11 @@ jobs:
           fetch-depth: 0
       
       - name: Deploy to Heroku (API)
-        uses: akhileshns/heroku-deploy@v3.13.15
-        with:
-          heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
-          heroku_app_name: kilnagent-staging-api
-          heroku_email: ${{ secrets.HEROKU_EMAIL }}
-          branch: staging
+        env:
+          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+        run: |
+          git remote add heroku https://heroku:$HEROKU_API_KEY@git.heroku.com/kilnagent-staging-api.git || true
+          git push heroku staging:main --force
 
   deploy-web:
     needs: test
@@ -54,10 +53,8 @@ jobs:
           fetch-depth: 0
       
       - name: Deploy to Heroku (Web)
-        uses: akhileshns/heroku-deploy@v3.13.15
-        with:
-          heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
-          heroku_app_name: kilnagent-staging-web
-          heroku_email: ${{ secrets.HEROKU_EMAIL }}
-          branch: staging
-          appdir: web
+        env:
+          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+        run: |
+          git remote add heroku https://heroku:$HEROKU_API_KEY@git.heroku.com/kilnagent-staging-web.git || true
+          git subtree push --prefix web heroku staging:main || git push heroku `git subtree split --prefix web staging`:main --force

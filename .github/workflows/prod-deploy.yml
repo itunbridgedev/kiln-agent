@@ -67,12 +67,11 @@ jobs:
           fetch-depth: 0
       
       - name: Deploy to Heroku (API)
-        uses: akhileshns/heroku-deploy@v3.13.15
-        with:
-          heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
-          heroku_app_name: kilnagent-api
-          heroku_email: ${{ secrets.HEROKU_EMAIL }}
-          branch: main
+        env:
+          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+        run: |
+          git remote add heroku https://heroku:$HEROKU_API_KEY@git.heroku.com/kilnagent-api.git || true
+          git push heroku main --force
 
   deploy-web:
     needs: backup-database
@@ -83,13 +82,11 @@ jobs:
           fetch-depth: 0
       
       - name: Deploy to Heroku (Web)
-        uses: akhileshns/heroku-deploy@v3.13.15
-        with:
-          heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
-          heroku_app_name: kilnagent-web
-          heroku_email: ${{ secrets.HEROKU_EMAIL }}
-          branch: main
-          appdir: web
+        env:
+          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+        run: |
+          git remote add heroku https://heroku:$HEROKU_API_KEY@git.heroku.com/kilnagent-web.git || true
+          git subtree push --prefix web heroku main || git push heroku `git subtree split --prefix web main`:main --force
       
       - name: Deployment Summary
         run: |
