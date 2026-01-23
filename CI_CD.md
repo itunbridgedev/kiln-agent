@@ -5,7 +5,9 @@
 Your three-tier CI/CD pipeline is fully configured and operational!
 
 ## Overview
+
 This project uses GitHub Actions for automated deployments to three environments:
+
 - **DEV**: Automatic deployment on push to `develop` branch (resettable data)
 - **STAGING**: Automatic deployment on push to `staging` branch (stable demo data)
 - **PROD**: Manual approval required via GitHub Actions UI (protected customer data)
@@ -13,6 +15,7 @@ This project uses GitHub Actions for automated deployments to three environments
 ## Environments
 
 ### DEV Environment ✅
+
 - **API**: https://kilnagent-dev-api-5081cea892e1.herokuapp.com/
 - **Web**: https://kilnagent-dev-web-c7550aee2620.herokuapp.com/
 - **Purpose**: Testing new features with fresh seed data
@@ -22,6 +25,7 @@ This project uses GitHub Actions for automated deployments to three environments
 - **Status**: Deployed and operational
 
 ### STAGING Environment
+
 - **API**: https://kilnagent-staging-api-7fb238fcf409.herokuapp.com/
 - **Web**: https://kilnagent-staging-web-88c9deda5fce.herokuapp.com/
 - **Purpose**: Validate migrations and features before production
@@ -30,6 +34,7 @@ This project uses GitHub Actions for automated deployments to three environments
 - **Deploy**: Automatic on push
 
 ### PROD Environment
+
 - **API**: https://kilnagent-api-df5a6f66c40d.herokuapp.com/
 - **Web**: https://kilnagent-web-5f4c2bf2cab6.herokuapp.com/
 - **Purpose**: Live customer data
@@ -40,6 +45,7 @@ This project uses GitHub Actions for automated deployments to three environments
 ## Workflow
 
 ### Feature Development
+
 ```bash
 # Create feature branch from develop
 git checkout develop
@@ -58,6 +64,7 @@ git push origin feature/my-new-feature
 ```
 
 ### Staging Release
+
 ```bash
 # Merge develop into staging
 git checkout staging
@@ -70,6 +77,7 @@ git push origin staging
 ```
 
 ### Production Release
+
 ```bash
 # Merge staging into main
 git checkout main
@@ -86,6 +94,7 @@ git push origin main
 ## Database Management
 
 ### Seed Data
+
 ```bash
 # Seed DEV environment
 npm run db:seed:dev
@@ -98,6 +107,7 @@ npm run db:reset:dev
 ```
 
 ### Backups
+
 ```bash
 # Create manual backup of PROD
 npm run db:backup:prod
@@ -112,10 +122,12 @@ heroku pg:backups:restore --app kilnagent-api
 ## GitHub Secrets Required
 
 Add these secrets in GitHub repository settings:
+
 - `HEROKU_API_KEY`: Your Heroku API key
 - `HEROKU_EMAIL`: Your Heroku account email
 
 To get your Heroku API key:
+
 ```bash
 heroku auth:token
 ```
@@ -123,29 +135,57 @@ heroku auth:token
 ## Safety Features
 
 ### Production Protection
+
 - ✅ Manual approval required for PROD deployments
 - ✅ Automatic database backup before deployment
 - ✅ TypeScript compilation check before deployment
 - ✅ Separate staging environment for migration testing
 
 ### Data Safety
+
 - ✅ DEV database can be reset without affecting other environments
 - ✅ STAGING database never resets - stable for demos
 - ✅ PROD database automatically backed up before changes
 
 ## Troubleshooting
 
+### STAGING Environment Status
+
+**✅ FULLY OPERATIONAL**
+
+- API URL: https://kilnagent-staging-api-7fb238fcf409.herokuapp.com
+- Web URL: https://kilnagent-staging-web-c7550aee2620.herokuapp.com
+- Demo Subdomain: `demo`
+- Database: Seeded with demo data
+
+**Test Accounts:**
+- Admin: `admin@kilnagent.com` / `Admin123!`
+- Manager: `manager@kilnagent.com` / `Manager123!`
+- Staff: `staff@kilnagent.com` / `Staff123!`
+- Customer: `customer@kilnagent.com` / `Customer123!`
+
+**Seeded Data:**
+- 1 Studio (Kiln Agent Studio)
+- 4 Product Categories (Classes, Firings, Memberships, Retail)
+- 3 Sample Classes (Beginner Wheel Throwing, Advanced Handbuilding, Date Night Pottery)
+- 1 Teaching Role (Instructor) assigned to Staff user
+
+### Common Issues
+
 ### Deployment Failed
+
 1. Check GitHub Actions logs for errors
 2. Verify Heroku secrets are correct
 3. Ensure TypeScript compiles locally: `npm run build`
 
 ### Database Migration Issues
+
 1. Test migration in DEV first
 2. Validate in STAGING before PROD
 3. If PROD fails, restore from backup
 
 ### Rollback Deployment
+
 ```bash
 # Rollback to previous release
 heroku releases:rollback --app kilnagent-api
