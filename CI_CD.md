@@ -1,38 +1,39 @@
 # CI/CD Pipeline Configuration
 
-## ⚠️ Important: Domain Configuration Required
+## ✅ Production-Ready Setup Complete
 
-**Current State**: DEV and STAGING environments are using `.herokuapp.com` URLs, which causes session/cookie issues due to domain mismatch with the production subdomain-based architecture.
+Your three-tier CI/CD pipeline is fully configured with proper custom domains!
 
-**Recommended Solution**: Register dedicated domains that mirror production's structure:
+## Custom Domain Configuration
 
-- **DEV**: `kilnagent-dev.com` (or subdomain: `dev.kilnagent.com`)
-  - API: `api.kilnagent-dev.com`
-  - Web: `www.kilnagent-dev.com` or `demo.kilnagent-dev.com`
-- **STAGING**: `kilnagent-staging.com` (or subdomain: `staging.kilnagent.com`)
-  - API: `api.kilnagent-staging.com`
-  - Web: `www.kilnagent-staging.com` or `demo.kilnagent-staging.com`
+All environments use proper domain names that mirror production's subdomain architecture:
 
-**Benefits**:
+**DEV Environment**: `kilnagent-dev.com`
+- API: `api.kilnagent-dev.com`
+- Web: `www.kilnagent-dev.com`
+- Tenants: `*.kilnagent-dev.com` (wildcard for demo, studio1, etc.)
+- Cookie Domain: `.kilnagent-dev.com`
 
-- ✅ Session cookies work properly across API/Web apps (shared domain)
-- ✅ OAuth callbacks use real domains (easier provider setup)
-- ✅ Tenant middleware works identically to production
-- ✅ No special-case logic needed for staging/dev
-- ✅ More professional URLs for client demos
-- ✅ SSL/TLS certificates work properly
+**STAGING Environment**: `kilnagent-staging.com`
+- API: `api.kilnagent-staging.com`
+- Web: `www.kilnagent-staging.com`
+- Tenants: `*.kilnagent-staging.com` (wildcard for demo, studio1, etc.)
+- Cookie Domain: `.kilnagent-staging.com`
 
-**Setup Steps** (when ready):
+**PROD Environment**: `kilnagent.com`
+- API: `api.kilnagent.com`
+- Web: `www.kilnagent.com`
+- Tenants: `*.kilnagent.com` (wildcard for all studio subdomains)
+- Cookie Domain: `.kilnagent.com`
 
-1. Register domains or add DNS records to existing domain
-2. Add custom domains to Heroku apps: `heroku domains:add api.kilnagent-dev.com --app kilnagent-dev-api`
-3. Update DNS with Heroku's DNS target
-4. Update OAuth provider callback URLs
-5. Remove special-case logic from `src/middleware/tenantMiddleware.ts` and `src/index.ts`
+### Benefits of Custom Domains
 
-## ✅ Setup Complete (with temporary Heroku URL workarounds)
-
-Your three-tier CI/CD pipeline is fully configured and operational!
+✅ Session cookies work properly across API/Web apps (shared domain)
+✅ OAuth callbacks use real domains (professional setup)
+✅ Tenant middleware works identically across all environments
+✅ No special-case logic needed for staging/dev
+✅ Professional URLs for client demos
+✅ SSL/TLS certificates managed by Heroku ACM
 
 ## Overview
 
@@ -46,27 +47,30 @@ This project uses GitHub Actions for automated deployments to three environments
 
 ### DEV Environment ✅
 
-- **API**: https://kilnagent-dev-api-5081cea892e1.herokuapp.com/
-- **Web**: https://kilnagent-dev-web-c7550aee2620.herokuapp.com/
+- **API**: https://api.kilnagent-dev.com
+- **Web**: https://www.kilnagent-dev.com
+- **Demo**: https://demo.kilnagent-dev.com
 - **Purpose**: Testing new features with fresh seed data
 - **Database**: Can be reset anytime using `npm run db:reset:dev`
 - **Branch**: `develop`
 - **Deploy**: Automatic on push
 - **Status**: Deployed and operational
 
-### STAGING Environment
+### STAGING Environment ✅
 
-- **API**: https://kilnagent-staging-api-7fb238fcf409.herokuapp.com/
-- **Web**: https://kilnagent-staging-web-88c9deda5fce.herokuapp.com/
+- **API**: https://api.kilnagent-staging.com
+- **Web**: https://www.kilnagent-staging.com
+- **Demo**: https://demo.kilnagent-staging.com
 - **Purpose**: Validate migrations and features before production
 - **Database**: Never reset - stable demo data
 - **Branch**: `staging`
 - **Deploy**: Automatic on push
+- **Status**: Deployed and operational
 
 ### PROD Environment
 
-- **API**: https://kilnagent-api-df5a6f66c40d.herokuapp.com/
-- **Web**: https://kilnagent-web-5f4c2bf2cab6.herokuapp.com/
+- **API**: https://api.kilnagent.com
+- **Web**: https://www.kilnagent.com
 - **Purpose**: Live customer data
 - **Database**: Protected - automatic backup before deployment
 - **Branch**: `main`
