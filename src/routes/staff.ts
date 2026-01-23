@@ -124,7 +124,7 @@ router.get(
               }
             : null,
           userRole: {
-            type: (isInstructor ? "instructor" : "assistant") as const,
+            type: isInstructor ? ("instructor" as const) : ("assistant" as const),
             name: role?.name || (isInstructor ? "Instructor" : "Assistant"),
           },
           schedulePattern: session.schedulePattern
