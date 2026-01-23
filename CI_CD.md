@@ -1,6 +1,33 @@
 # CI/CD Pipeline Configuration
 
-## ✅ Setup Complete
+## ⚠️ Important: Domain Configuration Required
+
+**Current State**: DEV and STAGING environments are using `.herokuapp.com` URLs, which causes session/cookie issues due to domain mismatch with the production subdomain-based architecture.
+
+**Recommended Solution**: Register dedicated domains that mirror production's structure:
+- **DEV**: `kilnagent-dev.com` (or subdomain: `dev.kilnagent.com`)
+  - API: `api.kilnagent-dev.com` 
+  - Web: `www.kilnagent-dev.com` or `demo.kilnagent-dev.com`
+- **STAGING**: `kilnagent-staging.com` (or subdomain: `staging.kilnagent.com`)
+  - API: `api.kilnagent-staging.com`
+  - Web: `www.kilnagent-staging.com` or `demo.kilnagent-staging.com`
+
+**Benefits**:
+- ✅ Session cookies work properly across API/Web apps (shared domain)
+- ✅ OAuth callbacks use real domains (easier provider setup)
+- ✅ Tenant middleware works identically to production
+- ✅ No special-case logic needed for staging/dev
+- ✅ More professional URLs for client demos
+- ✅ SSL/TLS certificates work properly
+
+**Setup Steps** (when ready):
+1. Register domains or add DNS records to existing domain
+2. Add custom domains to Heroku apps: `heroku domains:add api.kilnagent-dev.com --app kilnagent-dev-api`
+3. Update DNS with Heroku's DNS target
+4. Update OAuth provider callback URLs
+5. Remove special-case logic from `src/middleware/tenantMiddleware.ts` and `src/index.ts`
+
+## ✅ Setup Complete (with temporary Heroku URL workarounds)
 
 Your three-tier CI/CD pipeline is fully configured and operational!
 
