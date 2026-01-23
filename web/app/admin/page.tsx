@@ -728,7 +728,7 @@ export default function AdminPage() {
                     selectedTeachingRoleFilters.length === 0
                       ? classes
                       : classes.filter(
-                          (cls) =>
+                          (cls: any) =>
                             cls.teachingRoleId &&
                             selectedTeachingRoleFilters.includes(
                               cls.teachingRoleId
