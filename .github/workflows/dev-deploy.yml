@@ -1,0 +1,63 @@
+name: Deploy to DEV
+
+on:
+  push:
+    branches:
+      - develop
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install API dependencies
+        run: npm ci
+      
+      - name: Install Web dependencies
+        run: cd web && npm ci
+      
+      - name: TypeScript Check - API
+        run: npm run build
+      
+      - name: TypeScript Check - Web
+        run: cd web && npm run build
+
+  deploy-api:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      
+      - name: Deploy to Heroku (API)
+        uses: akhileshns/heroku-deploy@v3.13.15
+        with:
+          heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
+          heroku_app_name: kilnagent-dev-api
+          heroku_email: ${{ secrets.HEROKU_EMAIL }}
+          branch: develop
+
+  deploy-web:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      
+      - name: Deploy to Heroku (Web)
+        uses: akhileshns/heroku-deploy@v3.13.15
+        with:
+          heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
+          heroku_app_name: kilnagent-dev-web
+          heroku_email: ${{ secrets.HEROKU_EMAIL }}
+          branch: develop
+          appdir: web

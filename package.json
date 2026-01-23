@@ -13,7 +13,11 @@
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",
     "format": "prettier --write \"src/**/*.{ts,js,json}\"",
-    "format:check": "prettier --check \"src/**/*.{ts,js,json}\""
+    "format:check": "prettier --check \"src/**/*.{ts,js,json}\"",
+    "db:seed:dev": "heroku run npx prisma db seed --app kilnagent-dev-api",
+    "db:seed:staging": "heroku run npx prisma db seed --app kilnagent-staging-api",
+    "db:reset:dev": "heroku pg:reset DATABASE --app kilnagent-dev-api --confirm kilnagent-dev-api && heroku run npx prisma migrate deploy --app kilnagent-dev-api && npm run db:seed:dev",
+    "db:backup:prod": "./scripts/backup-db.sh"
   },
   "keywords": [],
   "author": "",

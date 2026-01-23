@@ -1,0 +1,98 @@
+name: Deploy to PRODUCTION
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "DEPLOY TO PRODUCTION" to confirm'
+        required: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate confirmation
+        run: |
+          if [ "${{ github.event.inputs.confirm }}" != "DEPLOY TO PRODUCTION" ]; then
+            echo "::error::Deployment cancelled. Confirmation text does not match."
+            exit 1
+          fi
+
+  test:
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install API dependencies
+        run: npm ci
+      
+      - name: Install Web dependencies
+        run: cd web && npm ci
+      
+      - name: TypeScript Check - API
+        run: npm run build
+      
+      - name: TypeScript Check - Web
+        run: cd web && npm run build
+
+  backup-database:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Install Heroku CLI
+        run: curl https://cli-assets.heroku.com/install.sh | sh
+      
+      - name: Create database backup
+        env:
+          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+        run: |
+          heroku pg:backups:capture --app kilnagent-api
+          echo "✅ Database backup created successfully"
+
+  deploy-api:
+    needs: backup-database
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      
+      - name: Deploy to Heroku (API)
+        uses: akhileshns/heroku-deploy@v3.13.15
+        with:
+          heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
+          heroku_app_name: kilnagent-api
+          heroku_email: ${{ secrets.HEROKU_EMAIL }}
+          branch: main
+
+  deploy-web:
+    needs: backup-database
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      
+      - name: Deploy to Heroku (Web)
+        uses: akhileshns/heroku-deploy@v3.13.15
+        with:
+          heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
+          heroku_app_name: kilnagent-web
+          heroku_email: ${{ secrets.HEROKU_EMAIL }}
+          branch: main
+          appdir: web
+      
+      - name: Deployment Summary
+        run: |
+          echo "🎉 Production deployment complete!"
+          echo "API: https://kilnagent-api-df5a6f66c40d.herokuapp.com"
+          echo "Web: https://kilnagent-web-5f4c2bf2cab6.herokuapp.com"
