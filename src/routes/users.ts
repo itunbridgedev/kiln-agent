@@ -1,5 +1,5 @@
 import { PrismaClient } from "@prisma/client";
-import express from "express";
+import express, { Request, Response } from "express";
 import { isAdmin, isAuthenticated } from "../middleware/auth";
 
 const router = express.Router();
