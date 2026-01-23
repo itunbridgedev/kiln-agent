@@ -69,13 +69,10 @@ app.use(
       httpOnly: true,
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
       sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-      // Only set domain for production kilnagent.com, not for staging/dev Heroku URLs
-      domain:
-        process.env.NODE_ENV === "production" &&
-        !process.env.HEROKU_APP_NAME?.includes("staging") &&
-        !process.env.HEROKU_APP_NAME?.includes("dev")
-          ? ".kilnagent.com"
-          : undefined,
+      // Set domain to allow cookie sharing between api.domain.com and www.domain.com
+      domain: process.env.NODE_ENV === "production"
+        ? process.env.COOKIE_DOMAIN || ".kilnagent.com"
+        : undefined,
     },
   })
 );

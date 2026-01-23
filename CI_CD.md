@@ -5,14 +5,16 @@
 **Current State**: DEV and STAGING environments are using `.herokuapp.com` URLs, which causes session/cookie issues due to domain mismatch with the production subdomain-based architecture.
 
 **Recommended Solution**: Register dedicated domains that mirror production's structure:
+
 - **DEV**: `kilnagent-dev.com` (or subdomain: `dev.kilnagent.com`)
-  - API: `api.kilnagent-dev.com` 
+  - API: `api.kilnagent-dev.com`
   - Web: `www.kilnagent-dev.com` or `demo.kilnagent-dev.com`
 - **STAGING**: `kilnagent-staging.com` (or subdomain: `staging.kilnagent.com`)
   - API: `api.kilnagent-staging.com`
   - Web: `www.kilnagent-staging.com` or `demo.kilnagent-staging.com`
 
 **Benefits**:
+
 - ✅ Session cookies work properly across API/Web apps (shared domain)
 - ✅ OAuth callbacks use real domains (easier provider setup)
 - ✅ Tenant middleware works identically to production
@@ -21,6 +23,7 @@
 - ✅ SSL/TLS certificates work properly
 
 **Setup Steps** (when ready):
+
 1. Register domains or add DNS records to existing domain
 2. Add custom domains to Heroku apps: `heroku domains:add api.kilnagent-dev.com --app kilnagent-dev-api`
 3. Update DNS with Heroku's DNS target
@@ -186,12 +189,14 @@ heroku auth:token
 - Database: Seeded with demo data
 
 **Test Accounts:**
+
 - Admin: `admin@kilnagent.com` / `Admin123!`
 - Manager: `manager@kilnagent.com` / `Manager123!`
 - Staff: `staff@kilnagent.com` / `Staff123!`
 - Customer: `customer@kilnagent.com` / `Customer123!`
 
 **Seeded Data:**
+
 - 1 Studio (Kiln Agent Studio)
 - 4 Product Categories (Classes, Firings, Memberships, Retail)
 - 3 Sample Classes (Beginner Wheel Throwing, Advanced Handbuilding, Date Night Pottery)
