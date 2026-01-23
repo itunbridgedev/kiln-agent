@@ -44,6 +44,8 @@ model Customer {
   classStepEnrollments ClassStepEnrollment[]
   classAttendances    ClassAttendance[]
   staffTeachingRoles  StaffTeachingRole[]
+  sessionInstructor   ClassSessionInstructor[]
+  sessionAssistant    ClassSessionAssistant[]
   
   @@unique([studioId, email])
   @@index([studioId])
@@ -268,6 +270,8 @@ model ClassSession {
   updatedAt           DateTime        @updatedAt
   
   attendances         ClassAttendance[]
+  instructors         ClassSessionInstructor[]
+  assistants          ClassSessionAssistant[]
   
   @@index([studioId])
   @@index([scheduleId])
@@ -275,6 +279,42 @@ model ClassSession {
   @@index([classId])
   @@index([classStepId])
   @@index([sessionDate])
+}
+
+// Track instructors assigned to a session
+model ClassSessionInstructor {
+  id          Int      @id @default(autoincrement())
+  sessionId   Int
+  session     ClassSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  customerId  Int      // Staff member assigned as instructor
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  roleId      Int?     // Optional: specific teaching role for this session
+  role        TeachingRole? @relation(fields: [roleId], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@unique([sessionId, customerId])
+  @@index([sessionId])
+  @@index([customerId])
+  @@index([roleId])
+}
+
+// Track assistants assigned to a session
+model ClassSessionAssistant {
+  id          Int      @id @default(autoincrement())
+  sessionId   Int
+  session     ClassSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  customerId  Int      // Staff member assigned as assistant
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  roleId      Int?     // Optional: specific teaching role for this session
+  role        TeachingRole? @relation(fields: [roleId], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@unique([sessionId, customerId])
+  @@index([sessionId])
+  @@index([customerId])
+  @@index([roleId])
 }
 
 // Track student enrollments in a class schedule
@@ -341,6 +381,8 @@ model TeachingRole {
   
   staffRoles  StaffTeachingRole[]
   classes     Class[]
+  sessionInstructors ClassSessionInstructor[]
+  sessionAssistants  ClassSessionAssistant[]
   
   @@unique([studioId, name])
   @@index([studioId])

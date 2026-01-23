@@ -29,12 +29,27 @@ router.get(
         dateFilter.lte = new Date(endDate as string);
       }
 
-      // For now, return all sessions in the date range
-      // TODO: Filter by staff assignments once ClassSessionInstructor/ClassSessionAssistant models are added
+      // Find sessions where user is assigned as instructor or assistant
       const sessions = await prisma.classSession.findMany({
         where: {
           sessionDate:
             Object.keys(dateFilter).length > 0 ? dateFilter : undefined,
+          OR: [
+            {
+              instructors: {
+                some: {
+                  customerId: user.id,
+                },
+              },
+            },
+            {
+              assistants: {
+                some: {
+                  customerId: user.id,
+                },
+              },
+            },
+          ],
         },
         include: {
           class: {
@@ -44,6 +59,22 @@ router.get(
           },
           classStep: true,
           schedulePattern: true,
+          instructors: {
+            where: {
+              customerId: user.id,
+            },
+            include: {
+              role: true,
+            },
+          },
+          assistants: {
+            where: {
+              customerId: user.id,
+            },
+            include: {
+              role: true,
+            },
+          },
         },
         orderBy: {
           sessionDate: "asc",
@@ -54,6 +85,13 @@ router.get(
       const calendarEvents = sessions.map((session) => {
         const parentClass = session.class;
         const category = parentClass?.category;
+
+        // Determine user's role for this session
+        const isInstructor = session.instructors.length > 0;
+        const isAssistant = session.assistants.length > 0;
+        const role = isInstructor
+          ? session.instructors[0]?.role
+          : session.assistants[0]?.role;
 
         // Calculate end time from start/end time strings
         const sessionDate = new Date(session.sessionDate);
@@ -86,8 +124,8 @@ router.get(
               }
             : null,
           userRole: {
-            type: "instructor" as const, // TODO: Get from actual assignment
-            name: "Instructor", // TODO: Get from actual role
+            type: (isInstructor ? "instructor" : "assistant") as const,
+            name: role?.name || (isInstructor ? "Instructor" : "Assistant"),
           },
           schedulePattern: session.schedulePattern
             ? {
