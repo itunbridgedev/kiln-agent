@@ -147,17 +147,22 @@ model Class {
 
 ---
 
-## Phase 3B: Class Schedule Patterns
+## Phase 3B: Class Schedule Patterns & Calendar Views
 
-**Goal:** Define repeating schedules for classes and one-off sessions
+**Goal:** Define repeating schedules for classes, provide calendar views for staff and admins
 
-### Features
+**See:** [Calendar & Scheduling Vision](./CALENDAR_SCHEDULING_VISION.md) for detailed implementation strategy
+
+### Part 1: Schedule Pattern Foundation (Week 1-2)
+
+#### Features
 
 - [ ] Recurring schedule patterns (weekly, bi-weekly, monthly)
-- [ ] Pattern-based session generation
+- [ ] Pattern-based session generation using RRULE standard
 - [ ] One-off class scheduling
 - [ ] Schedule preview before committing
 - [ ] Bulk session creation from patterns
+- [ ] Session modification modes: "this session only" vs "all future sessions"
 
 ### Schema Design
 
@@ -204,56 +209,203 @@ model ClassSession {
   notes           String?
   isCancelled     Boolean  @default(false)
 
+  // Calendar sync metadata
+  externalEventId     String?  // Google/Outlook event ID
+  calendarSyncStatus  String?  // 'synced', 'pending', 'error'
+  lastSyncedAt        DateTime?
+
   registrations   ClassRegistration[]
   attendance      ClassAttendance[]
+  staffAssignments SessionStaffAssignment[]
 }
 ```
 
-### Implementation Steps
+#### Implementation Steps
 
-1. [ ] Implement RRULE parser/generator for recurring patterns
-2. [ ] Create ClassSchedulePattern model and UI
-3. [ ] Build schedule preview component
-4. [ ] Session auto-generation from patterns
-5. [ ] One-off session creation interface
-6. [ ] Edit/cancel individual sessions from pattern
+1. [ ] Install dependencies: `rrule` for recurring patterns, `date-fns` for date manipulation
+2. [ ] Create ClassSchedulePattern model and migrations
+3. [ ] Build pattern creation UI with RRULE configuration
+4. [ ] Implement schedule preview component (shows generated sessions before save)
+5. [ ] Build session generator from patterns (backend service)
+6. [ ] Create one-off session form
+7. [ ] Implement session edit modes (this/future/all)
+8. [ ] Add pattern validation and conflict warnings
 
-### Estimated Effort: 2-3 weeks
+#### Dependencies
+
+```bash
+npm install rrule date-fns
+```
+
+### Part 2: Staff Individual Calendar View (Week 2-3)
+
+#### Features
+
+- [ ] Staff personal calendar page with React Big Calendar
+- [ ] Week/Month/Day view toggles
+- [ ] Display staff's assigned sessions color-coded by class type
+- [ ] Click session to view details modal
+- [ ] Visual indicators for cancelled sessions
+- [ ] Mobile-responsive calendar layout
+- [ ] Filter by teaching role or class category
+- [ ] "My Schedule" navigation in staff portal
+
+#### Implementation Steps
+
+1. [ ] Install React Big Calendar: `npm install react-big-calendar`
+2. [ ] Install date utilities: `npm install date-fns` (if not already installed)
+3. [ ] Create StaffCalendar component with RBC integration
+4. [ ] Build event adapter (ClassSession → RBC event format)
+5. [ ] Implement custom event styling (color by category, indicators)
+6. [ ] Create session details modal/sidebar
+7. [ ] Add view selector (week/month/day) with responsive defaults
+8. [ ] Build filtering controls
+9. [ ] Add API endpoint: GET /api/staff/my-sessions (with date range)
+10. [ ] Add "My Schedule" to staff navigation
+
+#### Dependencies
+
+```bash
+npm install react-big-calendar date-fns
+npm install --save-dev @types/react-big-calendar
+```
+
+#### UI Components
+
+```typescript
+// StaffCalendarPage.tsx - Main page component
+// StaffCalendar.tsx - React Big Calendar wrapper
+// CalendarEventCard.tsx - Custom event renderer
+// SessionDetailsModal.tsx - Click-through details
+// CalendarToolbar.tsx - View controls and filters
+```
+
+### Part 3: iCal Subscription Feeds (Week 3)
+
+#### Features
+
+- [ ] Generate iCal/ICS feeds per staff member
+- [ ] Unique secure token per user
+- [ ] Calendar subscription URLs (webcal://)
+- [ ] Auto-refresh on schedule changes
+- [ ] Support for recurring events in iCal format
+- [ ] Settings page to manage calendar subscriptions
+- [ ] Copy/share subscription URL
+- [ ] Regenerate token if compromised
+- [ ] Instructions for iOS Calendar, Google Calendar, Outlook
+
+#### Schema Extensions
+
+```prisma
+model StaffCalendarConnection {
+  id                  Int      @id @default(autoincrement())
+  userId              Int
+  user                User     @relation(fields: [userId])
+  studioId            Int
+  studio              Studio   @relation(fields: [studioId])
+  
+  provider            String   // 'ical' (future: 'google', 'microsoft')
+  isActive            Boolean  @default(true)
+  
+  // iCal subscription
+  subscriptionToken   String?  @unique
+  
+  createdAt           DateTime @default(now())
+  lastAccessedAt      DateTime?
+  
+  @@unique([userId, studioId, provider])
+}
+```
+
+#### Implementation Steps
+
+1. [ ] Install ical-generator: `npm install ical-generator`
+2. [ ] Create StaffCalendarConnection model and migration
+3. [ ] Build iCal feed generator service
+4. [ ] Add API endpoint: GET /api/calendar/feed/:userId/:token
+5. [ ] Generate unique subscription tokens on first access
+6. [ ] Create calendar settings page component
+7. [ ] Add "Subscribe to Calendar" button with instructions modal
+8. [ ] Show subscription URL with copy button
+9. [ ] Add token regeneration feature
+10. [ ] Include platform-specific setup instructions (iOS, Google, Outlook)
+11. [ ] Rate limit feed endpoint (prevent abuse)
+
+#### Dependencies
+
+```bash
+npm install ical-generator
+npm install --save-dev @types/ical-generator
+```
+
+### Part 4: Admin Studio Calendar View (Week 4-5)
+
+#### Features
+
+- [ ] Studio-wide calendar showing all staff schedules
+- [ ] Multi-staff view (side-by-side or stacked)
+- [ ] Filter by staff member, teaching role, class category
+- [ ] Show session capacity and enrollment status
+- [ ] Visual conflict indicators
+- [ ] Click session to view/edit details
+- [ ] Quick assignment of staff to unassigned sessions
+- [ ] Calendar export/print functionality
+
+#### Implementation Steps
+
+1. [ ] Create AdminCalendar component with React Big Calendar
+2. [ ] Build multi-resource event adapter (sessions grouped by staff)
+3. [ ] Implement resource/staff selector in toolbar
+4. [ ] Add advanced filtering (role, category, enrollment status)
+5. [ ] Create capacity indicator overlay on events
+6. [ ] Build conflict detection visual warnings
+7. [ ] Add API endpoint: GET /api/admin/studio-calendar (all sessions)
+8. [ ] Create staff assignment quick-action modal
+9. [ ] Add calendar legend (color codes, status indicators)
+10. [ ] Implement responsive layout (collapse to single staff on mobile)
+
+### Estimated Effort: 3-4 weeks total
+
+**Note:** Drag-and-drop rescheduling and Google/Outlook OAuth sync are deferred to Phase 3D. This phase focuses on core calendar viewing and iCal subscription (universal compatibility).
 
 ---
 
-## Phase 3C: Staff Scheduling & Availability
+## Phase 3C: Staff Assignment & Conflict Detection
 
-**Goal:** Manager-controlled staff scheduling with dynamic class capacity
+**Goal:** Manager-controlled staff scheduling with session assignments and conflict prevention
 
 ### Features
 
-- [ ] Staff availability patterns (regular schedule)
-- [ ] Ad-hoc schedule modifications
 - [ ] Staff-to-session assignments
-- [ ] Dynamic maxStudents based on assigned staff count
-- [ ] Conflict detection (double-booking prevention)
-- [ ] Staff calendar view
+- [ ] Multiple staff per session support
+- [ ] Dynamic maxStudents calculation based on assigned staff count
+- [ ] Conflict detection (prevent double-booking)
+- [ ] Staff availability patterns (optional - for future enhancement)
+- [ ] Ad-hoc availability exceptions
+- [ ] Assignment history and audit trail
 
 ### Schema Design
 
 ```prisma
-model StaffSchedulePattern {
-  id          Int      @id @default(autoincrement())
-  userId      Int
-  user        User     @relation(fields: [userId])
+model SessionStaffAssignment {
+  id              Int      @id @default(autoincrement())
+  sessionId       Int
+  session         ClassSession @relation(fields: [sessionId])
+  userId          Int
+  user            User     @relation(fields: [userId])
+  
+  assignedAt      DateTime @default(now())
+  assignedBy      Int      // Admin/Manager user ID
+  assignedByUser  User     @relation("AssignmentCreator", fields: [assignedBy])
+  
+  studioId        Int
+  studio          Studio   @relation(fields: [studioId])
 
-  dayOfWeek   Int
-  startTime   String
-  endTime     String
-  isRecurring Boolean  @default(true)
-  effectiveFrom DateTime
-  effectiveUntil DateTime?
-
-  studioId    Int
-  studio      Studio   @relation(fields: [studioId])
+  @@unique([sessionId, userId])
+  @@index([userId, sessionId])
 }
 
+// Optional: For future enhanced availability tracking
 model StaffScheduleException {
   id          Int      @id @default(autoincrement())
   userId      Int
@@ -262,36 +414,40 @@ model StaffScheduleException {
   date        DateTime
   startTime   String?
   endTime     String?
-  isAvailable Boolean  // false = time off
+  isAvailable Boolean  @default(false)  // false = time off
   reason      String?
 
   studioId    Int
   studio      Studio   @relation(fields: [studioId])
-}
-
-model SessionStaffAssignment {
-  id              Int      @id @default(autoincrement())
-  sessionId       Int
-  session         ClassSession @relation(fields: [sessionId])
-  userId          Int
-  user            User     @relation(fields: [userId])
-  assignedAt      DateTime @default(now())
-  assignedBy      Int
-
-  @@unique([sessionId, userId])
+  
+  createdAt   DateTime @default(now())
+  createdBy   Int
+  
+  @@index([userId, date])
 }
 ```
 
 ### Implementation Steps
 
-1. [ ] Create staff scheduling models
-2. [ ] Build manager interface for staff schedule management
-3. [ ] Implement conflict detection algorithm
-4. [ ] Auto-adjust maxStudents based on assigned staff
-5. [ ] Staff calendar view with assigned sessions
-6. [ ] Schedule exception handling
+1. [ ] Create SessionStaffAssignment model and migration
+2. [ ] Build staff assignment API endpoints:
+   - POST /api/admin/sessions/:id/staff (assign staff)
+   - DELETE /api/admin/sessions/:id/staff/:userId (remove staff)
+   - GET /api/admin/sessions/:id/staff (list assigned staff)
+3. [ ] Implement conflict detection service:
+   - Check for overlapping session assignments
+   - Consider travel time buffers
+   - Validate teaching role qualifications
+4. [ ] Build staff assignment UI component
+   - Multi-select staff dropdown with search
+   - Show staff availability status
+   - Display conflict warnings
+5. [ ] Create conflict detection endpoint: GET /api/admin/staff/:userId/conflicts?date=YYYY-MM-DD
+6. [ ] Add assignment indicators to calendar views (staff and admin)
+7. [ ] Build assignment audit log view
+8. [ ] Implement auto-adjust maxStudents based on staff count (optional business rule)
 
-### Estimated Effort: 2-3 weeks
+### Estimated Effort: 2 weeks
 
 ---
 
@@ -369,7 +525,94 @@ model ClassWaitlist {
 
 ---
 
-## Phase 3E: Attendance & Check-in
+## Phase 3E: Advanced Calendar Features (Future Enhancement)
+
+**Goal:** Add drag-drop scheduling and active external calendar sync
+
+**Note:** This phase is optional and can be implemented after validating that Phase 3B calendar features are heavily used.
+
+### Features
+
+- [ ] Drag-and-drop session rescheduling in admin calendar
+- [ ] Google Calendar OAuth integration (active sync)
+- [ ] Microsoft Outlook OAuth integration (active sync)
+- [ ] Two-way availability sync (block studio schedule based on personal calendar)
+- [ ] Automatic event creation/update/delete in external calendars
+- [ ] Sync status indicators and error handling
+- [ ] Re-sync functionality
+
+### Schema Extensions
+
+```prisma
+// Extend StaffCalendarConnection for OAuth
+model StaffCalendarConnection {
+  id                  Int      @id @default(autoincrement())
+  userId              Int
+  user                User     @relation(fields: [userId])
+  studioId            Int
+  studio              Studio   @relation(fields: [studioId])
+  
+  provider            String   // 'ical', 'google', 'microsoft'
+  isActive            Boolean  @default(true)
+  syncDirection       String   // 'push', 'pull', 'both'
+  
+  // OAuth tokens (encrypted)
+  accessToken         String?
+  refreshToken        String?
+  expiresAt           DateTime?
+  
+  // iCal subscription
+  subscriptionToken   String?  @unique
+  
+  createdAt           DateTime @default(now())
+  lastSyncedAt        DateTime?
+  syncErrors          String?  // JSON array of recent errors
+  
+  @@unique([userId, studioId, provider])
+}
+
+model CalendarSyncLog {
+  id              Int      @id @default(autoincrement())
+  connectionId    Int
+  connection      StaffCalendarConnection @relation(fields: [connectionId])
+  sessionId       Int?
+  session         ClassSession? @relation(fields: [sessionId])
+  
+  action          String   // 'create', 'update', 'delete'
+  status          String   // 'success', 'error'
+  errorMessage    String?
+  syncedAt        DateTime @default(now())
+}
+```
+
+### Implementation Steps
+
+1. [ ] Evaluate need based on Phase 3B adoption metrics
+2. [ ] Consider FullCalendar Premium ($450) for drag-drop resource views
+3. [ ] Implement Google Calendar OAuth flow
+4. [ ] Implement Microsoft Graph API OAuth flow
+5. [ ] Build calendar connection management UI
+6. [ ] Create sync service for event CRUD operations
+7. [ ] Add sync status monitoring and error recovery
+8. [ ] Implement two-way availability sync (if needed)
+
+### Dependencies
+
+```bash
+npm install googleapis @google-cloud/local-auth  # Google Calendar
+npm install @microsoft/microsoft-graph-client @azure/msal-node  # MS Graph
+```
+
+### Estimated Effort: 3-4 weeks
+
+**Decision Point:** Only implement if:
+- Staff report high usage of Phase 3B calendar features
+- Manual iCal subscription feeds prove insufficient
+- Budget allows for FullCalendar Premium license
+
+---
+
+## Phase 3F: Attendance & Check-in
 
 **Goal:** Track student attendance and staff teaching records
 
@@ -424,7 +667,7 @@ enum AttendanceStatus {
 
 ---
 
-## Phase 3F: Notifications & Reminders
+## Phase 3G: Notifications & Reminders
 
 **Goal:** Automated reminders for upcoming classes
 
