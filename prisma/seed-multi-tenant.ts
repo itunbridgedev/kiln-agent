@@ -195,17 +195,25 @@ async function main() {
 
   console.log(`✓ Created customer user: ${customerUser.email} / Customer123!`);
 
-  // Create teaching role for staff user
+  // Create teaching role
   const teachingRole = await prisma.teachingRole.create({
     data: {
       studioId: studio.id,
-      customerId: staffUser.id,
       name: "Instructor",
+      description: "Basic pottery instructor",
       isActive: true,
     },
   });
 
-  console.log(`✓ Created teaching role for staff user`);
+  // Link staff user to teaching role
+  await prisma.staffTeachingRole.create({
+    data: {
+      customerId: staffUser.id,
+      roleId: teachingRole.id,
+    },
+  });
+
+  console.log(`✓ Created teaching role and assigned to staff user`);
 
   // Create sample classes
   const classesCategory = await prisma.productCategory.findFirst({
