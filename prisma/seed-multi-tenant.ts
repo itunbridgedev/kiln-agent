@@ -195,6 +195,18 @@ async function main() {
 
   console.log(`✓ Created customer user: ${customerUser.email} / Customer123!`);
 
+  // Create teaching role for staff user
+  const teachingRole = await prisma.teachingRole.create({
+    data: {
+      studioId: studio.id,
+      customerId: staffUser.id,
+      name: "Instructor",
+      isActive: true,
+    },
+  });
+
+  console.log(`✓ Created teaching role for staff user`);
+
   // Create sample classes
   const classesCategory = await prisma.productCategory.findFirst({
     where: {
@@ -215,7 +227,7 @@ async function main() {
         durationWeeks: 6,
         price: 250.0,
         maxStudents: 12,
-        instructorName: "Jane Smith",
+        teachingRoleId: teachingRole.id,
         skillLevel: "Beginner",
         isActive: true,
       },
@@ -232,7 +244,7 @@ async function main() {
         durationWeeks: 8,
         price: 300.0,
         maxStudents: 10,
-        instructorName: "Michael Chen",
+        teachingRoleId: teachingRole.id,
         skillLevel: "Advanced",
         isActive: true,
       },
@@ -249,7 +261,7 @@ async function main() {
         durationHours: 2.5,
         price: 75.0,
         maxStudents: 16,
-        instructorName: "Sarah Williams",
+        teachingRoleId: teachingRole.id,
         skillLevel: "All Levels",
         isActive: true,
       },
