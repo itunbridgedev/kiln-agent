@@ -6,7 +6,7 @@ const router = express.Router();
 // Public endpoints - no authentication required
 
 // GET /api/products/categories - Get all active categories with their classes
-router.get("/categories", async (req, res) => {
+router.get("/categories", async (req: express.Request, res: express.Response) => {
   try {
     const categories = await prisma.productCategory.findMany({
       where: { isActive: true },
@@ -87,7 +87,7 @@ router.get("/categories", async (req, res) => {
 });
 
 // GET /api/products/category/:id - Get classes by category
-router.get("/category/:id", async (req, res) => {
+router.get("/category/:id", async (req: express.Request, res: express.Response) => {
   try {
     const categoryId = parseInt(req.params.id);
 

@@ -36,7 +36,10 @@ export default function CategoryTable({
     setDraggedIndex(index);
   };
 
-  const handleDragOver = (e: React.DragEvent<HTMLTableRowElement>, index: number) => {
+  const handleDragOver = (
+    e: React.DragEvent<HTMLTableRowElement>,
+    index: number
+  ) => {
     e.preventDefault();
     setDragOverIndex(index);
   };
@@ -45,7 +48,10 @@ export default function CategoryTable({
     setDragOverIndex(null);
   };
 
-  const handleDrop = (e: React.DragEvent<HTMLTableRowElement>, dropIndex: number) => {
+  const handleDrop = (
+    e: React.DragEvent<HTMLTableRowElement>,
+    dropIndex: number
+  ) => {
     e.preventDefault();
 
     if (draggedIndex === null || draggedIndex === dropIndex) {

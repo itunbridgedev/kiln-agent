@@ -45,7 +45,7 @@ router.use(isAuthenticated, isAdmin);
 // ============= PRODUCT CATEGORY MANAGEMENT =============
 
 // GET /api/admin/categories - Get all categories (including inactive)
-router.get("/categories", async (req, res) => {
+router.get("/categories", async (req: express.Request, res: express.Response) => {
   try {
     const categories = await prisma.productCategory.findMany({
       include: {
@@ -64,7 +64,7 @@ router.get("/categories", async (req, res) => {
 });
 
 // POST /api/admin/categories - Create new category
-router.post("/categories", async (req, res) => {
+router.post("/categories", async (req: express.Request, res: express.Response) => {
   try {
     const { name, description, displayOrder, isActive, parentCategoryId } =
       req.body;
@@ -94,7 +94,7 @@ router.post("/categories", async (req, res) => {
 });
 
 // PUT /api/admin/categories/:id - Update category
-router.put("/categories/:id", async (req, res) => {
+router.put("/categories/:id", async (req: express.Request, res: express.Response) => {
   try {
     const id = parseInt(req.params.id);
     const { name, description, displayOrder, isActive, parentCategoryId } =
@@ -149,7 +149,7 @@ router.put("/categories/:id", async (req, res) => {
 });
 
 // DELETE /api/admin/categories/:id - Delete category
-router.delete("/categories/:id", async (req, res) => {
+router.delete("/categories/:id", async (req: express.Request, res: express.Response) => {
   try {
     const id = parseInt(req.params.id);
 

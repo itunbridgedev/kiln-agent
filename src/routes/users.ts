@@ -10,7 +10,7 @@ router.use(isAuthenticated);
 router.use(isAdmin);
 
 // GET /api/admin/users - Search and list all users
-router.get("/", async (req, res) => {
+router.get("/", async (req: express.Request, res: express.Response) => {
   try {
     const { search } = req.query;
 
@@ -123,7 +123,7 @@ router.get("/:id", async (req, res) => {
 });
 
 // PUT /api/admin/users/:id/roles - Update user's system roles
-router.put("/:id/roles", async (req, res) => {
+router.put("/:id/roles", async (req: express.Request, res: express.Response) => {
   try {
     const userId = parseInt(req.params.id);
     const { roles } = req.body; // Array of role names: ['admin', 'manager', 'staff', 'user']
