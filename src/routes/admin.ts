@@ -1,11 +1,11 @@
-import { Request, Response, Router } from "express";
+import express, { Request, Response } from "express";
 import { isAuthenticated } from "../middleware/auth";
 import prisma from "../prisma";
 
-const router = Router();
+const router = express.Router();
 
 // Middleware to check if user has staff access (admin, manager, or staff)
-const isAdmin = async (req: Request, res: Response, next: any) => {
+const isAdmin = async (req: Request, res: Response, next: () => void) => {
   try {
     if (!(req.user as any)?.id) {
       return res.status(401).json({ error: "Not authenticated" });
@@ -45,7 +45,7 @@ router.use(isAuthenticated, isAdmin);
 // ============= PRODUCT CATEGORY MANAGEMENT =============
 
 // GET /api/admin/categories - Get all categories (including inactive)
-router.get("/categories", async (req: Request, res: Response) => {
+router.get("/categories", async (req, res) => {
   try {
     const categories = await prisma.productCategory.findMany({
       include: {
@@ -64,7 +64,7 @@ router.get("/categories", async (req: Request, res: Response) => {
 });
 
 // POST /api/admin/categories - Create new category
-router.post("/categories", async (req: Request, res: Response) => {
+router.post("/categories", async (req, res) => {
   try {
     const { name, description, displayOrder, isActive, parentCategoryId } =
       req.body;
@@ -94,7 +94,7 @@ router.post("/categories", async (req: Request, res: Response) => {
 });
 
 // PUT /api/admin/categories/:id - Update category
-router.put("/categories/:id", async (req: Request, res: Response) => {
+router.put("/categories/:id", async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const { name, description, displayOrder, isActive, parentCategoryId } =
@@ -149,7 +149,7 @@ router.put("/categories/:id", async (req: Request, res: Response) => {
 });
 
 // DELETE /api/admin/categories/:id - Delete category
-router.delete("/categories/:id", async (req: Request, res: Response) => {
+router.delete("/categories/:id", async (req, res) => {
   try {
     const id = parseInt(req.params.id);
 

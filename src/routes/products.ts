@@ -1,12 +1,12 @@
-import { Request, Response, Router } from "express";
+import express, { Request, Response } from "express";
 import prisma from "../prisma";
 
-const router = Router();
+const router = express.Router();
 
 // Public endpoints - no authentication required
 
 // GET /api/products/categories - Get all active categories with their classes
-router.get("/categories", async (req: Request, res: Response) => {
+router.get("/categories", async (req, res) => {
   try {
     const categories = await prisma.productCategory.findMany({
       where: { isActive: true },
@@ -87,7 +87,7 @@ router.get("/categories", async (req: Request, res: Response) => {
 });
 
 // GET /api/products/category/:id - Get classes by category
-router.get("/category/:id", async (req: Request, res: Response) => {
+router.get("/category/:id", async (req, res) => {
   try {
     const categoryId = parseInt(req.params.id);
 
