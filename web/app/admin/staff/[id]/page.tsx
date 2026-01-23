@@ -92,7 +92,7 @@ export default function StaffProfilePage() {
 
       if (response.ok) {
         const allClasses = await response.json();
-        
+
         // We'll need to filter on the client side for now
         // In a production app, you'd want a dedicated API endpoint
         setAssignedClasses(allClasses);
@@ -213,7 +213,9 @@ export default function StaffProfilePage() {
                   {staffProfile.phone}
                 </p>
               )}
-              <p style={{ margin: "8px 0 0 0", fontSize: "14px", color: "#999" }}>
+              <p
+                style={{ margin: "8px 0 0 0", fontSize: "14px", color: "#999" }}
+              >
                 Member since {formatJoinDate(staffProfile.createdAt)}
               </p>
             </div>
@@ -221,7 +223,9 @@ export default function StaffProfilePage() {
 
           {/* System Roles */}
           <div style={{ marginTop: "24px" }}>
-            <h3 style={{ fontSize: "16px", marginBottom: "12px", color: "#333" }}>
+            <h3
+              style={{ fontSize: "16px", marginBottom: "12px", color: "#333" }}
+            >
               System Roles
             </h3>
             <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
@@ -291,7 +295,9 @@ export default function StaffProfilePage() {
                       >
                         {role.name}
                       </h3>
-                      <p style={{ margin: "0", fontSize: "14px", color: "#666" }}>
+                      <p
+                        style={{ margin: "0", fontSize: "14px", color: "#666" }}
+                      >
                         Certified: {formatDate(role.certifiedAt)}
                       </p>
                       {role.notes && (

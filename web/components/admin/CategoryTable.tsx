@@ -47,7 +47,7 @@ export default function CategoryTable({
 
   const handleDrop = (e: React.DragEvent, dropIndex: number) => {
     e.preventDefault();
-    
+
     if (draggedIndex === null || draggedIndex === dropIndex) {
       setDraggedIndex(null);
       setDragOverIndex(null);
@@ -122,9 +122,7 @@ export default function CategoryTable({
               onDragEnd={handleDragEnd}
               className={`hover:bg-gray-50 transition-colors ${
                 draggedIndex === index ? "opacity-50" : ""
-              } ${
-                dragOverIndex === index ? "border-t-2 border-primary" : ""
-              } ${
+              } ${dragOverIndex === index ? "border-t-2 border-primary" : ""} ${
                 !category.isSystemCategory ? "cursor-move" : ""
               }`}
             >
