@@ -46,7 +46,8 @@ app.use((req, res, next) => {
 // Session store configuration
 const PgStore = connectPgSimple(session);
 const pgPool = new Pool({
-  connectionString: process.env.DATABASE_URL_WITH_SSL || process.env.DATABASE_URL,
+  connectionString:
+    process.env.DATABASE_URL_WITH_SSL || process.env.DATABASE_URL,
   ssl:
     process.env.NODE_ENV === "production"
       ? { rejectUnauthorized: false }
