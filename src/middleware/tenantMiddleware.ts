@@ -15,8 +15,11 @@ export async function tenantMiddleware(
     let subdomain = "demo"; // Default for development
     let isRootDomain = false;
 
-    // In production, extract subdomain
-    if (process.env.NODE_ENV === "production") {
+    // Check for staging/dev Heroku URLs and default to demo
+    if (hostname.includes("kilnagent-staging-api") || hostname.includes("kilnagent-dev-api")) {
+      subdomain = "demo";
+    } else if (process.env.NODE_ENV === "production") {
+      // In production, extract subdomain
       const parts = hostname.split(".");
       if (parts.length === 2 && parts[1] === "com") {
         // Root domain (kilnagent.com or www.kilnagent.com) - no subdomain
