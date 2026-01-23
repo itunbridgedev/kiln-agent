@@ -382,7 +382,7 @@ export default function AdminPage() {
   };
 
   // User management functions
-  const handleUserSelect = async (user: any) => {
+  const handleUserSelect = async (user: {id: number; name: string; email: string; systemRoles: string[]; teachingRoles: any[]}) => {
     setSelectedUser(user);
   };
 
@@ -501,7 +501,7 @@ export default function AdminPage() {
     }
   };
 
-  const openRoleAssignment = (user: any) => {
+  const openRoleAssignment = (user: {id: number; name: string; email: string; systemRoles: string[]; teachingRoles: any[]}) => {
     setRoleAssignmentStaff(user);
   };
 

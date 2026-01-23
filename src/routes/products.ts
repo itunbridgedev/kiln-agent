@@ -15,7 +15,7 @@ router.get("/categories", async (req: Request, res: Response) => {
 
     // Fetch classes for each category
     const enhancedCategories = await Promise.all(
-      categories.map(async (category) => {
+      categories.map(async (category: any) => {
         // Fetch all classes in this category (including subcategories)
         const classes = await prisma.class.findMany({
           where: {
@@ -34,7 +34,7 @@ router.get("/categories", async (req: Request, res: Response) => {
         });
 
         // Transform Class records into product format for display
-        const classProducts = classes.map((classData) => {
+        const classProducts = classes.map((classData: any) => {
           // Build a rich description
           let description = classData.description || "";
 
