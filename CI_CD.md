@@ -9,18 +9,21 @@ Your three-tier CI/CD pipeline is fully configured with proper custom domains!
 All environments use proper domain names that mirror production's subdomain architecture:
 
 **DEV Environment**: `kilnagent-dev.com`
+
 - API: `api.kilnagent-dev.com`
 - Web: `www.kilnagent-dev.com`
 - Tenants: `*.kilnagent-dev.com` (wildcard for demo, studio1, etc.)
 - Cookie Domain: `.kilnagent-dev.com`
 
 **STAGING Environment**: `kilnagent-staging.com`
+
 - API: `api.kilnagent-staging.com`
 - Web: `www.kilnagent-staging.com`
 - Tenants: `*.kilnagent-staging.com` (wildcard for demo, studio1, etc.)
 - Cookie Domain: `.kilnagent-staging.com`
 
 **PROD Environment**: `kilnagent.com`
+
 - API: `api.kilnagent.com`
 - Web: `www.kilnagent.com`
 - Tenants: `*.kilnagent.com` (wildcard for all studio subdomains)

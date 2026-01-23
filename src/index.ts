@@ -46,7 +46,7 @@ app.use((req, res, next) => {
 // Session store configuration
 const PgStore = connectPgSimple(session);
 const pgPool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: process.env.DATABASE_URL_WITH_SSL || process.env.DATABASE_URL,
   ssl:
     process.env.NODE_ENV === "production"
       ? { rejectUnauthorized: false }
@@ -70,9 +70,10 @@ app.use(
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
       sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       // Set domain to allow cookie sharing between api.domain.com and www.domain.com
-      domain: process.env.NODE_ENV === "production"
-        ? process.env.COOKIE_DOMAIN || ".kilnagent.com"
-        : undefined,
+      domain:
+        process.env.NODE_ENV === "production"
+          ? process.env.COOKIE_DOMAIN || ".kilnagent.com"
+          : undefined,
     },
   })
 );
