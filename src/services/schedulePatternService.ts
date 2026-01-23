@@ -32,11 +32,19 @@ export function generateSessionDates(
   endDate?: Date
 ): Date[] {
   try {
-    // Parse the RRULE
-    const rule = rrulestr(recurrenceRule, {
+    // Build RRULE string with dtstart
+    let rruleString = recurrenceRule;
+
+    // Parse the RRULE with options
+    const options: any = {
       dtstart: startDate,
-      until: endDate,
-    });
+    };
+
+    if (endDate) {
+      options.until = endDate;
+    }
+
+    const rule = rrulestr(rruleString, options);
 
     // Generate all occurrences
     const dates = rule.all();

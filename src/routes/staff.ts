@@ -13,7 +13,8 @@ router.get(
   "/my-sessions",
   async (req: express.Request, res: express.Response) => {
     try {
-      if (!req.user?.id) {
+      const user = req.user as any;
+      if (!user?.id) {
         return res.status(401).json({ error: "User not authenticated" });
       }
 
@@ -28,27 +29,12 @@ router.get(
         dateFilter.lte = new Date(endDate as string);
       }
 
-      // Find sessions where user is assigned as instructor or assistant
+      // For now, return all sessions in the date range
+      // TODO: Filter by staff assignments once ClassSessionInstructor/ClassSessionAssistant models are added
       const sessions = await prisma.classSession.findMany({
         where: {
           sessionDate:
             Object.keys(dateFilter).length > 0 ? dateFilter : undefined,
-          OR: [
-            {
-              sessionInstructors: {
-                some: {
-                  customerId: req.user.id,
-                },
-              },
-            },
-            {
-              sessionAssistants: {
-                some: {
-                  customerId: req.user.id,
-                },
-              },
-            },
-          ],
         },
         include: {
           class: {
@@ -56,31 +42,7 @@ router.get(
               category: true,
             },
           },
-          classStep: {
-            include: {
-              parentClass: {
-                include: {
-                  category: true,
-                },
-              },
-            },
-          },
-          sessionInstructors: {
-            where: {
-              customerId: req.user.id,
-            },
-            include: {
-              role: true,
-            },
-          },
-          sessionAssistants: {
-            where: {
-              customerId: req.user.id,
-            },
-            include: {
-              role: true,
-            },
-          },
+          classStep: true,
           schedulePattern: true,
         },
         orderBy: {
@@ -90,25 +52,26 @@ router.get(
 
       // Transform sessions into calendar-friendly format
       const calendarEvents = sessions.map((session) => {
-        const parentClass = session.class || session.classStep?.parentClass;
+        const parentClass = session.class;
         const category = parentClass?.category;
 
-        // Determine user's role for this session
-        const isInstructor = session.sessionInstructors.length > 0;
-        const isAssistant = session.sessionAssistants.length > 0;
-        const role = isInstructor
-          ? session.sessionInstructors[0]?.role
-          : session.sessionAssistants[0]?.role;
+        // Calculate end time from start/end time strings
+        const sessionDate = new Date(session.sessionDate);
+        const [startHours, startMinutes] = session.startTime
+          .split(":")
+          .map(Number);
+        const [endHours, endMinutes] = session.endTime.split(":").map(Number);
 
-        // Calculate end time from duration
-        const startTime = new Date(session.sessionDate);
-        const endTime = new Date(startTime);
-        endTime.setHours(endTime.getHours() + Number(session.durationHours));
+        const startTime = new Date(sessionDate);
+        startTime.setHours(startHours, startMinutes, 0, 0);
+
+        const endTime = new Date(sessionDate);
+        endTime.setHours(endHours, endMinutes, 0, 0);
 
         return {
           id: session.id,
           title: session.classStep
-            ? `${parentClass?.name} - ${session.classStep.stepTitle}`
+            ? `${parentClass?.name} - ${session.classStep.name}`
             : parentClass?.name,
           start: startTime.toISOString(),
           end: endTime.toISOString(),
@@ -116,14 +79,15 @@ router.get(
           maxStudents: session.maxStudents,
           currentEnrollment: session.currentEnrollment,
           isCancelled: session.isCancelled,
-          category: {
-            id: category?.id,
-            name: category?.name,
-            color: category?.color,
-          },
+          category: category
+            ? {
+                id: category.id,
+                name: category.name,
+              }
+            : null,
           userRole: {
-            type: isInstructor ? "instructor" : "assistant",
-            name: role?.name,
+            type: "instructor" as const, // TODO: Get from actual assignment
+            name: "Instructor", // TODO: Get from actual role
           },
           schedulePattern: session.schedulePattern
             ? {
