@@ -4,10 +4,21 @@ import { PrismaClient } from "@prisma/client";
 const router = Router();
 const prisma = new PrismaClient();
 
+// Extend Request type to include custom properties
+interface AuthenticatedRequest extends Request {
+  studioId?: number;
+  user?: {
+    id: number;
+    email: string;
+    name: string;
+    roles: string[];
+  };
+}
+
 // GET /api/registrations/classes - Browse available classes (public/customer view)
 router.get("/classes", async (req: Request, res: Response) => {
   try {
-    const studioId = req.studioId;
+    const studioId = (req as AuthenticatedRequest).studioId;
     if (!studioId) {
       return res.status(400).json({ error: "Studio context required" });
     }
@@ -52,7 +63,7 @@ router.get("/classes", async (req: Request, res: Response) => {
 // GET /api/registrations/classes/:id - Get class details with available schedules
 router.get("/classes/:id", async (req: Request, res: Response) => {
   try {
-    const studioId = req.studioId;
+    const studioId = (req as AuthenticatedRequest).studioId;
     if (!studioId) {
       return res.status(400).json({ error: "Studio context required" });
     }
@@ -115,8 +126,8 @@ router.get("/classes/:id", async (req: Request, res: Response) => {
 // POST /api/registrations - Create a new registration
 router.post("/", async (req: Request, res: Response) => {
   try {
-    const studioId = req.studioId;
-    const customerId = req.user?.id;
+    const studioId = (req as AuthenticatedRequest).studioId;
+    const customerId = (req as AuthenticatedRequest).user?.id;
 
     if (!studioId) {
       return res.status(400).json({ error: "Studio context required" });
@@ -281,8 +292,8 @@ router.post("/", async (req: Request, res: Response) => {
 // GET /api/registrations/my-registrations - Get current user's registrations
 router.get("/my-registrations", async (req: Request, res: Response) => {
   try {
-    const studioId = req.studioId;
-    const customerId = req.user?.id;
+    const studioId = (req as AuthenticatedRequest).studioId;
+    const customerId = (req as AuthenticatedRequest).user?.id;
 
     if (!studioId) {
       return res.status(400).json({ error: "Studio context required" });
@@ -333,8 +344,8 @@ router.get("/my-registrations", async (req: Request, res: Response) => {
 // PUT /api/registrations/:id/cancel - Cancel a registration
 router.put("/:id/cancel", async (req: Request, res: Response) => {
   try {
-    const studioId = req.studioId;
-    const customerId = req.user?.id;
+    const studioId = (req as AuthenticatedRequest).studioId;
+    const customerId = (req as AuthenticatedRequest).user?.id;
     const registrationId = parseInt(req.params.id);
 
     if (!studioId || !customerId) {
@@ -385,8 +396,8 @@ router.put("/:id/cancel", async (req: Request, res: Response) => {
 // POST /api/registrations/waitlist - Join a waitlist
 router.post("/waitlist", async (req: Request, res: Response) => {
   try {
-    const studioId = req.studioId;
-    const customerId = req.user?.id;
+    const studioId = (req as AuthenticatedRequest).studioId;
+    const customerId = (req as AuthenticatedRequest).user?.id;
 
     if (!studioId || !customerId) {
       return res.status(400).json({ error: "Studio context and authentication required" });
@@ -465,8 +476,8 @@ router.post("/waitlist", async (req: Request, res: Response) => {
 // GET /api/registrations/my-waitlist - Get current user's waitlist entries
 router.get("/my-waitlist", async (req: Request, res: Response) => {
   try {
-    const studioId = req.studioId;
-    const customerId = req.user?.id;
+    const studioId = (req as AuthenticatedRequest).studioId;
+    const customerId = (req as AuthenticatedRequest).user?.id;
 
     if (!studioId || !customerId) {
       return res.status(400).json({ error: "Studio context and authentication required" });
@@ -502,8 +513,8 @@ router.get("/my-waitlist", async (req: Request, res: Response) => {
 // DELETE /api/registrations/waitlist/:id - Remove from waitlist
 router.delete("/waitlist/:id", async (req: Request, res: Response) => {
   try {
-    const studioId = req.studioId;
-    const customerId = req.user?.id;
+    const studioId = (req as AuthenticatedRequest).studioId;
+    const customerId = (req as AuthenticatedRequest).user?.id;
     const waitlistId = parseInt(req.params.id);
 
     if (!studioId || !customerId) {
