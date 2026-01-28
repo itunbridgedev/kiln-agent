@@ -13,21 +13,16 @@ interface Class {
 interface SchedulePattern {
   id: number;
   classId: number;
-  scheduleId: number;
-  patternType: string;
-  daysOfWeek: number[];
+  patternType?: string;
+  daysOfWeek?: number[];
   startTime: string;
   endTime: string | null;
-  frequency: string;
-  interval: number;
-  weekOfMonth: number | null;
+  startDate: string;
+  endDate: string | null;
+  recurrenceRule: string;
+  durationHours: string;
+  maxStudents: number;
   isActive: boolean;
-  schedule?: {
-    id: number;
-    startDate: string;
-    endDate: string | null;
-    status: string;
-  };
 }
 
 interface SchedulePatternManagerProps {
@@ -245,12 +240,13 @@ export default function SchedulePatternManager({
               ) : (
                 <div className="patterns-list">
                   {patterns.map((pattern) => {
-                    const patternLabel =
-                      pattern.patternType === "simple"
+                    const patternLabel = pattern.patternType
+                      ? pattern.patternType === "simple"
                         ? "Simple Schedule"
                         : pattern.patternType === "series"
                         ? "Series Schedule"
-                        : "Multi-Step Course";
+                        : "Multi-Step Course"
+                      : "Schedule Pattern";
 
                     const daysArray = Array.isArray(pattern.daysOfWeek)
                       ? pattern.daysOfWeek
@@ -258,7 +254,7 @@ export default function SchedulePatternManager({
                     const daysText =
                       daysArray.length > 0
                         ? daysArray.map((d) => dayNames[d]).join(", ")
-                        : "No days set";
+                        : "See recurrence rule";
 
                     return (
                       <div key={pattern.id} className="pattern-card">
@@ -267,18 +263,19 @@ export default function SchedulePatternManager({
                             <h4>{patternLabel}</h4>
                             <p className="pattern-details">
                               {daysText} at {pattern.startTime}
-                              {pattern.endTime && ` - ${pattern.endTime}`}
+                              {pattern.durationHours && ` (${pattern.durationHours}hrs)`}
                             </p>
                             <p className="pattern-dates">
-                              {pattern.schedule?.startDate
-                                ? new Date(
-                                    pattern.schedule.startDate
-                                  ).toLocaleDateString()
-                                : "No start date"}
-                              {pattern.schedule?.endDate
-                                ? ` - ${new Date(pattern.schedule.endDate).toLocaleDateString()}`
+                              {new Date(pattern.startDate).toLocaleDateString()}
+                              {pattern.endDate
+                                ? ` - ${new Date(pattern.endDate).toLocaleDateString()}`
                                 : " - Ongoing"}
                             </p>
+                            {pattern.recurrenceRule && (
+                              <p className="pattern-rule">
+                                {pattern.recurrenceRule}
+                              </p>
+                            )}
                           </div>
                           <button
                             onClick={() => deletePattern(pattern.id)}
@@ -763,6 +760,16 @@ export default function SchedulePatternManager({
           margin: 0.25rem 0;
           color: #666;
           font-size: 0.9rem;
+        }
+
+        .pattern-rule {
+          margin: 0.5rem 0 0 0;
+          padding: 0.5rem;
+          background: #f0f0f0;
+          border-radius: 4px;
+          font-size: 0.85rem;
+          font-family: monospace;
+          color: #555;
         }
 
         .btn-icon {

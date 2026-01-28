@@ -152,16 +152,6 @@ export async function getPatternsByClass(classId: number) {
       classId,
       isActive: true,
     },
-    include: {
-      schedule: {
-        select: {
-          id: true,
-          startDate: true,
-          endDate: true,
-          status: true,
-        },
-      },
-    },
     orderBy: {
       createdAt: "desc",
     },
