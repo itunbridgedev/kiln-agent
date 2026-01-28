@@ -144,6 +144,33 @@ export async function createSchedulePattern(data: SchedulePatternInput) {
 }
 
 /**
+ * Get all patterns for a specific class
+ */
+export async function getPatternsByClass(classId: number) {
+  const patterns = await prisma.classSchedulePattern.findMany({
+    where: {
+      classId,
+      isActive: true,
+    },
+    include: {
+      schedule: {
+        select: {
+          id: true,
+          startDate: true,
+          endDate: true,
+          status: true,
+        },
+      },
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
+
+  return patterns;
+}
+
+/**
  * Generate sessions from a pattern
  */
 export async function generateSessionsFromPattern(patternId: number) {

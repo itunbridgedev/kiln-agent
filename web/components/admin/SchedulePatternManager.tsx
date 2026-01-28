@@ -15,8 +15,6 @@ interface SchedulePattern {
   classId: number;
   scheduleId: number;
   patternType: string;
-  startDate: string;
-  endDate: string | null;
   daysOfWeek: number[];
   startTime: string;
   endTime: string | null;
@@ -24,6 +22,12 @@ interface SchedulePattern {
   interval: number;
   weekOfMonth: number | null;
   isActive: boolean;
+  schedule?: {
+    id: number;
+    startDate: string;
+    endDate: string | null;
+    status: string;
+  };
 }
 
 interface SchedulePatternManagerProps {
@@ -73,7 +77,7 @@ export default function SchedulePatternManager({
   const fetchPatterns = async () => {
     try {
       const response = await fetch(
-        `/api/admin/classes/${classData.id}/patterns`,
+        `/api/admin/schedule-patterns/class/${classData.id}`,
         {
           credentials: "include",
         }
@@ -240,35 +244,53 @@ export default function SchedulePatternManager({
                 </p>
               ) : (
                 <div className="patterns-list">
-                  {patterns.map((pattern) => (
-                    <div key={pattern.id} className="pattern-card">
-                      <div className="pattern-header">
-                        <div>
-                          <h4>{patternType === "simple" ? "Simple Schedule" : patternType === "series" ? "Series Schedule" : "Multi-Step Course"}</h4>
-                          <p className="pattern-details">
-                            {pattern.daysOfWeek
-                              .map((d) => dayNames[d])
-                              .join(", ")}{" "}
-                            at {pattern.startTime}
-                            {pattern.endTime && ` - ${pattern.endTime}`}
-                          </p>
-                          <p className="pattern-dates">
-                            {new Date(pattern.startDate).toLocaleDateString()}
-                            {pattern.endDate
-                              ? ` - ${new Date(pattern.endDate).toLocaleDateString()}`
-                              : " - Ongoing"}
-                          </p>
+                  {patterns.map((pattern) => {
+                    const patternLabel =
+                      pattern.patternType === "simple"
+                        ? "Simple Schedule"
+                        : pattern.patternType === "series"
+                        ? "Series Schedule"
+                        : "Multi-Step Course";
+
+                    const daysArray = Array.isArray(pattern.daysOfWeek)
+                      ? pattern.daysOfWeek
+                      : [];
+                    const daysText =
+                      daysArray.length > 0
+                        ? daysArray.map((d) => dayNames[d]).join(", ")
+                        : "No days set";
+
+                    return (
+                      <div key={pattern.id} className="pattern-card">
+                        <div className="pattern-header">
+                          <div>
+                            <h4>{patternLabel}</h4>
+                            <p className="pattern-details">
+                              {daysText} at {pattern.startTime}
+                              {pattern.endTime && ` - ${pattern.endTime}`}
+                            </p>
+                            <p className="pattern-dates">
+                              {pattern.schedule?.startDate
+                                ? new Date(
+                                    pattern.schedule.startDate
+                                  ).toLocaleDateString()
+                                : "No start date"}
+                              {pattern.schedule?.endDate
+                                ? ` - ${new Date(pattern.schedule.endDate).toLocaleDateString()}`
+                                : " - Ongoing"}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => deletePattern(pattern.id)}
+                            className="btn-icon btn-danger"
+                            title="Delete pattern"
+                          >
+                            ×
+                          </button>
                         </div>
-                        <button
-                          onClick={() => deletePattern(pattern.id)}
-                          className="btn-icon btn-danger"
-                          title="Delete pattern"
-                        >
-                          ×
-                        </button>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

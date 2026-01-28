@@ -269,4 +269,20 @@ router.get("/presets", isAuthenticated, async (req, res) => {
   });
 });
 
+/**
+ * GET /api/admin/schedule-patterns/class/:classId
+ * Get all patterns for a specific class
+ */
+router.get("/class/:classId", isAuthenticated, isAdmin, async (req, res) => {
+  try {
+    const classId = parseInt(req.params.classId);
+
+    const patterns = await scheduleService.getPatternsByClass(classId);
+    res.json(patterns);
+  } catch (error: any) {
+    console.error("Error fetching patterns:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;
