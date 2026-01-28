@@ -7,6 +7,7 @@ import CategoryForm, {
 import CategoryTable from "@/components/admin/CategoryTable";
 import ClassForm, { ClassFormData } from "@/components/admin/ClassForm";
 import ClassTable from "@/components/admin/ClassTable";
+import SchedulePatternManager from "@/components/admin/SchedulePatternManager";
 import StaffRoleAssignment from "@/components/admin/StaffRoleAssignment";
 import StudioCalendar, {
   StudioCalendarEvent,
@@ -116,6 +117,10 @@ export default function AdminPage() {
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [showUserRoleEditor, setShowUserRoleEditor] = useState(false);
   const [roleAssignmentStaff, setRoleAssignmentStaff] = useState<any>(null);
+
+  // Schedule pattern management state
+  const [scheduleManagementClass, setScheduleManagementClass] = useState<any>(null);
+  const [showScheduleManager, setShowScheduleManager] = useState(false);
 
   // Schedule state
   const [scheduleEvents, setScheduleEvents] = useState<CalendarEvent[]>([]);
@@ -392,6 +397,17 @@ export default function AdminPage() {
     } catch (err) {
       setError("Error deleting class");
     }
+  };
+
+  const manageClassSchedule = (classData: any) => {
+    setScheduleManagementClass(classData);
+    setShowScheduleManager(true);
+  };
+
+  const handleScheduleSuccess = () => {
+    setShowScheduleManager(false);
+    setScheduleManagementClass(null);
+    fetchClasses(); // Refresh class list
   };
 
   // Teaching Roles functions
@@ -1263,6 +1279,7 @@ export default function AdminPage() {
                   }
                   onEdit={editClass}
                   onDelete={deleteClass}
+                  onManageSchedule={manageClassSchedule}
                 />
               )}
             </div>
@@ -1429,6 +1446,18 @@ export default function AdminPage() {
               availableTeachingRoles={teachingRoles as any}
               onClose={() => setRoleAssignmentStaff(null)}
               onSave={handleRoleAssignmentSave}
+            />
+          )}
+
+          {/* Schedule Pattern Manager Modal */}
+          {showScheduleManager && scheduleManagementClass && (
+            <SchedulePatternManager
+              classData={scheduleManagementClass}
+              onClose={() => {
+                setShowScheduleManager(false);
+                setScheduleManagementClass(null);
+              }}
+              onSuccess={handleScheduleSuccess}
             />
           )}
         </div>
