@@ -8,6 +8,7 @@ interface Class {
   classType: string;
   durationWeeks: number | null;
   durationHours: string | null;
+  maxStudents?: number;
 }
 
 interface SchedulePattern {
@@ -98,24 +99,48 @@ export default function SchedulePatternManager({
             .split("T")[0]
         : endDate;
 
+      // Build RRULE string
+      const dayMap = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
+      const byDay = daysOfWeek.map((d) => dayMap[d]).join(",");
+      
+      let rrule = "";
+      if (frequency === "weekly") {
+        rrule = `FREQ=WEEKLY;BYDAY=${byDay}`;
+      } else if (frequency === "daily") {
+        rrule = `FREQ=DAILY`;
+      } else if (frequency === "monthly") {
+        rrule = `FREQ=MONTHLY;BYDAY=${byDay}`;
+      }
+
+      // Calculate duration hours
+      let durationHours = parseFloat(classData.durationHours || "2");
+      
+      // For series, calculate duration from start to end time
+      if (patternType === "series" && endTime) {
+        const [startH, startM] = startTime.split(":").map(Number);
+        const [endH, endM] = endTime.split(":").map(Number);
+        const startMinutes = startH * 60 + startM;
+        const endMinutes = endH * 60 + endM;
+        durationHours = (endMinutes - startMinutes) / 60;
+      }
+
       const response = await fetch("/api/admin/schedule-patterns/preview", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          classId: classData.id,
-          patternType,
+          recurrenceRule: rrule,
           startDate,
           endDate: previewEndDate,
-          daysOfWeek,
           startTime,
-          endTime: patternType === "series" ? endTime : null,
-          frequency,
-          interval,
+          durationHours: durationHours.toString(),
         }),
       });
 
-      if (!response.ok) throw new Error("Failed to generate preview");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to generate preview");
+      }
 
       const data = await response.json();
       setPreviewSessions(data.sessions || []);
@@ -128,29 +153,55 @@ export default function SchedulePatternManager({
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     setLoading(true);
 
     try {
+      // Build RRULE string
+      const dayMap = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
+      const byDay = daysOfWeek.map((d) => dayMap[d]).join(",");
+      
+      let rrule = "";
+      if (frequency === "weekly") {
+        rrule = `FREQ=WEEKLY;BYDAY=${byDay}`;
+      } else if (frequency === "daily") {
+        rrule = `FREQ=DAILY`;
+      } else if (frequency === "monthly") {
+        rrule = `FREQ=MONTHLY;BYDAY=${byDay}`;
+      }
+
+      // Calculate duration hours
+      let durationHours = parseFloat(classData.durationHours || "2");
+      
+      // For series, calculate duration from start to end time divided by intervals
+      if (patternType === "series" && endTime) {
+        const [startH, startM] = startTime.split(":").map(Number);
+        const [endH, endM] = endTime.split(":").map(Number);
+        const startMinutes = startH * 60 + startM;
+        const endMinutes = endH * 60 + endM;
+        durationHours = interval; // Each session duration
+      }
+
       const response = await fetch("/api/admin/schedule-patterns", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
           classId: classData.id,
-          patternType,
+          recurrenceRule: rrule,
           startDate,
           endDate: indefinite ? null : endDate,
-          daysOfWeek,
           startTime,
-          endTime: patternType === "series" ? endTime : null,
-          frequency,
-          interval,
+          durationHours: durationHours.toString(),
+          maxStudents: classData.maxStudents || 12,
         }),
       });
 
-      if (!response.ok) throw new Error("Failed to create schedule pattern");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to create schedule pattern");
+      }
 
       const pattern = await response.json();
 
