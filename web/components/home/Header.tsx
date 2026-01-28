@@ -12,6 +12,8 @@ interface HeaderProps {
   onNavigateAdmin: () => void;
   onNavigateLogin: () => void;
   onNavigateSchedule?: () => void;
+  onNavigateClasses?: () => void;
+  onNavigateMyClasses?: () => void;
 }
 
 export default function Header({
@@ -21,6 +23,8 @@ export default function Header({
   onNavigateAdmin,
   onNavigateLogin,
   onNavigateSchedule,
+  onNavigateClasses,
+  onNavigateMyClasses,
 }: HeaderProps) {
   const hasStaffAccess = user?.roles?.some((role) =>
     ["admin", "manager", "staff"].includes(role)
@@ -34,8 +38,14 @@ export default function Header({
           <p className="header-subtitle">powered by Kiln Agent</p>
         </div>
         <nav className="header-nav">
+          <button onClick={onNavigateClasses} className="nav-btn">
+            Classes
+          </button>
           {user ? (
             <>
+              <button onClick={onNavigateMyClasses} className="nav-btn">
+                My Classes
+              </button>
               <span className="user-greeting">Hi, {user.name}</span>
               {hasStaffAccess && (
                 <>
