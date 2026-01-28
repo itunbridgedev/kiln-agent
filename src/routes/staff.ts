@@ -94,25 +94,29 @@ router.get(
           : session.assistants[0]?.role;
 
         // Calculate end time from start/end time strings
-        const sessionDate = new Date(session.sessionDate);
+        // Extract just the date components to avoid timezone issues
+        const sessionDateObj = new Date(session.sessionDate);
+        const year = sessionDateObj.getUTCFullYear();
+        const month = sessionDateObj.getUTCMonth();
+        const day = sessionDateObj.getUTCDate();
+
         const [startHours, startMinutes] = session.startTime
           .split(":")
           .map(Number);
         const [endHours, endMinutes] = session.endTime.split(":").map(Number);
 
-        const startTime = new Date(sessionDate);
-        startTime.setHours(startHours, startMinutes, 0, 0);
-
-        const endTime = new Date(sessionDate);
-        endTime.setHours(endHours, endMinutes, 0, 0);
+        // Create ISO strings without timezone conversion
+        const pad = (n: number) => String(n).padStart(2, "0");
+        const startTime = `${year}-${pad(month + 1)}-${pad(day)}T${pad(startHours)}:${pad(startMinutes)}:00`;
+        const endTime = `${year}-${pad(month + 1)}-${pad(day)}T${pad(endHours)}:${pad(endMinutes)}:00`;
 
         return {
           id: session.id,
           title: session.classStep
             ? `${parentClass?.name} - ${session.classStep.name}`
             : parentClass?.name,
-          start: startTime.toISOString(),
-          end: endTime.toISOString(),
+          start: startTime,
+          end: endTime,
           location: session.location,
           maxStudents: session.maxStudents,
           currentEnrollment: session.currentEnrollment,
@@ -124,7 +128,9 @@ router.get(
               }
             : null,
           userRole: {
-            type: isInstructor ? ("instructor" as const) : ("assistant" as const),
+            type: isInstructor
+              ? ("instructor" as const)
+              : ("assistant" as const),
             name: role?.name || (isInstructor ? "Instructor" : "Assistant"),
           },
           schedulePattern: session.schedulePattern
@@ -140,6 +146,88 @@ router.get(
     } catch (error) {
       console.error("Error fetching staff sessions:", error);
       res.status(500).json({ error: "Failed to fetch sessions" });
+    }
+  }
+);
+
+// POST /api/staff/calendar-feed/generate - Generate or regenerate calendar feed token
+router.post(
+  "/calendar-feed/generate",
+  async (req: express.Request, res: express.Response) => {
+    try {
+      const user = req.user as any;
+      if (!user?.id) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      // Check if feed already exists
+      const existingFeed = await prisma.staffCalendarFeed.findUnique({
+        where: { customerId: user.id },
+      });
+
+      let feed;
+      if (existingFeed) {
+        // Regenerate token by updating the record (triggers new UUID)
+        feed = await prisma.staffCalendarFeed.update({
+          where: { customerId: user.id },
+          data: { secureToken: crypto.randomUUID() },
+        });
+      } else {
+        // Create new feed
+        feed = await prisma.staffCalendarFeed.create({
+          data: {
+            customerId: user.id,
+          },
+        });
+      }
+
+      // Construct the feed URL
+      const feedUrl = `${req.protocol}://${req.get("host")}/api/calendar/feed/${user.id}/${feed.secureToken}`;
+
+      res.json({
+        feedUrl,
+        token: feed.secureToken,
+        createdAt: feed.createdAt,
+        updatedAt: feed.updatedAt,
+      });
+    } catch (error) {
+      console.error("Error generating calendar feed:", error);
+      res.status(500).json({ error: "Failed to generate calendar feed" });
+    }
+  }
+);
+
+// GET /api/staff/calendar-feed - Get current calendar feed info
+router.get(
+  "/calendar-feed",
+  async (req: express.Request, res: express.Response) => {
+    try {
+      const user = req.user as any;
+      if (!user?.id) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      const feed = await prisma.staffCalendarFeed.findUnique({
+        where: { customerId: user.id },
+      });
+
+      if (!feed) {
+        return res.json({ exists: false });
+      }
+
+      const feedUrl = `${req.protocol}://${req.get("host")}/api/calendar/feed/${user.id}/${feed.secureToken}`;
+
+      res.json({
+        exists: true,
+        feedUrl,
+        token: feed.secureToken,
+        isActive: feed.isActive,
+        createdAt: feed.createdAt,
+        updatedAt: feed.updatedAt,
+      });
+    } catch (error) {
+      console.error("Error fetching calendar feed:", error);
+      res.status(500).json({ error: "Failed to fetch calendar feed" });
     }
   }
 );

@@ -46,6 +46,7 @@ model Customer {
   staffTeachingRoles  StaffTeachingRole[]
   sessionInstructor   ClassSessionInstructor[]
   sessionAssistant    ClassSessionAssistant[]
+  calendarFeed        StaffCalendarFeed?
   
   @@unique([studioId, email])
   @@index([studioId])
@@ -315,6 +316,19 @@ model ClassSessionAssistant {
   @@index([sessionId])
   @@index([customerId])
   @@index([roleId])
+}
+
+// Calendar feed subscriptions for staff members
+model StaffCalendarFeed {
+  id          Int      @id @default(autoincrement())
+  customerId  Int      @unique // One feed per staff member
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  secureToken String   @unique @default(uuid()) // Secure token for feed URL
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([secureToken])
 }
 
 // Track student enrollments in a class schedule

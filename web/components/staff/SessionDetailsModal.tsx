@@ -218,9 +218,9 @@ export default function SessionDetailsModal({
                 <div>
                   <p className="text-sm text-gray-500">Your Role</p>
                   <p className="text-gray-900 font-medium">
-                    {event.userRole.name || event.userRole.type}
-                    {event.userRole.type === "instructor" && " 🏆"}
-                    {event.userRole.type === "assistant" && " 🤝"}
+                    {event.userRole.type === "instructor"
+                      ? "Instructor 🏆"
+                      : "Assistant 🤝"}
                   </p>
                 </div>
               </div>

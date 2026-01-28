@@ -8,6 +8,11 @@ import CategoryTable from "@/components/admin/CategoryTable";
 import ClassForm, { ClassFormData } from "@/components/admin/ClassForm";
 import ClassTable from "@/components/admin/ClassTable";
 import StaffRoleAssignment from "@/components/admin/StaffRoleAssignment";
+import StudioCalendar, {
+  StudioCalendarEvent,
+} from "@/components/admin/StudioCalendar";
+import StudioCalendarFilters from "@/components/admin/StudioCalendarFilters";
+import StudioSessionDetailsModal from "@/components/admin/StudioSessionDetailsModal";
 import TeachingRoleForm, {
   TeachingRoleFormData,
 } from "@/components/admin/TeachingRoleForm";
@@ -16,9 +21,16 @@ import TeachingRoleTable, {
 } from "@/components/admin/TeachingRoleTable";
 import UserRoleEditor from "@/components/admin/UserRoleEditor";
 import UserSearch from "@/components/admin/UserSearch";
+import CalendarSubscription from "@/components/staff/CalendarSubscription";
+import SessionDetailsModal from "@/components/staff/SessionDetailsModal";
+import StaffCalendar, { CalendarEvent } from "@/components/staff/StaffCalendar";
 import { useAuth } from "@/context/AuthContext";
+import { startOfWeek } from "date-fns";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { View } from "react-big-calendar";
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
 interface Category {
   id: number;
@@ -37,10 +49,43 @@ interface Category {
 export default function AdminPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
+
+  // Initialize activeTab from localStorage or default to "schedule"
   const [activeTab, setActiveTab] = useState<
-    "categories" | "classes" | "teaching-roles" | "users"
-  >("categories");
-  const [classesExpanded, setClassesExpanded] = useState(true);
+    | "schedule"
+    | "studio-calendar"
+    | "categories"
+    | "classes"
+    | "teaching-roles"
+    | "users"
+  >(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("adminActiveTab");
+      if (
+        saved &&
+        [
+          "schedule",
+          "studio-calendar",
+          "categories",
+          "classes",
+          "teaching-roles",
+          "users",
+        ].includes(saved)
+      ) {
+        return saved as
+          | "schedule"
+          | "studio-calendar"
+          | "categories"
+          | "classes"
+          | "teaching-roles"
+          | "users";
+      }
+    }
+    return "schedule";
+  });
+  const [classesExpanded, setClassesExpanded] = useState(false);
+  const [scheduleExpanded, setScheduleExpanded] = useState(true);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [studioName, setStudioName] = useState<string>("");
   const [categories, setCategories] = useState<Category[]>([]);
   const [classesSystemCategoryId, setClassesSystemCategoryId] = useState<
@@ -71,6 +116,49 @@ export default function AdminPage() {
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [showUserRoleEditor, setShowUserRoleEditor] = useState(false);
   const [roleAssignmentStaff, setRoleAssignmentStaff] = useState<any>(null);
+
+  // Schedule state
+  const [scheduleEvents, setScheduleEvents] = useState<CalendarEvent[]>([]);
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(
+    null
+  );
+  const [scheduleLoading, setScheduleLoading] = useState(false);
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
+  const [scheduleView, setScheduleView] = useState<View>("week");
+  const [scheduleDate, setScheduleDate] = useState(new Date());
+
+  const getInitialDateRange = () => {
+    const today = new Date();
+    const weekStart = startOfWeek(today);
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 7);
+    return { start: weekStart, end: weekEnd };
+  };
+
+  const [scheduleDateRange, setScheduleDateRange] = useState(
+    getInitialDateRange()
+  );
+
+  // Studio Calendar state
+  const [studioEvents, setStudioEvents] = useState<StudioCalendarEvent[]>([]);
+  const [selectedStudioEvent, setSelectedStudioEvent] =
+    useState<StudioCalendarEvent | null>(null);
+  const [studioLoading, setStudioLoading] = useState(false);
+  const [studioError, setStudioError] = useState<string | null>(null);
+  const [studioView, setStudioView] = useState<View>("week");
+  const [studioDate, setStudioDate] = useState(new Date());
+  const [studioDateRange, setStudioDateRange] = useState(getInitialDateRange());
+  const [studioFilters, setStudioFilters] = useState<{
+    staffId: number | null;
+    categoryId: number | null;
+    roleType: "instructor" | "assistant" | null;
+    enrollmentStatus: "full" | "available" | "low" | null;
+  }>({
+    staffId: null,
+    categoryId: null,
+    roleType: null,
+    enrollmentStatus: null,
+  });
 
   // Ref for filter dropdown click-outside
   const filterDropdownRef = useRef<HTMLDivElement>(null);
@@ -321,6 +409,221 @@ export default function AdminPage() {
     }
   };
 
+  // Fetch schedule sessions
+  const fetchSessions = useCallback(async (start: Date, end: Date) => {
+    setScheduleLoading(true);
+    setScheduleError(null);
+
+    try {
+      const startParam = start.toISOString().split("T")[0];
+      const endParam = end.toISOString().split("T")[0];
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/staff/my-sessions?startDate=${startParam}&endDate=${endParam}`,
+        {
+          credentials: "include",
+        }
+      );
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("Please log in to view your schedule");
+        }
+        throw new Error("Failed to fetch sessions");
+      }
+
+      const data = await response.json();
+      setScheduleEvents(data);
+    } catch (err) {
+      console.error("Error fetching sessions:", err);
+      setScheduleError(
+        err instanceof Error ? err.message : "Failed to load sessions"
+      );
+    } finally {
+      setScheduleLoading(false);
+    }
+  }, []);
+
+  // Schedule handlers
+  const handleScheduleDateRangeChange = useCallback(
+    (start: Date, end: Date) => {
+      setScheduleDateRange({ start, end });
+      fetchSessions(start, end);
+    },
+    [fetchSessions]
+  );
+
+  const handleScheduleEventClick = useCallback((event: CalendarEvent) => {
+    setSelectedEvent(event);
+  }, []);
+
+  const handleCloseModal = useCallback(() => {
+    setSelectedEvent(null);
+  }, []);
+
+  // Studio Calendar handlers
+  const fetchStudioSessions = useCallback(
+    async (start: Date, end: Date) => {
+      setStudioLoading(true);
+      setStudioError(null);
+
+      try {
+        const startParam = start.toISOString().split("T")[0];
+        const endParam = end.toISOString().split("T")[0];
+
+        const params = new URLSearchParams({
+          startDate: startParam,
+          endDate: endParam,
+        });
+
+        if (studioFilters.staffId) {
+          params.append("staffId", studioFilters.staffId.toString());
+        }
+        if (studioFilters.categoryId) {
+          params.append("categoryId", studioFilters.categoryId.toString());
+        }
+        if (studioFilters.roleType) {
+          params.append("roleType", studioFilters.roleType);
+        }
+
+        const response = await fetch(
+          `${API_BASE_URL}/api/admin/calendar/sessions?${params}`,
+          {
+            credentials: "include",
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch studio sessions");
+        }
+
+        let data: StudioCalendarEvent[] = await response.json();
+
+        // Convert string dates to Date objects
+        // Parse ISO strings as local time (not UTC)
+        data = data.map((event) => {
+          const parseLocalDateTime = (dateTimeStr: string): Date => {
+            const [datePart, timePart] = dateTimeStr.split("T");
+            const [year, month, day] = datePart.split("-").map(Number);
+            const [hour, minute] = timePart.split(":").map(Number);
+            return new Date(year, month - 1, day, hour, minute);
+          };
+
+          return {
+            ...event,
+            start: parseLocalDateTime(event.start as unknown as string),
+            end: parseLocalDateTime(event.end as unknown as string),
+          };
+        });
+
+        // Apply enrollment filter client-side
+        if (studioFilters.enrollmentStatus) {
+          data = data.filter((event) => {
+            const percent = (event.currentEnrollment / event.maxStudents) * 100;
+            if (studioFilters.enrollmentStatus === "full") {
+              return percent >= 100;
+            } else if (studioFilters.enrollmentStatus === "low") {
+              return percent < 50;
+            } else if (studioFilters.enrollmentStatus === "available") {
+              return percent < 100;
+            }
+            return true;
+          });
+        }
+
+        // Detect conflicts (same staff in overlapping sessions)
+        const eventsWithConflicts = data.map((event) => {
+          const hasConflict = data.some((other) => {
+            if (other.id === event.id) return false;
+            const eventStart = new Date(event.start).getTime();
+            const eventEnd = new Date(event.end).getTime();
+            const otherStart = new Date(other.start).getTime();
+            const otherEnd = new Date(other.end).getTime();
+
+            // Check for time overlap
+            const overlaps =
+              (eventStart < otherEnd && eventEnd > otherStart) ||
+              (otherStart < eventEnd && otherEnd > eventStart);
+
+            if (!overlaps) return false;
+
+            // Check for shared staff
+            return event.staff.some((staff) =>
+              other.staff.some((otherStaff) => otherStaff.id === staff.id)
+            );
+          });
+
+          return { ...event, hasConflict };
+        });
+
+        setStudioEvents(eventsWithConflicts);
+      } catch (err) {
+        console.error("Error fetching studio sessions:", err);
+        setStudioError(
+          err instanceof Error ? err.message : "Failed to load sessions"
+        );
+      } finally {
+        setStudioLoading(false);
+      }
+    },
+    [studioFilters]
+  );
+
+  const handleStudioDateRangeChange = useCallback(
+    (start: Date, end: Date) => {
+      setStudioDateRange({ start, end });
+      fetchStudioSessions(start, end);
+    },
+    [fetchStudioSessions]
+  );
+
+  const handleStudioEventClick = useCallback((event: StudioCalendarEvent) => {
+    setSelectedStudioEvent(event);
+  }, []);
+
+  const handleCloseStudioModal = useCallback(() => {
+    setSelectedStudioEvent(null);
+  }, []);
+
+  const handleStudioStaffChange = useCallback(() => {
+    // Refresh studio calendar events with current date range
+    fetchStudioSessions(studioDateRange.start, studioDateRange.end);
+  }, [studioDateRange, fetchStudioSessions]);
+
+  const handleStudioFiltersChange = useCallback(
+    (filters: typeof studioFilters) => {
+      setStudioFilters(filters);
+    },
+    []
+  );
+
+  // Load schedule on initial mount and tab change
+  useEffect(() => {
+    if (activeTab === "schedule" && user) {
+      fetchSessions(scheduleDateRange.start, scheduleDateRange.end);
+    }
+  }, [
+    activeTab,
+    user,
+    fetchSessions,
+    scheduleDateRange.start,
+    scheduleDateRange.end,
+  ]);
+
+  // Load studio calendar when tab is active or filters change
+  useEffect(() => {
+    if (activeTab === "studio-calendar" && user) {
+      fetchStudioSessions(studioDateRange.start, studioDateRange.end);
+    }
+  }, [
+    activeTab,
+    user,
+    studioFilters,
+    fetchStudioSessions,
+    studioDateRange.start,
+    studioDateRange.end,
+  ]);
+
   const handleTeachingRoleSubmit = async (formData: TeachingRoleFormData) => {
     setError("");
 
@@ -527,27 +830,70 @@ export default function AdminPage() {
 
   return (
     <div className="flex min-h-screen bg-gray-100">
+      {/* Mobile Header with Hamburger */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-30 bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-4">
+        <button
+          onClick={() => setMobileMenuOpen(true)}
+          className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+          aria-label="Open menu"
+        >
+          <svg
+            className="w-6 h-6"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4 6h16M4 12h16M4 18h16"
+            />
+          </svg>
+        </button>
+        <h1 className="text-lg font-semibold text-gray-900">
+          {activeTab === "schedule" && "My Schedule"}
+          {activeTab === "studio-calendar" && "Studio Calendar"}
+          {activeTab === "categories" && "Categories"}
+          {activeTab === "classes" && "Classes"}
+          {activeTab === "teaching-roles" && "Teaching Roles"}
+          {activeTab === "users" && "Users"}
+        </h1>
+      </div>
+
       {/* Sidebar Navigation */}
       <AdminSidebar
         activeTab={activeTab}
         classesExpanded={classesExpanded}
+        scheduleExpanded={scheduleExpanded}
         studioName={studioName}
         user={user!}
+        isOpen={mobileMenuOpen}
         onTabChange={(tab) => {
           setActiveTab(tab);
-          // Expand Classes module for categories, classes, and teaching-roles
-          if (
+          localStorage.setItem("adminActiveTab", tab);
+          setError(""); // Clear any previous errors when switching tabs
+          // Expand Schedule module for schedule and studio-calendar tabs
+          if (tab === "schedule" || tab === "studio-calendar") {
+            setScheduleExpanded(true);
+            setClassesExpanded(false);
+          }
+          // Expand Classes module only for categories, classes, and teaching-roles
+          else if (
             tab === "categories" ||
             tab === "classes" ||
             tab === "teaching-roles"
           ) {
             setClassesExpanded(true);
-          } else if (tab === "users") {
-            // Collapse Classes module when Users tab is active
+            setScheduleExpanded(false);
+          } else {
+            // Collapse both for users tab
             setClassesExpanded(false);
+            setScheduleExpanded(false);
           }
         }}
         onToggleClassesExpanded={() => setClassesExpanded(!classesExpanded)}
+        onToggleScheduleExpanded={() => setScheduleExpanded(!scheduleExpanded)}
         onBackHome={() => router.push("/")}
         onLogout={async () => {
           await fetch("/api/auth/logout", {
@@ -556,29 +902,34 @@ export default function AdminPage() {
           });
           router.push("/login");
         }}
+        onClose={() => setMobileMenuOpen(false)}
       />
 
       {/* Main Content */}
-      <main className="flex-1 p-8 overflow-y-auto">
+      <main className="flex-1 p-4 lg:p-8 pt-20 lg:pt-8 overflow-y-auto">
         <div className="max-w-7xl mx-auto">
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              {activeTab === "categories"
-                ? "Class Categories"
-                : activeTab === "classes"
-                  ? "Classes"
-                  : activeTab === "teaching-roles"
-                    ? "Teaching Roles"
-                    : "User Management"}
+              {activeTab === "schedule"
+                ? "My Schedule"
+                : activeTab === "categories"
+                  ? "Class Categories"
+                  : activeTab === "classes"
+                    ? "Classes"
+                    : activeTab === "teaching-roles"
+                      ? "Teaching Roles"
+                      : "User Management"}
             </h1>
             <p className="text-gray-600 mb-4">
-              {activeTab === "categories"
-                ? "Manage your class categories and subcategories"
-                : activeTab === "classes"
-                  ? "Manage your class offerings"
-                  : activeTab === "teaching-roles"
-                    ? "Manage teaching roles and staff assignments"
-                    : "Search for users and manage their roles"}
+              {activeTab === "schedule"
+                ? "View and manage your teaching sessions"
+                : activeTab === "categories"
+                  ? "Manage your class categories and subcategories"
+                  : activeTab === "classes"
+                    ? "Manage your class offerings"
+                    : activeTab === "teaching-roles"
+                      ? "Manage teaching roles and staff assignments"
+                      : "Search for users and manage their roles"}
             </p>
             <button
               onClick={() => router.push("/")}
@@ -591,6 +942,169 @@ export default function AdminPage() {
           {error && (
             <div className="mb-6 p-4 bg-error/10 border border-error text-error rounded-md">
               {error}
+            </div>
+          )}
+
+          {activeTab === "schedule" && (
+            <div>
+              {scheduleError && (
+                <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-4">
+                  <div className="flex items-center">
+                    <svg
+                      className="w-5 h-5 text-red-600 mr-3"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                    <span className="text-red-800">{scheduleError}</span>
+                  </div>
+                </div>
+              )}
+
+              {scheduleLoading && (
+                <div className="flex justify-center items-center h-64">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
+                </div>
+              )}
+
+              {!scheduleLoading && !scheduleError && (
+                <>
+                  {scheduleEvents.length === 0 ? (
+                    <div className="bg-white rounded-lg shadow-sm p-12 text-center">
+                      <svg
+                        className="mx-auto h-12 w-12 text-gray-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                        />
+                      </svg>
+                      <h3 className="mt-4 text-lg font-medium text-gray-900">
+                        No sessions found
+                      </h3>
+                      <p className="mt-2 text-sm text-gray-500">
+                        You don't have any teaching sessions scheduled for this
+                        time period.
+                      </p>
+                    </div>
+                  ) : (
+                    <StaffCalendar
+                      events={scheduleEvents}
+                      onEventClick={handleScheduleEventClick}
+                      onDateRangeChange={handleScheduleDateRangeChange}
+                      view={scheduleView}
+                      onViewChange={setScheduleView}
+                      date={scheduleDate}
+                      onDateChange={setScheduleDate}
+                    />
+                  )}
+                </>
+              )}
+
+              <SessionDetailsModal
+                event={selectedEvent}
+                onClose={handleCloseModal}
+              />
+
+              {/* Calendar Subscription Section */}
+              {!scheduleLoading && !scheduleError && (
+                <div className="mt-8">
+                  <CalendarSubscription />
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === "studio-calendar" && (
+            <div>
+              <StudioCalendarFilters
+                categories={categories}
+                onFilterChange={handleStudioFiltersChange}
+              />
+
+              {studioError && (
+                <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-4">
+                  <div className="flex items-center">
+                    <svg
+                      className="w-5 h-5 text-red-600 mr-3"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                    <span className="text-red-800">{studioError}</span>
+                  </div>
+                </div>
+              )}
+
+              {studioLoading && (
+                <div className="flex justify-center items-center h-64">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
+                </div>
+              )}
+
+              {!studioLoading && !studioError && (
+                <>
+                  {studioEvents.length === 0 ? (
+                    <div className="bg-white rounded-lg shadow-sm p-12 text-center">
+                      <svg
+                        className="mx-auto h-12 w-12 text-gray-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                        />
+                      </svg>
+                      <h3 className="mt-4 text-lg font-medium text-gray-900">
+                        No sessions found
+                      </h3>
+                      <p className="mt-2 text-sm text-gray-500">
+                        No studio sessions match the selected filters for this
+                        time period.
+                      </p>
+                    </div>
+                  ) : (
+                    <StudioCalendar
+                      events={studioEvents}
+                      onEventClick={handleStudioEventClick}
+                      onDateRangeChange={handleStudioDateRangeChange}
+                      view={studioView}
+                      onViewChange={setStudioView}
+                      date={studioDate}
+                      onDateChange={setStudioDate}
+                    />
+                  )}
+                </>
+              )}
+
+              <StudioSessionDetailsModal
+                event={selectedStudioEvent}
+                onClose={handleCloseStudioModal}
+                onStaffChange={handleStudioStaffChange}
+              />
             </div>
           )}
 

@@ -68,7 +68,7 @@ async function main() {
 
   for (let i = 0; i < 8; i++) {
     const sessionDate = addWeeks(nextMonday, i);
-    
+
     // Alternate between staff and admin as instructor
     const instructor = i % 2 === 0 ? staffUser : adminUser;
     const assistant = i % 2 === 0 ? adminUser : staffUser;

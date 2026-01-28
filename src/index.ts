@@ -8,7 +8,9 @@ import { Pool } from "pg";
 import passport from "./config/passport";
 import { tenantMiddleware } from "./middleware/tenantMiddleware";
 import adminRoutes from "./routes/admin";
+import adminCalendarRoutes from "./routes/admin-calendar";
 import authRoutes from "./routes/auth";
+import calendarRoutes from "./routes/calendar";
 import classesRoutes from "./routes/classes";
 import productsRoutes from "./routes/products";
 import schedulePatternRoutes from "./routes/schedule-patterns";
@@ -152,8 +154,10 @@ app.use(tenantMiddleware);
 
 // Routes
 app.use("/api/auth", authRoutes);
+app.use("/api/calendar", calendarRoutes); // Public calendar feeds
 app.use("/api/products", productsRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/admin/calendar", adminCalendarRoutes);
 app.use("/api/admin/classes", classesRoutes);
 app.use("/api/admin/schedule-patterns", schedulePatternRoutes);
 app.use("/api/admin/teaching-roles", teachingRolesRoutes);

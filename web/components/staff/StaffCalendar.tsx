@@ -2,7 +2,7 @@
 
 import { format, getDay, parse, startOfWeek } from "date-fns";
 import { enUS } from "date-fns/locale";
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import { Calendar, dateFnsLocalizer, View } from "react-big-calendar";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 
@@ -48,16 +48,21 @@ interface StaffCalendarProps {
   events: CalendarEvent[];
   onEventClick?: (event: CalendarEvent) => void;
   onDateRangeChange?: (start: Date, end: Date) => void;
+  view: View;
+  onViewChange: (view: View) => void;
+  date: Date;
+  onDateChange: (date: Date) => void;
 }
 
 export default function StaffCalendar({
   events,
   onEventClick,
   onDateRangeChange,
+  view,
+  onViewChange,
+  date,
+  onDateChange,
 }: StaffCalendarProps) {
-  const [view, setView] = useState<View>("week");
-  const [date, setDate] = useState(new Date());
-
   // Convert string dates to Date objects
   const formattedEvents = events.map((event) => ({
     ...event,
@@ -119,7 +124,7 @@ export default function StaffCalendar({
   // Handle view or date change - notify parent to fetch new data
   const handleNavigate = useCallback(
     (newDate: Date) => {
-      setDate(newDate);
+      onDateChange(newDate);
 
       // Calculate date range based on view
       let start = new Date(newDate);
@@ -127,26 +132,46 @@ export default function StaffCalendar({
 
       if (view === "month") {
         start = new Date(newDate.getFullYear(), newDate.getMonth(), 1);
-        end = new Date(newDate.getFullYear(), newDate.getMonth() + 1, 0);
+        end = new Date(newDate.getFullYear(), newDate.getMonth() + 1, 1); // Next month's first day
       } else if (view === "week") {
         start = startOfWeek(newDate);
         end = new Date(start);
-        end.setDate(start.getDate() + 6);
+        end.setDate(start.getDate() + 7); // Include full 7 days
       } else if (view === "day") {
+        start.setHours(0, 0, 0, 0);
         end = new Date(newDate);
+        end.setHours(23, 59, 59, 999);
       }
 
       onDateRangeChange?.(start, end);
     },
-    [view, onDateRangeChange]
+    [view, date, onDateRangeChange, onDateChange]
   );
 
   const handleViewChange = useCallback(
     (newView: View) => {
-      setView(newView);
-      handleNavigate(date);
+      onViewChange(newView);
+
+      // Calculate date range based on new view
+      let start = new Date(date);
+      let end = new Date(date);
+
+      if (newView === "month") {
+        start = new Date(date.getFullYear(), date.getMonth(), 1);
+        end = new Date(date.getFullYear(), date.getMonth() + 1, 1); // Next month's first day
+      } else if (newView === "week") {
+        start = startOfWeek(date);
+        end = new Date(start);
+        end.setDate(start.getDate() + 7); // Include full 7 days
+      } else if (newView === "day") {
+        start.setHours(0, 0, 0, 0);
+        end = new Date(date);
+        end.setHours(23, 59, 59, 999);
+      }
+
+      onDateRangeChange?.(start, end);
     },
-    [date, handleNavigate]
+    [view, date, onDateRangeChange, onViewChange]
   );
 
   return (
