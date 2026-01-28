@@ -13,6 +13,7 @@ import authRoutes from "./routes/auth";
 import calendarRoutes from "./routes/calendar";
 import classesRoutes from "./routes/classes";
 import productsRoutes from "./routes/products";
+import registrationsRoutes from "./routes/registrations";
 import schedulePatternRoutes from "./routes/schedule-patterns";
 import staffRoutes from "./routes/staff";
 import studioRoutes from "./routes/studio";
@@ -156,6 +157,7 @@ app.use(tenantMiddleware);
 app.use("/api/auth", authRoutes);
 app.use("/api/calendar", calendarRoutes); // Public calendar feeds
 app.use("/api/products", productsRoutes);
+app.use("/api/registrations", registrationsRoutes); // Customer registration
 app.use("/api/admin", adminRoutes);
 app.use("/api/admin/calendar", adminCalendarRoutes);
 app.use("/api/admin/classes", classesRoutes);

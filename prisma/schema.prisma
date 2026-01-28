@@ -48,6 +48,10 @@ model Customer {
   sessionAssistant    ClassSessionAssistant[]
   calendarFeed        StaffCalendarFeed?
   
+  // Customer registrations
+  registrations       ClassRegistration[]
+  waitlistEntries     ClassWaitlist[]
+  
   @@unique([studioId, email])
   @@index([studioId])
 }
@@ -146,6 +150,8 @@ model Class {
   schedulePatterns ClassSchedulePattern[]
   steps           ClassStep[]     // For multi-step classes
   sessions        ClassSession[]  // Direct sessions for series classes
+  registrations   ClassRegistration[]
+  waitlistEntries ClassWaitlist[]
   
   @@index([studioId])
   @@index([categoryId])
@@ -197,6 +203,8 @@ model ClassSchedule {
   
   sessions        ClassSession[]
   enrollments     ClassEnrollment[]
+  registrations   ClassRegistration[]
+  waitlistEntries ClassWaitlist[]
   
   @@index([studioId])
   @@index([classId])
@@ -273,6 +281,8 @@ model ClassSession {
   attendances         ClassAttendance[]
   instructors         ClassSessionInstructor[]
   assistants          ClassSessionAssistant[]
+  registrationSessions RegistrationSession[]
+  waitlistEntries     ClassWaitlist[]
   
   @@index([studioId])
   @@index([scheduleId])
@@ -416,4 +426,131 @@ model StaffTeachingRole {
   @@unique([customerId, roleId])
   @@index([customerId])
   @@index([roleId])
+}
+
+// Customer Registration & Enrollment
+enum RegistrationType {
+  SINGLE_SESSION     // Register for one specific session
+  FULL_SCHEDULE      // Register for all sessions in a schedule
+  DROP_IN            // Drop-in registration for series classes
+}
+
+enum RegistrationStatus {
+  PENDING            // Payment pending or admin approval needed
+  CONFIRMED          // Confirmed and paid
+  WAITLISTED         // Added to waitlist (full class)
+  CANCELLED          // Cancelled by customer
+  REFUNDED           // Cancelled and refunded
+  NO_SHOW            // Customer didn't attend
+}
+
+enum PaymentStatus {
+  PENDING            // Payment not yet processed
+  COMPLETED          // Payment successful
+  FAILED             // Payment failed
+  REFUNDED           // Payment refunded
+  PARTIAL_REFUND     // Partial refund issued
+}
+
+model ClassRegistration {
+  id              Int                 @id @default(autoincrement())
+  studioId        Int
+  customerId      Int
+  customer        Customer            @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  
+  // What they're registering for
+  scheduleId      Int?                // For FULL_SCHEDULE type
+  schedule        ClassSchedule?      @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  classId         Int                 // Always link to the class
+  class           Class               @relation(fields: [classId], references: [id], onDelete: Cascade)
+  
+  // Registration details
+  registrationType RegistrationType
+  registrationStatus RegistrationStatus @default(PENDING)
+  registeredAt    DateTime            @default(now())
+  confirmedAt     DateTime?           // When status changed to CONFIRMED
+  cancelledAt     DateTime?           // When cancelled
+  cancellationReason String?
+  
+  // Payment information
+  amountPaid      Decimal             @db.Decimal(10, 2)
+  paymentStatus   PaymentStatus       @default(PENDING)
+  paymentIntentId String?             // Stripe PaymentIntent ID
+  refundAmount    Decimal?            @db.Decimal(10, 2)
+  refundedAt      DateTime?
+  
+  // Notes
+  customerNotes   String?             // Notes from customer during registration
+  adminNotes      String?             // Internal notes from staff
+  
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  
+  // For SINGLE_SESSION or DROP_IN, track which specific sessions
+  sessions        RegistrationSession[]
+  
+  @@index([studioId])
+  @@index([customerId])
+  @@index([scheduleId])
+  @@index([classId])
+  @@index([registrationStatus])
+  @@index([paymentStatus])
+}
+
+// Junction table linking registrations to specific sessions
+model RegistrationSession {
+  id              Int                 @id @default(autoincrement())
+  registrationId  Int
+  registration    ClassRegistration   @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  sessionId       Int
+  session         ClassSession        @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  
+  // Track attendance for this specific session
+  attended        Boolean             @default(false)
+  attendedAt      DateTime?
+  
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  
+  @@unique([registrationId, sessionId])
+  @@index([registrationId])
+  @@index([sessionId])
+}
+
+// Waitlist for fully booked classes
+model ClassWaitlist {
+  id              Int                 @id @default(autoincrement())
+  studioId        Int
+  customerId      Int
+  customer        Customer            @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  
+  // What they're waiting for
+  scheduleId      Int?                // Specific schedule
+  schedule        ClassSchedule?      @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  sessionId       Int?                // Specific session for DROP_IN
+  session         ClassSession?       @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  classId         Int                 // Always link to the class
+  class           Class               @relation(fields: [classId], references: [id], onDelete: Cascade)
+  
+  // Waitlist management
+  position        Int                 // Position in line
+  joinedAt        DateTime            @default(now())
+  notifiedAt      DateTime?           // When customer was notified of opening
+  expiresAt       DateTime?           // Notification expires after X hours
+  convertedToRegistration Boolean     @default(false)
+  registrationId  Int?                // If they registered after notification
+  removedAt       DateTime?           // If removed from waitlist
+  removalReason   String?             // "registered", "expired", "cancelled"
+  
+  customerNotes   String?             // Notes from customer
+  
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  
+  @@index([studioId])
+  @@index([customerId])
+  @@index([scheduleId])
+  @@index([sessionId])
+  @@index([classId])
+  @@index([position])
 }
