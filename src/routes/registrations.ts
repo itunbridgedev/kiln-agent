@@ -1,5 +1,6 @@
-import { Router, Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
+import { Request, Response, Router } from "express";
+import { isAuthenticated } from "../middleware/auth";
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -123,8 +124,8 @@ router.get("/classes/:id", async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/registrations - Create a new registration
-router.post("/", async (req: Request, res: Response) => {
+// POST /api/registrations - Create a new registration (requires authentication)
+router.post("/", isAuthenticated, async (req: Request, res: Response) => {
   try {
     const studioId = (req as AuthenticatedRequest).studioId;
     const customerId = (req as AuthenticatedRequest).user?.id;
@@ -204,10 +205,7 @@ router.post("/", async (req: Request, res: Response) => {
         },
       });
 
-      if (
-        schedule &&
-        schedule._count.enrollments >= classDetails.maxStudents
-      ) {
+      if (schedule && schedule._count.enrollments >= classDetails.maxStudents) {
         isWaitlisted = true;
       }
     }
@@ -289,8 +287,8 @@ router.post("/", async (req: Request, res: Response) => {
   }
 });
 
-// GET /api/registrations/my-registrations - Get current user's registrations
-router.get("/my-registrations", async (req: Request, res: Response) => {
+// GET /api/registrations/my-registrations - Get current customer's registrations (requires authentication)
+router.get("/my-registrations", isAuthenticated, async (req: Request, res: Response) => {
   try {
     const studioId = (req as AuthenticatedRequest).studioId;
     const customerId = (req as AuthenticatedRequest).user?.id;
@@ -341,15 +339,17 @@ router.get("/my-registrations", async (req: Request, res: Response) => {
   }
 });
 
-// PUT /api/registrations/:id/cancel - Cancel a registration
-router.put("/:id/cancel", async (req: Request, res: Response) => {
+// PUT /api/registrations/:id/cancel - Cancel a registration (requires authentication)
+router.put("/:id/cancel", isAuthenticated, async (req: Request, res: Response) => {
   try {
     const studioId = (req as AuthenticatedRequest).studioId;
     const customerId = (req as AuthenticatedRequest).user?.id;
     const registrationId = parseInt(req.params.id);
 
     if (!studioId || !customerId) {
-      return res.status(400).json({ error: "Studio context and authentication required" });
+      return res
+        .status(400)
+        .json({ error: "Studio context and authentication required" });
     }
 
     const { cancellationReason } = req.body;
@@ -393,14 +393,16 @@ router.put("/:id/cancel", async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/registrations/waitlist - Join a waitlist
-router.post("/waitlist", async (req: Request, res: Response) => {
+// POST /api/registrations/waitlist - Join a waitlist (requires authentication)
+router.post("/waitlist", isAuthenticated, async (req: Request, res: Response) => {
   try {
     const studioId = (req as AuthenticatedRequest).studioId;
     const customerId = (req as AuthenticatedRequest).user?.id;
 
     if (!studioId || !customerId) {
-      return res.status(400).json({ error: "Studio context and authentication required" });
+      return res
+        .status(400)
+        .json({ error: "Studio context and authentication required" });
     }
 
     const { classId, scheduleId, sessionId, customerNotes } = req.body;
@@ -473,14 +475,16 @@ router.post("/waitlist", async (req: Request, res: Response) => {
   }
 });
 
-// GET /api/registrations/my-waitlist - Get current user's waitlist entries
-router.get("/my-waitlist", async (req: Request, res: Response) => {
+// GET /api/registrations/my-waitlist - Get current customer's waitlist entries (requires authentication)
+router.get("/my-waitlist", isAuthenticated, async (req: Request, res: Response) => {
   try {
     const studioId = (req as AuthenticatedRequest).studioId;
     const customerId = (req as AuthenticatedRequest).user?.id;
 
     if (!studioId || !customerId) {
-      return res.status(400).json({ error: "Studio context and authentication required" });
+      return res
+        .status(400)
+        .json({ error: "Studio context and authentication required" });
     }
 
     const waitlistEntries = await prisma.classWaitlist.findMany({
@@ -510,15 +514,17 @@ router.get("/my-waitlist", async (req: Request, res: Response) => {
   }
 });
 
-// DELETE /api/registrations/waitlist/:id - Remove from waitlist
-router.delete("/waitlist/:id", async (req: Request, res: Response) => {
+// DELETE /api/registrations/waitlist/:id - Remove from waitlist (requires authentication)
+router.delete("/waitlist/:id", isAuthenticated, async (req: Request, res: Response) => {
   try {
     const studioId = (req as AuthenticatedRequest).studioId;
     const customerId = (req as AuthenticatedRequest).user?.id;
     const waitlistId = parseInt(req.params.id);
 
     if (!studioId || !customerId) {
-      return res.status(400).json({ error: "Studio context and authentication required" });
+      return res
+        .status(400)
+        .json({ error: "Studio context and authentication required" });
     }
 
     const waitlistEntry = await prisma.classWaitlist.findUnique({
