@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 interface Class {
   id: number;
@@ -40,6 +40,8 @@ export default function SchedulePatternManager({
   const [patterns, setPatterns] = useState<SchedulePattern[]>([]);
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewSessions, setPreviewSessions] = useState<any[]>([]);
 
   // Form state
   const [patternType, setPatternType] = useState<
@@ -58,10 +60,73 @@ export default function SchedulePatternManager({
 
   const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+  useEffect(() => {
+    fetchPatterns();
+  }, [classData.id]);
+
   const toggleDay = (day: number) => {
     setDaysOfWeek((prev) =>
       prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day].sort()
     );
+  };
+
+  const fetchPatterns = async () => {
+    try {
+      const response = await fetch(
+        `/api/admin/classes/${classData.id}/patterns`,
+        {
+          credentials: "include",
+        }
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setPatterns(data);
+      }
+    } catch (error) {
+      console.error("Error fetching patterns:", error);
+    }
+  };
+
+  const handlePreview = async () => {
+    setLoading(true);
+    setShowPreview(false);
+
+    try {
+      // Calculate preview end date (30 days or until endDate, whichever is sooner)
+      const previewEndDate = indefinite
+        ? new Date(new Date(startDate).getTime() + 30 * 24 * 60 * 60 * 1000)
+            .toISOString()
+            .split("T")[0]
+        : endDate;
+
+      const response = await fetch("/api/admin/schedule-patterns/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          classId: classData.id,
+          patternType,
+          startDate,
+          endDate: previewEndDate,
+          daysOfWeek,
+          startTime,
+          endTime: patternType === "series" ? endTime : null,
+          frequency,
+          interval,
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to generate preview");
+
+      const data = await response.json();
+      setPreviewSessions(data.sessions || []);
+      setShowPreview(true);
+    } catch (error) {
+      console.error("Error generating preview:", error);
+      alert("Failed to generate preview");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -69,35 +134,79 @@ export default function SchedulePatternManager({
     setLoading(true);
 
     try {
-      const response = await fetch(
-        "/api/admin/schedule-patterns",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({
-            classId: classData.id,
-            patternType,
-            startDate,
-            endDate: indefinite ? null : endDate,
-            daysOfWeek,
-            startTime,
-            endTime,
-            frequency,
-            interval,
-          }),
-        }
-      );
+      const response = await fetch("/api/admin/schedule-patterns", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          classId: classData.id,
+          patternType,
+          startDate,
+          endDate: indefinite ? null : endDate,
+          daysOfWeek,
+          startTime,
+          endTime: patternType === "series" ? endTime : null,
+          frequency,
+          interval,
+        }),
+      });
 
       if (!response.ok) throw new Error("Failed to create schedule pattern");
 
+      const pattern = await response.json();
+
+      // Generate sessions for the next 30 days
+      const generateEndDate = new Date(
+        new Date(startDate).getTime() + 30 * 24 * 60 * 60 * 1000
+      )
+        .toISOString()
+        .split("T")[0];
+
+      await fetch(`/api/admin/schedule-patterns/${pattern.id}/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          endDate: generateEndDate,
+        }),
+      });
+
       onSuccess();
       setShowForm(false);
+      setShowPreview(false);
+      await fetchPatterns();
     } catch (error) {
       console.error("Error creating pattern:", error);
       alert("Failed to create schedule pattern");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const deletePattern = async (patternId: number) => {
+    if (
+      !confirm(
+        "Are you sure you want to delete this schedule pattern? This will also remove all future sessions."
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `/api/admin/schedule-patterns/${patternId}`,
+        {
+          method: "DELETE",
+          credentials: "include",
+        }
+      );
+
+      if (!response.ok) throw new Error("Failed to delete pattern");
+
+      await fetchPatterns();
+    } catch (error) {
+      console.error("Error deleting pattern:", error);
+      alert("Failed to delete schedule pattern");
     }
   };
 
@@ -133,11 +242,92 @@ export default function SchedulePatternManager({
                 <div className="patterns-list">
                   {patterns.map((pattern) => (
                     <div key={pattern.id} className="pattern-card">
-                      {/* Pattern display - to be implemented */}
+                      <div className="pattern-header">
+                        <div>
+                          <h4>{patternType === "simple" ? "Simple Schedule" : patternType === "series" ? "Series Schedule" : "Multi-Step Course"}</h4>
+                          <p className="pattern-details">
+                            {pattern.daysOfWeek
+                              .map((d) => dayNames[d])
+                              .join(", ")}{" "}
+                            at {pattern.startTime}
+                            {pattern.endTime && ` - ${pattern.endTime}`}
+                          </p>
+                          <p className="pattern-dates">
+                            {new Date(pattern.startDate).toLocaleDateString()}
+                            {pattern.endDate
+                              ? ` - ${new Date(pattern.endDate).toLocaleDateString()}`
+                              : " - Ongoing"}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => deletePattern(pattern.id)}
+                          className="btn-icon btn-danger"
+                          title="Delete pattern"
+                        >
+                          ×
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
               )}
+            </div>
+          ) : showPreview ? (
+            <div className="preview-container">
+              <h3>Preview: Next {previewSessions.length} Sessions</h3>
+              <p className="text-muted">
+                Showing sessions for the next 30 days. Click "Confirm & Create" to
+                save this pattern.
+              </p>
+
+              <div className="preview-sessions">
+                {previewSessions.slice(0, 20).map((session: any, index: number) => (
+                  <div key={index} className="preview-session">
+                    <span className="session-date">
+                      {new Date(session.startTime).toLocaleDateString("en-US", {
+                        weekday: "short",
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </span>
+                    <span className="session-time">
+                      {new Date(session.startTime).toLocaleTimeString("en-US", {
+                        hour: "numeric",
+                        minute: "2-digit",
+                      })}{" "}
+                      -{" "}
+                      {new Date(session.endTime).toLocaleTimeString("en-US", {
+                        hour: "numeric",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                  </div>
+                ))}
+                {previewSessions.length > 20 && (
+                  <p className="text-muted">
+                    ... and {previewSessions.length - 20} more sessions
+                  </p>
+                )}
+              </div>
+
+              <div className="form-actions">
+                <button
+                  type="button"
+                  onClick={() => setShowPreview(false)}
+                  className="btn btn-secondary"
+                  disabled={loading}
+                >
+                  Back to Edit
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSubmit}
+                  className="btn btn-primary"
+                  disabled={loading}
+                >
+                  {loading ? "Creating..." : "Confirm & Create"}
+                </button>
+              </div>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="schedule-form">
@@ -304,11 +494,12 @@ export default function SchedulePatternManager({
                   Cancel
                 </button>
                 <button
-                  type="submit"
+                  type="button"
+                  onClick={handlePreview}
                   className="btn btn-primary"
                   disabled={loading || daysOfWeek.length === 0}
                 >
-                  {loading ? "Creating..." : "Create Schedule"}
+                  {loading ? "Generating..." : "Preview Schedule →"}
                 </button>
               </div>
             </form>
@@ -518,6 +709,98 @@ export default function SchedulePatternManager({
           color: #666;
           font-size: 0.9rem;
           font-style: italic;
+        }
+
+        .patterns-list {
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+        }
+
+        .pattern-card {
+          border: 1px solid #e0e0e0;
+          border-radius: 8px;
+          padding: 1rem;
+          background: #f9f9f9;
+        }
+
+        .pattern-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: start;
+        }
+
+        .pattern-header h4 {
+          margin: 0 0 0.5rem 0;
+          font-size: 1.1rem;
+          color: #333;
+        }
+
+        .pattern-details,
+        .pattern-dates {
+          margin: 0.25rem 0;
+          color: #666;
+          font-size: 0.9rem;
+        }
+
+        .btn-icon {
+          background: none;
+          border: none;
+          font-size: 1.5rem;
+          cursor: pointer;
+          padding: 0.25rem 0.5rem;
+          line-height: 1;
+          border-radius: 4px;
+          transition: all 0.2s;
+        }
+
+        .btn-danger {
+          color: #dc3545;
+        }
+
+        .btn-danger:hover {
+          background: #dc3545;
+          color: white;
+        }
+
+        .preview-container {
+          display: flex;
+          flex-direction: column;
+          gap: 1.5rem;
+        }
+
+        .preview-container h3 {
+          margin: 0;
+          font-size: 1.2rem;
+          color: #333;
+        }
+
+        .preview-sessions {
+          max-height: 400px;
+          overflow-y: auto;
+          border: 1px solid #e0e0e0;
+          border-radius: 8px;
+          padding: 1rem;
+        }
+
+        .preview-session {
+          display: flex;
+          justify-content: space-between;
+          padding: 0.75rem;
+          border-bottom: 1px solid #f0f0f0;
+        }
+
+        .preview-session:last-child {
+          border-bottom: none;
+        }
+
+        .session-date {
+          font-weight: 500;
+          color: #333;
+        }
+
+        .session-time {
+          color: #666;
         }
       `}</style>
     </div>
