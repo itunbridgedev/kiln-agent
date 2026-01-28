@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter, useParams } from "next/navigation";
 import { format } from "date-fns";
+import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
@@ -77,7 +77,9 @@ export default function ClassDetailPage() {
   const [classDetails, setClassDetails] = useState<Class | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedScheduleId, setSelectedScheduleId] = useState<number | null>(null);
+  const [selectedScheduleId, setSelectedScheduleId] = useState<number | null>(
+    null
+  );
   const [showRegistrationModal, setShowRegistrationModal] = useState(false);
 
   useEffect(() => {
@@ -119,7 +121,15 @@ export default function ClassDetailPage() {
   };
 
   const getDayName = (dayOfWeek: number) => {
-    const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const days = [
+      "Sunday",
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+    ];
     return days[dayOfWeek];
   };
 
@@ -201,7 +211,9 @@ export default function ClassDetailPage() {
 
               <div className="space-y-3 mb-6">
                 <div className="flex items-start">
-                  <span className="font-semibold text-gray-900 w-32">Duration:</span>
+                  <span className="font-semibold text-gray-900 w-32">
+                    Duration:
+                  </span>
                   <span className="text-gray-600">
                     {classDetails.classType === "single-session"
                       ? `${classDetails.durationHours} hours`
@@ -209,14 +221,18 @@ export default function ClassDetailPage() {
                   </span>
                 </div>
                 <div className="flex items-start">
-                  <span className="font-semibold text-gray-900 w-32">Class Size:</span>
+                  <span className="font-semibold text-gray-900 w-32">
+                    Class Size:
+                  </span>
                   <span className="text-gray-600">
                     Up to {classDetails.maxStudents} students
                   </span>
                 </div>
                 {classDetails.teachingRole && (
                   <div className="flex items-start">
-                    <span className="font-semibold text-gray-900 w-32">Instructor:</span>
+                    <span className="font-semibold text-gray-900 w-32">
+                      Instructor:
+                    </span>
                     <span className="text-gray-600">
                       {classDetails.teachingRole.name}
                     </span>
@@ -242,7 +258,9 @@ export default function ClassDetailPage() {
       {/* Multi-Step Classes */}
       {classDetails.steps.length > 0 && (
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Course Structure</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">
+            Course Structure
+          </h2>
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <div className="space-y-4">
               {classDetails.steps.map((step) => (
@@ -251,9 +269,15 @@ export default function ClassDetailPage() {
                     {step.stepNumber}
                   </div>
                   <div className="flex-1">
-                    <h3 className="font-semibold text-gray-900 mb-1">{step.name}</h3>
-                    <p className="text-gray-600 text-sm mb-1">{step.description}</p>
-                    <p className="text-gray-500 text-xs">{step.durationHours} hours</p>
+                    <h3 className="font-semibold text-gray-900 mb-1">
+                      {step.name}
+                    </h3>
+                    <p className="text-gray-600 text-sm mb-1">
+                      {step.description}
+                    </p>
+                    <p className="text-gray-500 text-xs">
+                      {step.durationHours} hours
+                    </p>
                   </div>
                 </div>
               ))}
@@ -264,18 +288,22 @@ export default function ClassDetailPage() {
 
       {/* Available Schedules */}
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <h2 className="text-2xl font-bold text-gray-900 mb-4">Available Schedules</h2>
+        <h2 className="text-2xl font-bold text-gray-900 mb-4">
+          Available Schedules
+        </h2>
 
         {classDetails.schedules.length === 0 ? (
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
             <p className="text-yellow-800">
-              No upcoming schedules available. Check back later or contact us for more information.
+              No upcoming schedules available. Check back later or contact us
+              for more information.
             </p>
           </div>
         ) : (
           <div className="space-y-4">
             {classDetails.schedules.map((schedule) => {
-              const spotsAvailable = classDetails.maxStudents - schedule._count.enrollments;
+              const spotsAvailable =
+                classDetails.maxStudents - schedule._count.enrollments;
               const isFull = spotsAvailable <= 0;
 
               return (
@@ -310,12 +338,13 @@ export default function ClassDetailPage() {
                           </p>
                         )}
                         <p>
-                          <span className="font-medium">Time:</span> {schedule.startTime} -{" "}
-                          {schedule.endTime}
+                          <span className="font-medium">Time:</span>{" "}
+                          {schedule.startTime} - {schedule.endTime}
                         </p>
                         <p>
                           <span className="font-medium">Enrolled:</span>{" "}
-                          {schedule._count.enrollments} / {classDetails.maxStudents}
+                          {schedule._count.enrollments} /{" "}
+                          {classDetails.maxStudents}
                         </p>
                         {schedule._count.waitlistEntries > 0 && (
                           <p className="text-yellow-600">
@@ -332,19 +361,24 @@ export default function ClassDetailPage() {
                             className="text-sm text-blue-600 hover:text-blue-800"
                             onClick={(e) => {
                               e.stopPropagation();
-                              const sessionsList = e.currentTarget.nextElementSibling;
+                              const sessionsList =
+                                e.currentTarget.nextElementSibling;
                               if (sessionsList) {
                                 sessionsList.classList.toggle("hidden");
                               }
                             }}
                           >
-                            View {schedule.sessions.length} session{schedule.sessions.length !== 1 ? "s" : ""} →
+                            View {schedule.sessions.length} session
+                            {schedule.sessions.length !== 1 ? "s" : ""} →
                           </button>
                           <div className="hidden mt-3 space-y-1 text-sm text-gray-600">
                             {schedule.sessions.slice(0, 5).map((session) => (
                               <div key={session.id} className="pl-4">
-                                • {format(new Date(session.sessionDate), "MMM d")} -{" "}
-                                {session.topic || `Session ${session.sessionNumber || ""}`}
+                                •{" "}
+                                {format(new Date(session.sessionDate), "MMM d")}{" "}
+                                -{" "}
+                                {session.topic ||
+                                  `Session ${session.sessionNumber || ""}`}
                               </div>
                             ))}
                             {schedule.sessions.length > 5 && (
@@ -393,9 +427,12 @@ export default function ClassDetailPage() {
             className="bg-white rounded-lg shadow-xl max-w-md w-full p-6"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Complete Registration</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">
+              Complete Registration
+            </h2>
             <p className="text-gray-600 mb-6">
-              Payment integration coming soon! For now, please contact the studio to complete your registration.
+              Payment integration coming soon! For now, please contact the
+              studio to complete your registration.
             </p>
             <div className="flex gap-3">
               <button

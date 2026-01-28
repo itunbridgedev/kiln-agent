@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
@@ -64,7 +64,9 @@ interface WaitlistEntry {
 }
 
 export default function MyClassesPage() {
-  const [activeTab, setActiveTab] = useState<"registrations" | "waitlist">("registrations");
+  const [activeTab, setActiveTab] = useState<"registrations" | "waitlist">(
+    "registrations"
+  );
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [waitlistEntries, setWaitlistEntries] = useState<WaitlistEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -303,27 +305,42 @@ export default function MyClassesPage() {
                         <div className="mb-4 p-4 bg-gray-50 rounded-lg">
                           <div className="grid grid-cols-2 gap-4 text-sm">
                             <div>
-                              <span className="font-medium text-gray-700">Start Date:</span>
+                              <span className="font-medium text-gray-700">
+                                Start Date:
+                              </span>
                               <p className="text-gray-600">
-                                {format(new Date(registration.schedule.startDate), "MMM d, yyyy")}
+                                {format(
+                                  new Date(registration.schedule.startDate),
+                                  "MMM d, yyyy"
+                                )}
                               </p>
                             </div>
                             {registration.schedule.endDate && (
                               <div>
-                                <span className="font-medium text-gray-700">End Date:</span>
+                                <span className="font-medium text-gray-700">
+                                  End Date:
+                                </span>
                                 <p className="text-gray-600">
-                                  {format(new Date(registration.schedule.endDate), "MMM d, yyyy")}
+                                  {format(
+                                    new Date(registration.schedule.endDate),
+                                    "MMM d, yyyy"
+                                  )}
                                 </p>
                               </div>
                             )}
                             <div>
-                              <span className="font-medium text-gray-700">Time:</span>
+                              <span className="font-medium text-gray-700">
+                                Time:
+                              </span>
                               <p className="text-gray-600">
-                                {registration.schedule.startTime} - {registration.schedule.endTime}
+                                {registration.schedule.startTime} -{" "}
+                                {registration.schedule.endTime}
                               </p>
                             </div>
                             <div>
-                              <span className="font-medium text-gray-700">Sessions:</span>
+                              <span className="font-medium text-gray-700">
+                                Sessions:
+                              </span>
                               <p className="text-gray-600">
                                 {registration.schedule.sessions.length} sessions
                               </p>
@@ -335,7 +352,11 @@ export default function MyClassesPage() {
                       {/* Actions */}
                       <div className="flex items-center gap-3 pt-4 border-t border-gray-200">
                         <span className="text-sm text-gray-500">
-                          Registered {format(new Date(registration.registeredAt), "MMM d, yyyy")}
+                          Registered{" "}
+                          {format(
+                            new Date(registration.registeredAt),
+                            "MMM d, yyyy"
+                          )}
                         </span>
                         <div className="flex-1"></div>
                         {registration.registrationStatus === "PENDING" && (
@@ -345,7 +366,9 @@ export default function MyClassesPage() {
                         )}
                         {registration.registrationStatus !== "CANCELLED" && (
                           <button
-                            onClick={() => handleCancelRegistration(registration.id)}
+                            onClick={() =>
+                              handleCancelRegistration(registration.id)
+                            }
                             className="px-4 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 text-sm"
                           >
                             Cancel Registration
@@ -391,10 +414,15 @@ export default function MyClassesPage() {
                           {entry.schedule && (
                             <div className="text-sm text-gray-600">
                               <p>
-                                Starts: {format(new Date(entry.schedule.startDate), "MMM d, yyyy")}
+                                Starts:{" "}
+                                {format(
+                                  new Date(entry.schedule.startDate),
+                                  "MMM d, yyyy"
+                                )}
                               </p>
                               <p>
-                                Time: {entry.schedule.startTime} - {entry.schedule.endTime}
+                                Time: {entry.schedule.startTime} -{" "}
+                                {entry.schedule.endTime}
                               </p>
                             </div>
                           )}

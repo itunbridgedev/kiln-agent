@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
@@ -48,7 +48,7 @@ export default function ClassesPage() {
   const [classes, setClasses] = useState<Class[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Filters
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [selectedSkillLevel, setSelectedSkillLevel] = useState<string>("");
@@ -122,8 +122,12 @@ export default function ClassesPage() {
       return { text: "No upcoming sessions", color: "text-gray-500" };
     }
 
-    const hasOpenSchedules = classItem.schedules.some((s) => s.status === "open");
-    const hasFullSchedules = classItem.schedules.some((s) => s.status === "full");
+    const hasOpenSchedules = classItem.schedules.some(
+      (s) => s.status === "open"
+    );
+    const hasFullSchedules = classItem.schedules.some(
+      (s) => s.status === "full"
+    );
 
     if (hasOpenSchedules) {
       return { text: "Available", color: "text-green-600" };
@@ -307,7 +311,9 @@ export default function ClassesPage() {
 
                     {/* Availability & Price */}
                     <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-                      <span className={`text-sm font-medium ${availability.color}`}>
+                      <span
+                        className={`text-sm font-medium ${availability.color}`}
+                      >
                         {availability.text}
                       </span>
                       <span className="text-2xl font-bold text-gray-900">

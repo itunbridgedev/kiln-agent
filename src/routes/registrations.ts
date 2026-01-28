@@ -19,9 +19,28 @@ interface AuthenticatedRequest extends Request {
 // GET /api/registrations/classes - Browse available classes (public/customer view)
 router.get("/classes", async (req: Request, res: Response) => {
   try {
-    const studioId = (req as AuthenticatedRequest).studioId;
+    // Try to get studioId from tenant middleware, authenticated user, or default to first studio
+    let studioId = (req as AuthenticatedRequest).studioId;
+
+    if (!studioId && (req as AuthenticatedRequest).user) {
+      // If user is authenticated, get their studioId
+      const user = await prisma.customer.findUnique({
+        where: { id: (req as AuthenticatedRequest).user!.id },
+        select: { studioId: true },
+      });
+      studioId = user?.studioId;
+    }
+
     if (!studioId) {
-      return res.status(400).json({ error: "Studio context required" });
+      // Default to first studio (for development without subdomain)
+      const defaultStudio = await prisma.studio.findFirst({
+        select: { id: true },
+      });
+      studioId = defaultStudio?.id;
+    }
+
+    if (!studioId) {
+      return res.status(400).json({ error: "No studio available" });
     }
 
     const { categoryId, skillLevel, classType } = req.query;
@@ -64,9 +83,28 @@ router.get("/classes", async (req: Request, res: Response) => {
 // GET /api/registrations/classes/:id - Get class details with available schedules
 router.get("/classes/:id", async (req: Request, res: Response) => {
   try {
-    const studioId = (req as AuthenticatedRequest).studioId;
+    // Try to get studioId from tenant middleware, authenticated user, or default to first studio
+    let studioId = (req as AuthenticatedRequest).studioId;
+
+    if (!studioId && (req as AuthenticatedRequest).user) {
+      // If user is authenticated, get their studioId
+      const user = await prisma.customer.findUnique({
+        where: { id: (req as AuthenticatedRequest).user!.id },
+        select: { studioId: true },
+      });
+      studioId = user?.studioId;
+    }
+
     if (!studioId) {
-      return res.status(400).json({ error: "Studio context required" });
+      // Default to first studio (for development without subdomain)
+      const defaultStudio = await prisma.studio.findFirst({
+        select: { id: true },
+      });
+      studioId = defaultStudio?.id;
+    }
+
+    if (!studioId) {
+      return res.status(400).json({ error: "No studio available" });
     }
 
     const classId = parseInt(req.params.id);
@@ -288,270 +326,292 @@ router.post("/", isAuthenticated, async (req: Request, res: Response) => {
 });
 
 // GET /api/registrations/my-registrations - Get current customer's registrations (requires authentication)
-router.get("/my-registrations", isAuthenticated, async (req: Request, res: Response) => {
-  try {
-    const studioId = (req as AuthenticatedRequest).studioId;
-    const customerId = (req as AuthenticatedRequest).user?.id;
+router.get(
+  "/my-registrations",
+  isAuthenticated,
+  async (req: Request, res: Response) => {
+    try {
+      const studioId = (req as AuthenticatedRequest).studioId;
+      const customerId = (req as AuthenticatedRequest).user?.id;
 
-    if (!studioId) {
-      return res.status(400).json({ error: "Studio context required" });
-    }
+      if (!studioId) {
+        return res.status(400).json({ error: "Studio context required" });
+      }
 
-    if (!customerId) {
-      return res.status(401).json({ error: "Authentication required" });
-    }
+      if (!customerId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
 
-    const registrations = await prisma.classRegistration.findMany({
-      where: {
-        studioId,
-        customerId,
-      },
-      include: {
-        class: {
-          include: {
-            category: true,
-          },
+      const registrations = await prisma.classRegistration.findMany({
+        where: {
+          studioId,
+          customerId,
         },
-        schedule: {
-          include: {
-            sessions: {
-              orderBy: {
-                sessionDate: "asc",
+        include: {
+          class: {
+            include: {
+              category: true,
+            },
+          },
+          schedule: {
+            include: {
+              sessions: {
+                orderBy: {
+                  sessionDate: "asc",
+                },
               },
             },
           },
-        },
-        sessions: {
-          include: {
-            session: true,
+          sessions: {
+            include: {
+              session: true,
+            },
           },
         },
-      },
-      orderBy: {
-        registeredAt: "desc",
-      },
-    });
+        orderBy: {
+          registeredAt: "desc",
+        },
+      });
 
-    res.json(registrations);
-  } catch (error: any) {
-    console.error("Error fetching registrations:", error);
-    res.status(500).json({ error: error.message });
+      res.json(registrations);
+    } catch (error: any) {
+      console.error("Error fetching registrations:", error);
+      res.status(500).json({ error: error.message });
+    }
   }
-});
+);
 
 // PUT /api/registrations/:id/cancel - Cancel a registration (requires authentication)
-router.put("/:id/cancel", isAuthenticated, async (req: Request, res: Response) => {
-  try {
-    const studioId = (req as AuthenticatedRequest).studioId;
-    const customerId = (req as AuthenticatedRequest).user?.id;
-    const registrationId = parseInt(req.params.id);
+router.put(
+  "/:id/cancel",
+  isAuthenticated,
+  async (req: Request, res: Response) => {
+    try {
+      const studioId = (req as AuthenticatedRequest).studioId;
+      const customerId = (req as AuthenticatedRequest).user?.id;
+      const registrationId = parseInt(req.params.id);
 
-    if (!studioId || !customerId) {
-      return res
-        .status(400)
-        .json({ error: "Studio context and authentication required" });
+      if (!studioId || !customerId) {
+        return res
+          .status(400)
+          .json({ error: "Studio context and authentication required" });
+      }
+
+      const { cancellationReason } = req.body;
+
+      // Verify registration belongs to user
+      const registration = await prisma.classRegistration.findUnique({
+        where: {
+          id: registrationId,
+          studioId,
+          customerId,
+        },
+      });
+
+      if (!registration) {
+        return res.status(404).json({ error: "Registration not found" });
+      }
+
+      if (registration.registrationStatus === "CANCELLED") {
+        return res
+          .status(400)
+          .json({ error: "Registration already cancelled" });
+      }
+
+      // Update registration status
+      const updated = await prisma.classRegistration.update({
+        where: { id: registrationId },
+        data: {
+          registrationStatus: "CANCELLED",
+          cancelledAt: new Date(),
+          cancellationReason: cancellationReason || "Customer cancelled",
+        },
+      });
+
+      // TODO: Handle refund logic based on cancellation policy
+
+      res.json({
+        registration: updated,
+        message: "Registration cancelled successfully",
+      });
+    } catch (error: any) {
+      console.error("Error cancelling registration:", error);
+      res.status(500).json({ error: error.message });
     }
-
-    const { cancellationReason } = req.body;
-
-    // Verify registration belongs to user
-    const registration = await prisma.classRegistration.findUnique({
-      where: {
-        id: registrationId,
-        studioId,
-        customerId,
-      },
-    });
-
-    if (!registration) {
-      return res.status(404).json({ error: "Registration not found" });
-    }
-
-    if (registration.registrationStatus === "CANCELLED") {
-      return res.status(400).json({ error: "Registration already cancelled" });
-    }
-
-    // Update registration status
-    const updated = await prisma.classRegistration.update({
-      where: { id: registrationId },
-      data: {
-        registrationStatus: "CANCELLED",
-        cancelledAt: new Date(),
-        cancellationReason: cancellationReason || "Customer cancelled",
-      },
-    });
-
-    // TODO: Handle refund logic based on cancellation policy
-
-    res.json({
-      registration: updated,
-      message: "Registration cancelled successfully",
-    });
-  } catch (error: any) {
-    console.error("Error cancelling registration:", error);
-    res.status(500).json({ error: error.message });
   }
-});
+);
 
 // POST /api/registrations/waitlist - Join a waitlist (requires authentication)
-router.post("/waitlist", isAuthenticated, async (req: Request, res: Response) => {
-  try {
-    const studioId = (req as AuthenticatedRequest).studioId;
-    const customerId = (req as AuthenticatedRequest).user?.id;
+router.post(
+  "/waitlist",
+  isAuthenticated,
+  async (req: Request, res: Response) => {
+    try {
+      const studioId = (req as AuthenticatedRequest).studioId;
+      const customerId = (req as AuthenticatedRequest).user?.id;
 
-    if (!studioId || !customerId) {
-      return res
-        .status(400)
-        .json({ error: "Studio context and authentication required" });
-    }
+      if (!studioId || !customerId) {
+        return res
+          .status(400)
+          .json({ error: "Studio context and authentication required" });
+      }
 
-    const { classId, scheduleId, sessionId, customerNotes } = req.body;
+      const { classId, scheduleId, sessionId, customerNotes } = req.body;
 
-    if (!classId) {
-      return res.status(400).json({ error: "classId is required" });
-    }
+      if (!classId) {
+        return res.status(400).json({ error: "classId is required" });
+      }
 
-    // Check if already on waitlist
-    const existing = await prisma.classWaitlist.findFirst({
-      where: {
-        studioId,
-        customerId,
-        classId,
-        scheduleId: scheduleId || null,
-        sessionId: sessionId || null,
-        removedAt: null,
-      },
-    });
-
-    if (existing) {
-      return res.status(400).json({ error: "Already on waitlist" });
-    }
-
-    // Get next position
-    const maxPosition = await prisma.classWaitlist.findFirst({
-      where: {
-        studioId,
-        classId,
-        scheduleId: scheduleId || null,
-        sessionId: sessionId || null,
-        removedAt: null,
-      },
-      orderBy: {
-        position: "desc",
-      },
-      select: {
-        position: true,
-      },
-    });
-
-    const waitlistEntry = await prisma.classWaitlist.create({
-      data: {
-        studioId,
-        customerId,
-        classId,
-        scheduleId: scheduleId || null,
-        sessionId: sessionId || null,
-        position: (maxPosition?.position || 0) + 1,
-        customerNotes: customerNotes || null,
-      },
-      include: {
-        class: {
-          include: {
-            category: true,
-          },
+      // Check if already on waitlist
+      const existing = await prisma.classWaitlist.findFirst({
+        where: {
+          studioId,
+          customerId,
+          classId,
+          scheduleId: scheduleId || null,
+          sessionId: sessionId || null,
+          removedAt: null,
         },
-        schedule: true,
-        session: true,
-      },
-    });
+      });
 
-    res.status(201).json({
-      waitlistEntry,
-      message: `Added to waitlist at position ${waitlistEntry.position}`,
-    });
-  } catch (error: any) {
-    console.error("Error joining waitlist:", error);
-    res.status(500).json({ error: error.message });
+      if (existing) {
+        return res.status(400).json({ error: "Already on waitlist" });
+      }
+
+      // Get next position
+      const maxPosition = await prisma.classWaitlist.findFirst({
+        where: {
+          studioId,
+          classId,
+          scheduleId: scheduleId || null,
+          sessionId: sessionId || null,
+          removedAt: null,
+        },
+        orderBy: {
+          position: "desc",
+        },
+        select: {
+          position: true,
+        },
+      });
+
+      const waitlistEntry = await prisma.classWaitlist.create({
+        data: {
+          studioId,
+          customerId,
+          classId,
+          scheduleId: scheduleId || null,
+          sessionId: sessionId || null,
+          position: (maxPosition?.position || 0) + 1,
+          customerNotes: customerNotes || null,
+        },
+        include: {
+          class: {
+            include: {
+              category: true,
+            },
+          },
+          schedule: true,
+          session: true,
+        },
+      });
+
+      res.status(201).json({
+        waitlistEntry,
+        message: `Added to waitlist at position ${waitlistEntry.position}`,
+      });
+    } catch (error: any) {
+      console.error("Error joining waitlist:", error);
+      res.status(500).json({ error: error.message });
+    }
   }
-});
+);
 
 // GET /api/registrations/my-waitlist - Get current customer's waitlist entries (requires authentication)
-router.get("/my-waitlist", isAuthenticated, async (req: Request, res: Response) => {
-  try {
-    const studioId = (req as AuthenticatedRequest).studioId;
-    const customerId = (req as AuthenticatedRequest).user?.id;
+router.get(
+  "/my-waitlist",
+  isAuthenticated,
+  async (req: Request, res: Response) => {
+    try {
+      const studioId = (req as AuthenticatedRequest).studioId;
+      const customerId = (req as AuthenticatedRequest).user?.id;
 
-    if (!studioId || !customerId) {
-      return res
-        .status(400)
-        .json({ error: "Studio context and authentication required" });
-    }
+      if (!studioId || !customerId) {
+        return res
+          .status(400)
+          .json({ error: "Studio context and authentication required" });
+      }
 
-    const waitlistEntries = await prisma.classWaitlist.findMany({
-      where: {
-        studioId,
-        customerId,
-        removedAt: null,
-      },
-      include: {
-        class: {
-          include: {
-            category: true,
-          },
+      const waitlistEntries = await prisma.classWaitlist.findMany({
+        where: {
+          studioId,
+          customerId,
+          removedAt: null,
         },
-        schedule: true,
-        session: true,
-      },
-      orderBy: {
-        joinedAt: "desc",
-      },
-    });
+        include: {
+          class: {
+            include: {
+              category: true,
+            },
+          },
+          schedule: true,
+          session: true,
+        },
+        orderBy: {
+          joinedAt: "desc",
+        },
+      });
 
-    res.json(waitlistEntries);
-  } catch (error: any) {
-    console.error("Error fetching waitlist entries:", error);
-    res.status(500).json({ error: error.message });
+      res.json(waitlistEntries);
+    } catch (error: any) {
+      console.error("Error fetching waitlist entries:", error);
+      res.status(500).json({ error: error.message });
+    }
   }
-});
+);
 
 // DELETE /api/registrations/waitlist/:id - Remove from waitlist (requires authentication)
-router.delete("/waitlist/:id", isAuthenticated, async (req: Request, res: Response) => {
-  try {
-    const studioId = (req as AuthenticatedRequest).studioId;
-    const customerId = (req as AuthenticatedRequest).user?.id;
-    const waitlistId = parseInt(req.params.id);
+router.delete(
+  "/waitlist/:id",
+  isAuthenticated,
+  async (req: Request, res: Response) => {
+    try {
+      const studioId = (req as AuthenticatedRequest).studioId;
+      const customerId = (req as AuthenticatedRequest).user?.id;
+      const waitlistId = parseInt(req.params.id);
 
-    if (!studioId || !customerId) {
-      return res
-        .status(400)
-        .json({ error: "Studio context and authentication required" });
+      if (!studioId || !customerId) {
+        return res
+          .status(400)
+          .json({ error: "Studio context and authentication required" });
+      }
+
+      const waitlistEntry = await prisma.classWaitlist.findUnique({
+        where: {
+          id: waitlistId,
+          studioId,
+          customerId,
+        },
+      });
+
+      if (!waitlistEntry) {
+        return res.status(404).json({ error: "Waitlist entry not found" });
+      }
+
+      await prisma.classWaitlist.update({
+        where: { id: waitlistId },
+        data: {
+          removedAt: new Date(),
+          removalReason: "Customer removed",
+        },
+      });
+
+      res.json({ message: "Removed from waitlist" });
+    } catch (error: any) {
+      console.error("Error removing from waitlist:", error);
+      res.status(500).json({ error: error.message });
     }
-
-    const waitlistEntry = await prisma.classWaitlist.findUnique({
-      where: {
-        id: waitlistId,
-        studioId,
-        customerId,
-      },
-    });
-
-    if (!waitlistEntry) {
-      return res.status(404).json({ error: "Waitlist entry not found" });
-    }
-
-    await prisma.classWaitlist.update({
-      where: { id: waitlistId },
-      data: {
-        removedAt: new Date(),
-        removalReason: "Customer removed",
-      },
-    });
-
-    res.json({ message: "Removed from waitlist" });
-  } catch (error: any) {
-    console.error("Error removing from waitlist:", error);
-    res.status(500).json({ error: error.message });
   }
-});
+);
 
 export default router;
