@@ -10,6 +10,9 @@ Configuration and setup instructions for various services and integrations.
 
 - **[Google OAuth Setup](./setup/GOOGLE_OAUTH_SETUP.md)** - Complete guide for setting up Google OAuth across all environments
 - **[Apple OAuth Setup](./setup/APPLE_OAUTH_SETUP.md)** - Complete guide for setting up Apple Sign In with domain verification
+- **[Stripe Setup](./setup/STRIPE_SETUP.md)** - Complete guide for Stripe Connect integration and payment processing
+- **[Stripe Integration Reference](./setup/STRIPE_INTEGRATION.md)** - Quick reference for using Stripe in your code
+- **[Stripe Summary](./setup/STRIPE_SUMMARY.md)** - Implementation summary and deployment checklist
 
 ### `/architecture` - Architecture Documentation
 
@@ -34,6 +37,12 @@ Development workflows, implementation plans, and change tracking.
 
 1. Start with [Google OAuth Setup](./setup/GOOGLE_OAUTH_SETUP.md)
 2. Then configure [Apple OAuth Setup](./setup/APPLE_OAUTH_SETUP.md)
+
+### Payment Processing Setup
+
+1. Follow [Stripe Setup Guide](./setup/STRIPE_SETUP.md) for complete configuration
+2. Use [Stripe Integration Reference](./setup/STRIPE_INTEGRATION.md) for code examples
+3. Check [Stripe Summary](./setup/STRIPE_SUMMARY.md) for deployment steps
 
 ### Deployment
 

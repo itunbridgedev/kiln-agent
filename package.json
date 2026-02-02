@@ -17,7 +17,12 @@
     "db:seed:dev": "heroku run npx prisma db seed --app kilnagent-dev-api",
     "db:seed:staging": "heroku run npx prisma db seed --app kilnagent-staging-api",
     "db:reset:dev": "heroku pg:reset DATABASE --app kilnagent-dev-api --confirm kilnagent-dev-api && heroku run npx prisma migrate deploy --app kilnagent-dev-api && npm run db:seed:dev",
-    "db:backup:prod": "./scripts/backup-db.sh"
+    "db:backup:prod": "./scripts/backup-db.sh",
+    "schedule:extend": "ts-node scripts/extend-schedule-sessions.ts",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:report": "playwright show-report"
   },
   "keywords": [],
   "author": "",
@@ -37,6 +42,7 @@
     "@types/passport-google-oauth20": "^2.0.17",
     "@types/passport-local": "^1.0.38",
     "@types/pg": "^8.11.10",
+    "@types/stripe": "^8.0.416",
     "bcryptjs": "^3.0.3",
     "connect-pg-simple": "^10.0.0",
     "cookie-parser": "^1.4.7",
@@ -54,10 +60,12 @@
     "pg": "^8.16.3",
     "prisma": "^6.19.1",
     "rrule": "^2.8.1",
+    "stripe": "^20.3.0",
     "typescript": "^5.9.3"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
+    "@playwright/test": "^1.58.1",
     "@types/cookie-signature": "^1.1.2",
     "@typescript-eslint/eslint-plugin": "^8.52.0",
     "@typescript-eslint/parser": "^8.52.0",
@@ -65,6 +73,7 @@
     "eslint": "^9.39.2",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.4",
+    "playwright": "^1.58.1",
     "prettier": "^3.7.4",
     "ts-node-dev": "^2.0.0",
     "typescript-eslint": "^8.52.0"

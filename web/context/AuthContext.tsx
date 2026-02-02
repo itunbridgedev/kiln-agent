@@ -14,8 +14,8 @@ interface User {
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: () => void;
-  loginWithApple: () => void;
+  login: (returnUrl?: string) => void;
+  loginWithApple: (returnUrl?: string) => void;
   loginWithEmail: (email: string, password: string) => Promise<void>;
   register: (
     name: string,
@@ -51,33 +51,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       // Use relative URL to leverage Next.js rewrites - this makes the request appear
       // to come from www.kilnagent.com instead of api.kilnagent.com
-      console.log("[AuthContext] === CHECKING AUTHENTICATION ===");
-      console.log(
-        "[AuthContext] Requesting:",
-        window.location.origin + "/api/auth/me"
-      );
-      console.log(
-        "[AuthContext] Document cookie:",
-        document.cookie ? document.cookie.substring(0, 50) + "..." : "NONE"
-      );
-
       const response = await fetch("/api/auth/me", {
         credentials: "include",
       });
 
-      console.log("[AuthContext] Response status:", response.status);
-
       if (response.ok) {
         const userData = await response.json();
-        console.log("[AuthContext] ✓ Authentication SUCCESS");
-        console.log("[AuthContext] User data:", userData);
-        console.log("[AuthContext] === AUTHENTICATION COMPLETE ===");
         setUser(userData);
       } else {
-        const errorData = await response.json().catch(() => ({}));
-        console.log("[AuthContext] ✗ Authentication FAILED");
-        console.log("[AuthContext] Error:", errorData);
-        console.log("[AuthContext] === REDIRECTING TO LOGIN ===");
         setUser(null);
       }
     } catch (error) {
@@ -92,24 +73,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const login = () => {
+  const login = (returnUrl?: string) => {
     // Redirect to Google OAuth via Next.js rewrite
-    window.location.href = "/api/auth/google";
+    const url = returnUrl
+      ? `/api/auth/google?returnUrl=${encodeURIComponent(returnUrl)}`
+      : "/api/auth/google";
+    window.location.href = url;
   };
 
-  const loginWithApple = () => {
+  const loginWithApple = (returnUrl?: string) => {
     // Redirect to Apple OAuth via Next.js rewrite
-    window.location.href = "/api/auth/apple";
+    const url = returnUrl
+      ? `/api/auth/apple?returnUrl=${encodeURIComponent(returnUrl)}`
+      : "/api/auth/apple";
+    window.location.href = url;
   };
 
   const loginWithEmail = async (email: string, password: string) => {
-    console.log("[AuthContext] === LOGIN ATTEMPT ===");
-    console.log("[AuthContext] Sending login request to /api/auth/login");
-    console.log(
-      "[AuthContext] Credentials before login:",
-      document.cookie || "NONE"
-    );
-
     const response = await fetch("/api/auth/login", {
       method: "POST",
       headers: {
@@ -119,28 +99,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       body: JSON.stringify({ email, password }),
     });
 
-    console.log("[AuthContext] Login response status:", response.status);
-    console.log("[AuthContext] Login response headers:");
-    response.headers.forEach((value, key) => {
-      console.log(`  ${key}: ${value}`);
-    });
-
     const data = await response.json();
-    console.log("[AuthContext] Login response data:", data);
 
     if (!response.ok) {
-      console.log("[AuthContext] ✗ LOGIN FAILED:", data.error);
       throw new Error(data.error || "Login failed");
     }
 
-    console.log("[AuthContext] ✓ LOGIN SUCCESS");
-    console.log(
-      "[AuthContext] Credentials after login:",
-      document.cookie || "STILL NONE!"
-    );
-    console.log("[AuthContext] Setting user in state:", data.user);
     setUser(data.user);
-    console.log("[AuthContext] === LOGIN COMPLETE ===");
   };
 
   const register = async (

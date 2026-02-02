@@ -7,6 +7,8 @@ import CategoryForm, {
 import CategoryTable from "@/components/admin/CategoryTable";
 import ClassForm, { ClassFormData } from "@/components/admin/ClassForm";
 import ClassTable from "@/components/admin/ClassTable";
+import ResourceManager from "@/components/admin/ResourceManager";
+import SchedulePatternManager from "@/components/admin/SchedulePatternManager";
 import StaffRoleAssignment from "@/components/admin/StaffRoleAssignment";
 import StudioCalendar, {
   StudioCalendarEvent,
@@ -57,6 +59,7 @@ export default function AdminPage() {
     | "categories"
     | "classes"
     | "teaching-roles"
+    | "resources"
     | "users"
   >(() => {
     if (typeof window !== "undefined") {
@@ -69,6 +72,7 @@ export default function AdminPage() {
           "categories",
           "classes",
           "teaching-roles",
+          "resources",
           "users",
         ].includes(saved)
       ) {
@@ -77,6 +81,7 @@ export default function AdminPage() {
           | "studio-calendar"
           | "categories"
           | "classes"
+          | "resources"
           | "teaching-roles"
           | "users";
       }
@@ -117,6 +122,11 @@ export default function AdminPage() {
   const [showUserRoleEditor, setShowUserRoleEditor] = useState(false);
   const [roleAssignmentStaff, setRoleAssignmentStaff] = useState<any>(null);
 
+  // Schedule pattern management state
+  const [scheduleManagementClass, setScheduleManagementClass] =
+    useState<any>(null);
+  const [showScheduleManager, setShowScheduleManager] = useState(false);
+
   // Schedule state
   const [scheduleEvents, setScheduleEvents] = useState<CalendarEvent[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(
@@ -126,6 +136,7 @@ export default function AdminPage() {
   const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [scheduleView, setScheduleView] = useState<View>("week");
   const [scheduleDate, setScheduleDate] = useState(new Date());
+  const [showEmptySchedule, setShowEmptySchedule] = useState(true);
 
   const getInitialDateRange = () => {
     const today = new Date();
@@ -153,15 +164,36 @@ export default function AdminPage() {
     categoryId: number | null;
     roleType: "instructor" | "assistant" | null;
     enrollmentStatus: "full" | "available" | "low" | null;
+    showEmpty: boolean;
   }>({
     staffId: null,
     categoryId: null,
     roleType: null,
     enrollmentStatus: null,
+    showEmpty: true,
   });
 
   // Ref for filter dropdown click-outside
   const filterDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Sync expansion states with initial activeTab on mount
+  useEffect(() => {
+    if (
+      activeTab === "categories" ||
+      activeTab === "classes" ||
+      activeTab === "teaching-roles" ||
+      activeTab === "resources"
+    ) {
+      setClassesExpanded(true);
+      setScheduleExpanded(false);
+    } else if (activeTab === "schedule" || activeTab === "studio-calendar") {
+      setScheduleExpanded(true);
+      setClassesExpanded(false);
+    } else {
+      setClassesExpanded(false);
+      setScheduleExpanded(false);
+    }
+  }, []); // Run only on mount
 
   useEffect(() => {
     if (!loading && !user) {
@@ -225,11 +257,13 @@ export default function AdminPage() {
         );
         if (classesCategory) {
           setClassesSystemCategoryId(classesCategory.id);
-          // Only show subcategories of Classes
-          const classSubcategories = data.filter(
-            (cat: Category) => cat.parentCategoryId === classesCategory.id
+          // Include the main Classes category AND its subcategories
+          const classCategories = data.filter(
+            (cat: Category) =>
+              cat.id === classesCategory.id ||
+              cat.parentCategoryId === classesCategory.id
           );
-          setCategories(classSubcategories);
+          setCategories(classCategories);
         } else {
           setCategories([]);
         }
@@ -394,6 +428,30 @@ export default function AdminPage() {
     }
   };
 
+  const manageClassSchedule = async (classData: any) => {
+    try {
+      // Fetch full class data including steps
+      const response = await fetch(`/api/admin/classes/${classData.id}`, {
+        credentials: "include",
+      });
+      if (response.ok) {
+        const fullClassData = await response.json();
+        setScheduleManagementClass(fullClassData);
+        setShowScheduleManager(true);
+      } else {
+        setError("Failed to load class details");
+      }
+    } catch (err) {
+      setError("Error loading class details");
+    }
+  };
+
+  const handleScheduleSuccess = () => {
+    setShowScheduleManager(false);
+    setScheduleManagementClass(null);
+    fetchClasses(); // Refresh class list
+  };
+
   // Teaching Roles functions
   const fetchTeachingRoles = async () => {
     try {
@@ -410,39 +468,50 @@ export default function AdminPage() {
   };
 
   // Fetch schedule sessions
-  const fetchSessions = useCallback(async (start: Date, end: Date) => {
-    setScheduleLoading(true);
-    setScheduleError(null);
+  const fetchSessions = useCallback(
+    async (start: Date, end: Date) => {
+      setScheduleLoading(true);
+      setScheduleError(null);
 
-    try {
-      const startParam = start.toISOString().split("T")[0];
-      const endParam = end.toISOString().split("T")[0];
+      try {
+        const startParam = start.toISOString().split("T")[0];
+        const endParam = end.toISOString().split("T")[0];
 
-      const response = await fetch(
-        `${API_BASE_URL}/api/staff/my-sessions?startDate=${startParam}&endDate=${endParam}`,
-        {
-          credentials: "include",
+        const response = await fetch(
+          `${API_BASE_URL}/api/staff/my-sessions?startDate=${startParam}&endDate=${endParam}`,
+          {
+            credentials: "include",
+          }
+        );
+
+        if (!response.ok) {
+          if (response.status === 401) {
+            throw new Error("Please log in to view your schedule");
+          }
+          throw new Error("Failed to fetch sessions");
         }
-      );
 
-      if (!response.ok) {
-        if (response.status === 401) {
-          throw new Error("Please log in to view your schedule");
+        let data = await response.json();
+
+        // Filter out empty sessions if showEmptySchedule is false
+        if (!showEmptySchedule) {
+          data = data.filter(
+            (event: CalendarEvent) => event.currentEnrollment > 0
+          );
         }
-        throw new Error("Failed to fetch sessions");
+
+        setScheduleEvents(data);
+      } catch (err) {
+        console.error("Error fetching sessions:", err);
+        setScheduleError(
+          err instanceof Error ? err.message : "Failed to load sessions"
+        );
+      } finally {
+        setScheduleLoading(false);
       }
-
-      const data = await response.json();
-      setScheduleEvents(data);
-    } catch (err) {
-      console.error("Error fetching sessions:", err);
-      setScheduleError(
-        err instanceof Error ? err.message : "Failed to load sessions"
-      );
-    } finally {
-      setScheduleLoading(false);
-    }
-  }, []);
+    },
+    [showEmptySchedule]
+  );
 
   // Schedule handlers
   const handleScheduleDateRangeChange = useCallback(
@@ -486,12 +555,11 @@ export default function AdminPage() {
           params.append("roleType", studioFilters.roleType);
         }
 
-        const response = await fetch(
-          `${API_BASE_URL}/api/admin/calendar/sessions?${params}`,
-          {
-            credentials: "include",
-          }
-        );
+        const url = `${API_BASE_URL}/api/admin/calendar/sessions?${params}`;
+
+        const response = await fetch(url, {
+          credentials: "include",
+        });
 
         if (!response.ok) {
           throw new Error("Failed to fetch studio sessions");
@@ -529,6 +597,11 @@ export default function AdminPage() {
             }
             return true;
           });
+        }
+
+        // Filter out empty sessions if showEmpty is false
+        if (!studioFilters.showEmpty) {
+          data = data.filter((event) => event.currentEnrollment > 0);
         }
 
         // Detect conflicts (same staff in overlapping sessions)
@@ -857,6 +930,7 @@ export default function AdminPage() {
           {activeTab === "categories" && "Categories"}
           {activeTab === "classes" && "Classes"}
           {activeTab === "teaching-roles" && "Teaching Roles"}
+          {activeTab === "resources" && "Studio Resources"}
           {activeTab === "users" && "Users"}
         </h1>
       </div>
@@ -878,11 +952,12 @@ export default function AdminPage() {
             setScheduleExpanded(true);
             setClassesExpanded(false);
           }
-          // Expand Classes module only for categories, classes, and teaching-roles
+          // Expand Classes module only for categories, classes, teaching-roles, and resources
           else if (
             tab === "categories" ||
             tab === "classes" ||
-            tab === "teaching-roles"
+            tab === "teaching-roles" ||
+            tab === "resources"
           ) {
             setClassesExpanded(true);
             setScheduleExpanded(false);
@@ -929,14 +1004,18 @@ export default function AdminPage() {
                     ? "Manage your class offerings"
                     : activeTab === "teaching-roles"
                       ? "Manage teaching roles and staff assignments"
-                      : "Search for users and manage their roles"}
+                      : activeTab === "resources"
+                        ? "Manage studio equipment and capacity"
+                        : "Search for users and manage their roles"}
             </p>
-            <button
-              onClick={() => router.push("/")}
-              className="px-4 py-2 bg-white text-primary border border-gray-300 rounded-md hover:bg-gray-50 transition-colors font-medium"
-            >
-              Back to Home
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={() => router.push("/")}
+                className="px-4 py-2 bg-white text-primary border border-gray-300 rounded-md hover:bg-gray-50 transition-colors font-medium"
+              >
+                Back to Home
+              </button>
+            </div>
           </div>
 
           {error && (
@@ -947,6 +1026,26 @@ export default function AdminPage() {
 
           {activeTab === "schedule" && (
             <div>
+              {/* Show Empty Filter */}
+              <div className="bg-white rounded-lg shadow-sm mb-4 p-4">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={showEmptySchedule}
+                    onChange={(e) => {
+                      setShowEmptySchedule(e.target.checked);
+                      // Re-fetch sessions with new filter
+                      fetchSessions(
+                        scheduleDateRange.start,
+                        scheduleDateRange.end
+                      );
+                    }}
+                    className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-2 focus:ring-primary"
+                  />
+                  <span className="text-sm text-gray-700">Show Empty</span>
+                </label>
+              </div>
+
               {scheduleError && (
                 <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-4">
                   <div className="flex items-center">
@@ -976,39 +1075,22 @@ export default function AdminPage() {
 
               {!scheduleLoading && !scheduleError && (
                 <>
-                  {scheduleEvents.length === 0 ? (
-                    <div className="bg-white rounded-lg shadow-sm p-12 text-center">
-                      <svg
-                        className="mx-auto h-12 w-12 text-gray-400"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                        />
-                      </svg>
-                      <h3 className="mt-4 text-lg font-medium text-gray-900">
-                        No sessions found
-                      </h3>
-                      <p className="mt-2 text-sm text-gray-500">
-                        You don't have any teaching sessions scheduled for this
-                        time period.
+                  <StaffCalendar
+                    events={scheduleEvents}
+                    onEventClick={handleScheduleEventClick}
+                    onDateRangeChange={handleScheduleDateRangeChange}
+                    view={scheduleView}
+                    onViewChange={setScheduleView}
+                    date={scheduleDate}
+                    onDateChange={setScheduleDate}
+                  />
+                  {scheduleEvents.length === 0 && (
+                    <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
+                      <p className="text-sm text-blue-700">
+                        No sessions scheduled for this time period. Use the
+                        calendar navigation above to view other dates.
                       </p>
                     </div>
-                  ) : (
-                    <StaffCalendar
-                      events={scheduleEvents}
-                      onEventClick={handleScheduleEventClick}
-                      onDateRangeChange={handleScheduleDateRangeChange}
-                      view={scheduleView}
-                      onViewChange={setScheduleView}
-                      date={scheduleDate}
-                      onDateChange={setScheduleDate}
-                    />
                   )}
                 </>
               )}
@@ -1063,40 +1145,15 @@ export default function AdminPage() {
 
               {!studioLoading && !studioError && (
                 <>
-                  {studioEvents.length === 0 ? (
-                    <div className="bg-white rounded-lg shadow-sm p-12 text-center">
-                      <svg
-                        className="mx-auto h-12 w-12 text-gray-400"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                        />
-                      </svg>
-                      <h3 className="mt-4 text-lg font-medium text-gray-900">
-                        No sessions found
-                      </h3>
-                      <p className="mt-2 text-sm text-gray-500">
-                        No studio sessions match the selected filters for this
-                        time period.
-                      </p>
-                    </div>
-                  ) : (
-                    <StudioCalendar
-                      events={studioEvents}
-                      onEventClick={handleStudioEventClick}
-                      onDateRangeChange={handleStudioDateRangeChange}
-                      view={studioView}
-                      onViewChange={setStudioView}
-                      date={studioDate}
-                      onDateChange={setStudioDate}
-                    />
-                  )}
+                  <StudioCalendar
+                    events={studioEvents}
+                    onEventClick={handleStudioEventClick}
+                    onDateRangeChange={handleStudioDateRangeChange}
+                    view={studioView}
+                    onViewChange={setStudioView}
+                    date={studioDate}
+                    onDateChange={setStudioDate}
+                  />
                 </>
               )}
 
@@ -1263,6 +1320,7 @@ export default function AdminPage() {
                   }
                   onEdit={editClass}
                   onDelete={deleteClass}
+                  onManageSchedule={manageClassSchedule}
                 />
               )}
             </div>
@@ -1305,6 +1363,12 @@ export default function AdminPage() {
                   onViewStaff={viewStaffForRole}
                 />
               )}
+            </div>
+          )}
+
+          {activeTab === "resources" && (
+            <div>
+              <ResourceManager />
             </div>
           )}
 
@@ -1429,6 +1493,18 @@ export default function AdminPage() {
               availableTeachingRoles={teachingRoles as any}
               onClose={() => setRoleAssignmentStaff(null)}
               onSave={handleRoleAssignmentSave}
+            />
+          )}
+
+          {/* Schedule Pattern Manager Modal */}
+          {showScheduleManager && scheduleManagementClass && (
+            <SchedulePatternManager
+              classData={scheduleManagementClass}
+              onClose={() => {
+                setShowScheduleManager(false);
+                setScheduleManagementClass(null);
+              }}
+              onSuccess={handleScheduleSuccess}
             />
           )}
         </div>

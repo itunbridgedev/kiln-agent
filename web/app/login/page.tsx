@@ -97,8 +97,14 @@ export default function LoginPage() {
       } else {
         await loginWithEmail(formData.email, formData.password);
       }
-      // Successfully authenticated, navigate to home
-      router.push("/");
+      // Successfully authenticated, check for return URL
+      const returnUrl = sessionStorage.getItem("returnUrl");
+      if (returnUrl) {
+        sessionStorage.removeItem("returnUrl");
+        router.push(returnUrl);
+      } else {
+        router.push("/");
+      }
     } catch (err: any) {
       setError(err.message || "Authentication failed");
       setLoading(false);
@@ -142,8 +148,14 @@ export default function LoginPage() {
         />
 
         <SocialLoginButtons
-          onGoogleLogin={login}
-          onAppleLogin={loginWithApple}
+          onGoogleLogin={() => {
+            const returnUrl = sessionStorage.getItem("returnUrl");
+            login(returnUrl || undefined);
+          }}
+          onAppleLogin={() => {
+            const returnUrl = sessionStorage.getItem("returnUrl");
+            loginWithApple(returnUrl || undefined);
+          }}
         />
 
         <AuthToggle

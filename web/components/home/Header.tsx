@@ -11,7 +11,6 @@ interface HeaderProps {
   onLogout: () => void;
   onNavigateAdmin: () => void;
   onNavigateLogin: () => void;
-  onNavigateSchedule?: () => void;
 }
 
 export default function Header({
@@ -20,7 +19,6 @@ export default function Header({
   onLogout,
   onNavigateAdmin,
   onNavigateLogin,
-  onNavigateSchedule,
 }: HeaderProps) {
   const hasStaffAccess = user?.roles?.some((role) =>
     ["admin", "manager", "staff"].includes(role)
@@ -38,14 +36,9 @@ export default function Header({
             <>
               <span className="user-greeting">Hi, {user.name}</span>
               {hasStaffAccess && (
-                <>
-                  <button onClick={onNavigateSchedule} className="nav-btn">
-                    My Schedule
-                  </button>
-                  <button onClick={onNavigateAdmin} className="nav-btn">
-                    Admin
-                  </button>
-                </>
+                <button onClick={onNavigateAdmin} className="nav-btn">
+                  Admin
+                </button>
               )}
               <button onClick={onLogout} className="nav-btn">
                 Logout

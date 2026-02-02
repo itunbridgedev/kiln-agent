@@ -1,16 +1,65 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { CalendarEvent } from "./StaffCalendar";
+
+interface Enrollment {
+  id: number;
+  customerName: string;
+  customerEmail: string | null;
+  customerPhone: string | null;
+  isGuest: boolean;
+  guestCount: number;
+  registeredAt: string;
+  status: string;
+}
 
 interface SessionDetailsModalProps {
   event: CalendarEvent | null;
   onClose: () => void;
 }
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+
 export default function SessionDetailsModal({
   event,
   onClose,
 }: SessionDetailsModalProps) {
+  const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
+  const [loadingEnrollments, setLoadingEnrollments] = useState(false);
+  const [showEnrollments, setShowEnrollments] = useState(false);
+
+  useEffect(() => {
+    if (event && showEnrollments && enrollments.length === 0) {
+      fetchEnrollments();
+    }
+  }, [event, showEnrollments]);
+
+  const fetchEnrollments = async () => {
+    if (!event) return;
+
+    setLoadingEnrollments(true);
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/staff/sessions/${event.id}/enrollments`,
+        {
+          credentials: "include",
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        setEnrollments(data.enrollments || []);
+      } else {
+        console.error("Failed to fetch enrollments");
+      }
+    } catch (error) {
+      console.error("Error fetching enrollments:", error);
+    } finally {
+      setLoadingEnrollments(false);
+    }
+  };
+
   if (!event) return null;
 
   const startDate =
@@ -231,9 +280,19 @@ export default function SessionDetailsModal({
               <div className="bg-gray-50 rounded-lg p-4">
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-sm text-gray-600">Enrollment</span>
-                  <span className="text-sm font-semibold text-gray-900">
-                    {event.currentEnrollment} / {event.maxStudents} students
-                  </span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-semibold text-gray-900">
+                      {event.currentEnrollment} / {event.maxStudents} students
+                    </span>
+                    {event.currentEnrollment > 0 && (
+                      <button
+                        onClick={() => setShowEnrollments(!showEnrollments)}
+                        className="text-xs text-blue-600 hover:text-blue-700 font-medium underline"
+                      >
+                        {showEnrollments ? "Hide" : "Show"} Students
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2.5">
                   <div
@@ -251,7 +310,66 @@ export default function SessionDetailsModal({
                 </div>
                 <p className="text-xs text-gray-500 mt-1">
                   {enrollmentPercentage}% capacity
+                  {event.currentEnrollment > 0 && (
+                    <span className="ml-1">
+                      • Actual capacity may vary based on resource availability
+                    </span>
+                  )}
                 </p>
+
+                {/* Enrolled Students List */}
+                {showEnrollments && (
+                  <div className="mt-4 pt-4 border-t border-gray-200">
+                    {loadingEnrollments ? (
+                      <div className="flex items-center justify-center py-4">
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                      </div>
+                    ) : enrollments.length > 0 ? (
+                      <div className="space-y-2">
+                        <p className="text-xs font-medium text-gray-700 mb-2">
+                          Enrolled Students:
+                        </p>
+                        {enrollments.map((enrollment, index) => (
+                          <div
+                            key={enrollment.id}
+                            className="flex items-center justify-between py-2 px-3 bg-white rounded border border-gray-200"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-medium text-gray-500">
+                                {index + 1}.
+                              </span>
+                              <div>
+                                <p className="text-sm font-medium text-gray-900">
+                                  {enrollment.customerName}
+                                  {enrollment.isGuest && (
+                                    <span className="ml-1 text-xs text-gray-500">
+                                      (Guest)
+                                    </span>
+                                  )}
+                                </p>
+                                {enrollment.customerEmail && (
+                                  <p className="text-xs text-gray-500">
+                                    {enrollment.customerEmail}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            {enrollment.guestCount > 1 && (
+                              <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                                +{enrollment.guestCount - 1} guest
+                                {enrollment.guestCount > 2 ? "s" : ""}
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500 text-center py-2">
+                        No students enrolled yet
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 

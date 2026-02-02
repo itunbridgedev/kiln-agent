@@ -196,8 +196,15 @@ async function main() {
   console.log(`✓ Created customer user: ${customerUser.email} / Customer123!`);
 
   // Create teaching role
-  const teachingRole = await prisma.teachingRole.create({
-    data: {
+  const teachingRole = await prisma.teachingRole.upsert({
+    where: {
+      studioId_name: {
+        studioId: studio.id,
+        name: "Instructor",
+      },
+    },
+    update: {},
+    create: {
       studioId: studio.id,
       name: "Instructor",
       description: "Basic pottery instructor",
@@ -205,15 +212,51 @@ async function main() {
     },
   });
 
-  // Link staff user to teaching role
-  await prisma.staffTeachingRole.create({
-    data: {
+  // Link staff user to teaching role (skip if already exists)
+  const existingStaffRole = await prisma.staffTeachingRole.findFirst({
+    where: {
       customerId: staffUser.id,
       roleId: teachingRole.id,
     },
   });
 
+  if (!existingStaffRole) {
+    await prisma.staffTeachingRole.create({
+      data: {
+        customerId: staffUser.id,
+        roleId: teachingRole.id,
+      },
+    });
+  }
+
   console.log(`✓ Created teaching role and assigned to staff user`);
+
+  // Clear existing resources and classes to allow re-seeding
+  await prisma.sessionResourceAllocation.deleteMany({});
+  await prisma.classResourceRequirement.deleteMany({});
+  await prisma.studioResource.deleteMany({ where: { studioId: studio.id } });
+  await prisma.classSession.deleteMany({ where: { studioId: studio.id } });
+  await prisma.classSchedulePattern.deleteMany({
+    where: { studioId: studio.id },
+  });
+  await prisma.classSchedule.deleteMany({ where: { studioId: studio.id } });
+  await prisma.classStep.deleteMany({ where: { studioId: studio.id } });
+  await prisma.class.deleteMany({ where: { studioId: studio.id } });
+
+  // Create Potter's Wheel resource
+  const pottersWheel = await prisma.studioResource.create({
+    data: {
+      studioId: studio.id,
+      name: "Potter's Wheel",
+      description: "Electric pottery wheels for wheel throwing",
+      quantity: 24,
+      isActive: true,
+    },
+  });
+
+  console.log(
+    `✓ Created resource: ${pottersWheel.name} (${pottersWheel.quantity} available)`
+  );
 
   // Create sample classes
   const classesCategory = await prisma.productCategory.findFirst({
@@ -224,41 +267,8 @@ async function main() {
   });
 
   if (classesCategory) {
-    await prisma.class.create({
-      data: {
-        studioId: studio.id,
-        categoryId: classesCategory.id,
-        name: "Beginner Wheel Throwing",
-        description:
-          "Learn the basics of wheel throwing in this 6-week course. Perfect for students with little to no experience.",
-        classType: "multi-session",
-        durationWeeks: 6,
-        price: 250.0,
-        maxStudents: 12,
-        teachingRoleId: teachingRole.id,
-        skillLevel: "Beginner",
-        isActive: true,
-      },
-    });
-
-    await prisma.class.create({
-      data: {
-        studioId: studio.id,
-        categoryId: classesCategory.id,
-        name: "Advanced Handbuilding",
-        description:
-          "Take your handbuilding skills to the next level with advanced techniques including coiling, slab building, and sculptural forms.",
-        classType: "multi-session",
-        durationWeeks: 8,
-        price: 300.0,
-        maxStudents: 10,
-        teachingRoleId: teachingRole.id,
-        skillLevel: "Advanced",
-        isActive: true,
-      },
-    });
-
-    await prisma.class.create({
+    // Single Session Class
+    const dateNightClass = await prisma.class.create({
       data: {
         studioId: studio.id,
         categoryId: classesCategory.id,
@@ -272,10 +282,226 @@ async function main() {
         teachingRoleId: teachingRole.id,
         skillLevel: "All Levels",
         isActive: true,
+        resourceRequirements: {
+          create: [
+            {
+              resourceId: pottersWheel.id,
+              quantityPerStudent: 1,
+            },
+          ],
+        },
       },
     });
 
-    console.log("✓ Created sample classes");
+    // Multi-Session Class
+    const beginnerWheelClass = await prisma.class.create({
+      data: {
+        studioId: studio.id,
+        categoryId: classesCategory.id,
+        name: "Beginner Wheel Throwing",
+        description:
+          "Learn the basics of wheel throwing in this 6-week course. Perfect for students with little to no experience.",
+        classType: "multi-session",
+        durationWeeks: 6,
+        price: 250.0,
+        maxStudents: 12,
+        teachingRoleId: teachingRole.id,
+        skillLevel: "Beginner",
+        isActive: true,
+        resourceRequirements: {
+          create: [
+            {
+              resourceId: pottersWheel.id,
+              quantityPerStudent: 1,
+            },
+          ],
+        },
+      },
+    });
+
+    // Series Class
+    const tuesdayWheelClass = await prisma.class.create({
+      data: {
+        studioId: studio.id,
+        categoryId: classesCategory.id,
+        name: "Tuesday Night Open Wheel",
+        description:
+          "Weekly drop-in wheel throwing sessions every Tuesday evening. Perfect for ongoing practice and skill development.",
+        classType: "series",
+        isRecurring: true,
+        price: 35.0,
+        maxStudents: 10,
+        teachingRoleId: teachingRole.id,
+        skillLevel: "Intermediate",
+        isActive: true,
+        resourceRequirements: {
+          create: [
+            {
+              resourceId: pottersWheel.id,
+              quantityPerStudent: 1,
+            },
+          ],
+        },
+      },
+    });
+
+    // Multi-Step Class
+    const masterPotteryClass = await prisma.class.create({
+      data: {
+        studioId: studio.id,
+        categoryId: classesCategory.id,
+        name: "Master Potter Certification",
+        description:
+          "A comprehensive 3-part certification program covering wheel throwing, glazing, and kiln firing techniques.",
+        classType: "multi-step",
+        requiresSequence: true,
+        price: 450.0,
+        maxStudents: 8,
+        teachingRoleId: teachingRole.id,
+        skillLevel: "Advanced",
+        isActive: true,
+        resourceRequirements: {
+          create: [
+            {
+              resourceId: pottersWheel.id,
+              quantityPerStudent: 1,
+            },
+          ],
+        },
+        steps: {
+          create: [
+            {
+              studioId: studio.id,
+              stepNumber: 1,
+              name: "Advanced Wheel Throwing Techniques",
+              description: "Master complex forms and advanced throwing methods",
+              durationHours: 12,
+              learningObjectives:
+                "Throw large vessels, create complex shapes, master centering",
+            },
+            {
+              studioId: studio.id,
+              stepNumber: 2,
+              name: "Glaze Chemistry & Application",
+              description:
+                "Deep dive into glaze formulation and application techniques",
+              durationHours: 8,
+              learningObjectives:
+                "Understand glaze chemistry, mix custom glazes, master application methods",
+            },
+            {
+              studioId: studio.id,
+              stepNumber: 3,
+              name: "Kiln Operation & Firing",
+              description:
+                "Learn to load, fire, and maintain kilns safely and effectively",
+              durationHours: 6,
+              learningObjectives:
+                "Load kilns properly, understand firing schedules, troubleshoot firing issues",
+            },
+          ],
+        },
+      },
+    });
+
+    console.log(
+      "✓ Created sample classes (Single Session, Multi-Session, Series, Multi-Step)"
+    );
+
+    // Create schedules for each class
+    const now = new Date();
+    const nextMonday = new Date(now);
+    nextMonday.setDate(now.getDate() + ((1 + 7 - now.getDay()) % 7 || 7));
+    nextMonday.setHours(18, 0, 0, 0);
+
+    console.log("Creating schedule patterns for each class...");
+
+    // Schedule Pattern for Date Night Pottery (Single Session) - Next Friday evening
+    // RRULE: Single occurrence (COUNT=1)
+    const nextFriday = new Date(now);
+    nextFriday.setDate(now.getDate() + ((5 + 7 - now.getDay()) % 7 || 7)); // Next Friday
+    nextFriday.setHours(19, 0, 0, 0);
+
+    await prisma.classSchedulePattern.create({
+      data: {
+        studioId: studio.id,
+        classId: dateNightClass.id,
+        recurrenceRule: "FREQ=WEEKLY;BYDAY=FR;COUNT=1", // Single Friday
+        startDate: nextFriday,
+        endDate: nextFriday,
+        startTime: "19:00",
+        durationHours: 2.5,
+        maxStudents: 16,
+        isActive: true,
+      },
+    });
+
+    // Schedule Pattern for Beginner Wheel Throwing (Multi-Session) - 6 weeks on Mondays
+    // RRULE: Every Monday for 6 occurrences
+    await prisma.classSchedulePattern.create({
+      data: {
+        studioId: studio.id,
+        classId: beginnerWheelClass.id,
+        recurrenceRule: "FREQ=WEEKLY;BYDAY=MO;COUNT=6", // 6 Mondays
+        startDate: nextMonday,
+        startTime: "18:00",
+        durationHours: 2.0,
+        maxStudents: 12,
+        isActive: true,
+      },
+    });
+
+    // Schedule Pattern for Tuesday Night Open Wheel (Series) - 8 weeks on Tuesdays
+    // RRULE: Every Tuesday for 8 occurrences
+    const nextTuesday = new Date(now);
+    nextTuesday.setDate(now.getDate() + ((2 + 7 - now.getDay()) % 7 || 7));
+    nextTuesday.setHours(19, 0, 0, 0);
+
+    await prisma.classSchedulePattern.create({
+      data: {
+        studioId: studio.id,
+        classId: tuesdayWheelClass.id,
+        recurrenceRule: "FREQ=WEEKLY;BYDAY=TU;COUNT=8", // 8 Tuesdays
+        startDate: nextTuesday,
+        startTime: "19:00",
+        durationHours: 2.0,
+        maxStudents: 10,
+        isActive: true,
+      },
+    });
+
+    // Schedule Pattern for Master Potter Certification (Multi-Step) - 3 steps on Wednesdays
+    // Create one pattern per step
+    const nextWednesday = new Date(now);
+    nextWednesday.setDate(now.getDate() + ((3 + 7 - now.getDay()) % 7 || 7));
+    nextWednesday.setHours(18, 0, 0, 0);
+
+    const steps = await prisma.classStep.findMany({
+      where: { classId: masterPotteryClass.id },
+      orderBy: { stepNumber: "asc" },
+    });
+
+    for (let i = 0; i < steps.length; i++) {
+      const stepStartDate = new Date(nextWednesday);
+      stepStartDate.setDate(nextWednesday.getDate() + i * 7); // Each step is one week apart
+
+      await prisma.classSchedulePattern.create({
+        data: {
+          studioId: studio.id,
+          classId: masterPotteryClass.id,
+          classStepId: steps[i].id,
+          recurrenceRule: "FREQ=WEEKLY;BYDAY=WE;COUNT=1", // Single Wednesday per step
+          startDate: stepStartDate,
+          endDate: stepStartDate,
+          startTime: "18:00",
+          durationHours: 3.0,
+          maxStudents: 8,
+          isActive: true,
+        },
+      });
+    }
+
+    console.log("✓ Created schedule patterns for all classes");
   }
 
   console.log("\n✅ Multi-tenant seed completed!");

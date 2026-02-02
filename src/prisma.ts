@@ -9,6 +9,9 @@ const nonTenantModels = [
   "StaffTeachingRole",
   "Account",
   "Session",
+  "ClassSessionInstructor",
+  "ClassSessionAssistant",
+  "RegistrationSession",
 ];
 
 // Create base Prisma client
