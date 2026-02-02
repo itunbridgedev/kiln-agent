@@ -26,8 +26,22 @@ router.get(
         dateFilter.gte = new Date(startDate as string);
       }
       if (endDate) {
-        dateFilter.lte = new Date(endDate as string);
+        // Set to end of day to include all sessions on the end date
+        const endDateObj = new Date(endDate as string);
+        endDateObj.setHours(23, 59, 59, 999);
+        dateFilter.lte = endDateObj;
       }
+
+      console.log(
+        `[my-sessions] User ${user.id} (${user.email}) querying sessions`
+      );
+      console.log(
+        `[my-sessions] Date range: ${startDate || "none"} - ${endDate || "none"}`
+      );
+      console.log(
+        `[my-sessions] Date filter:`,
+        JSON.stringify(dateFilter, null, 2)
+      );
 
       // Find sessions where user is assigned as instructor or assistant
       const sessions = await prisma.classSession.findMany({
@@ -142,10 +156,113 @@ router.get(
         };
       });
 
+      console.log(
+        `[my-sessions] User ${user.id} has ${sessions.length} sessions`
+      );
+      console.log(
+        `[my-sessions] Returning ${calendarEvents.length} calendar events`
+      );
+      if (calendarEvents.length > 0) {
+        console.log(
+          `[my-sessions] First event:`,
+          JSON.stringify(calendarEvents[0], null, 2)
+        );
+      }
+
       res.json(calendarEvents);
     } catch (error) {
       console.error("Error fetching staff sessions:", error);
       res.status(500).json({ error: "Failed to fetch sessions" });
+    }
+  }
+);
+
+// GET /api/staff/sessions/:id/enrollments - Get enrolled students for a session
+router.get(
+  "/sessions/:id/enrollments",
+  async (req: express.Request, res: express.Response) => {
+    try {
+      const user = req.user as any;
+      if (!user?.id) {
+        return res.status(401).json({ error: "User not authenticated" });
+      }
+
+      const sessionId = parseInt(req.params.id);
+
+      // Verify user is assigned to this session
+      const session = await prisma.classSession.findUnique({
+        where: { id: sessionId },
+        include: {
+          instructors: {
+            where: { customerId: user.id },
+          },
+          assistants: {
+            where: { customerId: user.id },
+          },
+        },
+      });
+
+      if (!session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+
+      const isAssigned =
+        session.instructors.length > 0 || session.assistants.length > 0;
+
+      if (!isAssigned) {
+        return res
+          .status(403)
+          .json({ error: "You are not assigned to this session" });
+      }
+
+      // Get enrollments for this session
+      const registrations = await prisma.classRegistration.findMany({
+        where: {
+          sessions: {
+            some: {
+              sessionId: sessionId,
+            },
+          },
+          registrationStatus: {
+            in: ["CONFIRMED", "PENDING"],
+          },
+        },
+        include: {
+          customer: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true,
+            },
+          },
+        },
+        orderBy: {
+          registeredAt: "asc",
+        },
+      });
+
+      // Format the response
+      const enrollments = registrations.map((reg) => ({
+        id: reg.id,
+        customerName: reg.customer?.name || reg.guestName || "Unknown",
+        customerEmail: reg.customer?.email || reg.guestEmail,
+        customerPhone: reg.customer?.phone || reg.guestPhone,
+        isGuest: !reg.customerId,
+        guestCount: reg.guestCount,
+        registeredAt: reg.registeredAt,
+        status: reg.registrationStatus,
+      }));
+
+      res.json({
+        sessionId,
+        totalEnrollment: session.currentEnrollment,
+        maxStudents: session.maxStudents,
+        enrollments,
+      });
+    } catch (error) {
+      console.error("Error fetching session enrollments:", error);
+      res.status(500).json({ error: "Failed to fetch enrollments" });
     }
   }
 );

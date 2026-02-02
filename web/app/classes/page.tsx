@@ -1,5 +1,9 @@
 "use client";
 
+import Footer from "@/components/home/Footer";
+import Header from "@/components/home/Header";
+import { useAuth } from "@/context/AuthContext";
+import "@/styles/Home.css";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -45,9 +49,11 @@ interface Class {
 
 export default function ClassesPage() {
   const router = useRouter();
+  const { user, logout } = useAuth();
   const [classes, setClasses] = useState<Class[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [studioName, setStudioName] = useState<string>("");
 
   // Filters
   const [selectedCategory, setSelectedCategory] = useState<string>("");
@@ -56,8 +62,25 @@ export default function ClassesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
 
   useEffect(() => {
+    fetchStudioInfo();
     fetchClasses();
   }, [selectedCategory, selectedSkillLevel, selectedClassType]);
+
+  const fetchStudioInfo = async () => {
+    try {
+      const response = await fetch("/api/studio", {
+        headers: {
+          "X-Original-Host": window.location.hostname,
+        },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setStudioName(data.name);
+      }
+    } catch (error) {
+      console.error("Error fetching studio info:", error);
+    }
+  };
 
   const fetchClasses = async () => {
     setLoading(true);
@@ -138,9 +161,26 @@ export default function ClassesPage() {
     }
   };
 
+  const handleLogout = async () => {
+    await logout();
+    router.push("/login");
+  };
+
+  const hasStaffAccess = user?.roles?.some((role) =>
+    ["admin", "manager", "staff"].includes(role)
+  );
+
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
+      <Header
+        user={user}
+        studioName={studioName}
+        onLogout={handleLogout}
+        onNavigateAdmin={() => router.push("/admin")}
+        onNavigateLogin={() => router.push("/login")}
+      />
+
+      {/* Page Header */}
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <h1 className="text-3xl font-bold text-gray-900">Browse Classes</h1>
@@ -334,6 +374,8 @@ export default function ClassesPage() {
           </div>
         )}
       </div>
+
+      <Footer />
     </div>
   );
 }

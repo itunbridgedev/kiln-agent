@@ -7,6 +7,7 @@ interface AdminSidebarProps {
     | "categories"
     | "classes"
     | "teaching-roles"
+    | "resources"
     | "users";
   classesExpanded: boolean;
   scheduleExpanded: boolean;
@@ -25,6 +26,7 @@ interface AdminSidebarProps {
       | "categories"
       | "classes"
       | "teaching-roles"
+      | "resources"
       | "users"
   ) => void;
   onToggleClassesExpanded: () => void;
@@ -57,6 +59,7 @@ export default function AdminSidebar({
       | "categories"
       | "classes"
       | "teaching-roles"
+      | "resources"
       | "users"
   ) => {
     onTabChange(tab);
@@ -252,6 +255,14 @@ export default function AdminSidebar({
                     onClick={() => handleTabChange("teaching-roles")}
                   >
                     Teaching Roles
+                  </button>
+                </li>
+                <li>
+                  <button
+                    className={`w-full text-left px-4 py-2 rounded-md text-sm transition-colors ${activeTab === "resources" ? "bg-white/30 font-semibold" : "hover:bg-white/10"}`}
+                    onClick={() => handleTabChange("resources")}
+                  >
+                    Studio Resources
                   </button>
                 </li>
               </ul>

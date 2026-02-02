@@ -8,11 +8,14 @@ export interface SchedulePatternInput {
   studioId: number;
   recurrenceRule: string; // RRULE format: "FREQ=WEEKLY;BYDAY=TU;COUNT=8"
   startDate: Date;
-  endDate?: Date;
+  endDate?: Date | null;
   startTime: string; // "HH:MM" format
+  endTime?: string | null; // "HH:MM" format - For series schedules, time when last session starts
   durationHours: number;
   maxStudents: number;
   location?: string;
+  defaultInstructorId?: number | null;
+  defaultAssistantId?: number | null;
 }
 
 export interface SessionPreview {
@@ -29,25 +32,52 @@ export interface SessionPreview {
 export function generateSessionDates(
   recurrenceRule: string,
   startDate: Date,
-  endDate?: Date
+  endDate?: Date | null
 ): Date[] {
   try {
-    // Build RRULE string with dtstart
-    let rruleString = recurrenceRule;
+    console.log("generateSessionDates called with:", {
+      recurrenceRule,
+      startDate,
+      endDate,
+    });
 
-    // Parse the RRULE with options
+    // Create a local date without timezone conversion
+    const localStart = new Date(
+      startDate.getFullYear(),
+      startDate.getMonth(),
+      startDate.getDate(),
+      0,
+      0,
+      0,
+      0
+    );
+
+    // Parse the RRULE with dtstart
     const options: any = {
-      dtstart: startDate,
+      dtstart: localStart,
     };
 
-    if (endDate) {
-      options.until = endDate;
-    }
-
-    const rule = rrulestr(rruleString, options);
+    console.log("Calling rrulestr with:", recurrenceRule, options);
+    const rule = rrulestr(recurrenceRule, options);
 
     // Generate all occurrences
-    const dates = rule.all();
+    let dates = rule.all();
+
+    // If endDate is provided and the RRULE doesn't have UNTIL, filter dates
+    if (endDate && dates.length > 0) {
+      const localEnd = new Date(
+        endDate.getFullYear(),
+        endDate.getMonth(),
+        endDate.getDate(),
+        23,
+        59,
+        59,
+        999
+      );
+      dates = dates.filter((date) => date <= localEnd);
+    }
+
+    console.log(`Generated ${dates.length} dates`);
     return dates;
   } catch (error) {
     console.error("Error parsing RRULE:", error);
@@ -76,12 +106,26 @@ export function calculateEndTime(
 export function previewSessions(
   recurrenceRule: string,
   startDate: Date,
-  endDate: Date | undefined,
+  endDate: Date | undefined | null,
   startTime: string,
-  durationHours: number
+  durationHours: number,
+  endTime?: string
 ): SessionPreview[] {
   const dates = generateSessionDates(recurrenceRule, startDate, endDate);
-  const endTime = calculateEndTime(startTime, durationHours);
+
+  // Check if this is a series schedule (multiple sessions per day)
+  // Parse interval from RRULE (but it's not used to determine if series schedule)
+  const rruleParts = recurrenceRule.split(";");
+  let interval = 1;
+  for (const part of rruleParts) {
+    if (part.startsWith("INTERVAL=")) {
+      interval = parseInt(part.split("=")[1]) || 1;
+      break;
+    }
+  }
+
+  // Series schedule is when endTime is specified and different from start time
+  const hasSeriesSchedule = !!endTime && endTime !== startTime;
 
   const dayNames = [
     "Sunday",
@@ -93,13 +137,55 @@ export function previewSessions(
     "Saturday",
   ];
 
-  return dates.map((date, index) => ({
-    sessionNumber: index + 1,
-    sessionDate: date,
-    startTime,
-    endTime,
-    dayOfWeek: dayNames[date.getDay()],
-  }));
+  const sessions: SessionPreview[] = [];
+  let sessionNumber = 0;
+
+  for (const date of dates) {
+    if (hasSeriesSchedule && endTime) {
+      // Generate multiple sessions per day
+      const [startHour, startMin] = startTime.split(":").map(Number);
+      const [endHour, endMin] = endTime.split(":").map(Number);
+      const startMinutes = startHour * 60 + startMin;
+      const endMinutes = endHour * 60 + endMin;
+
+      // Use durationHours as the interval between sessions (sessions are back-to-back)
+      const sessionIntervalMinutes = durationHours * 60;
+
+      let currentMinutes = startMinutes;
+      while (currentMinutes <= endMinutes) {
+        const currentHour = Math.floor(currentMinutes / 60);
+        const currentMin = currentMinutes % 60;
+        const currentStartTime = `${String(currentHour).padStart(2, "0")}:${String(currentMin).padStart(2, "0")}`;
+
+        const sessionEndTime = calculateEndTime(
+          currentStartTime,
+          durationHours
+        );
+
+        sessions.push({
+          sessionNumber: ++sessionNumber,
+          sessionDate: date,
+          startTime: currentStartTime,
+          endTime: sessionEndTime,
+          dayOfWeek: dayNames[date.getDay()],
+        });
+
+        currentMinutes += sessionIntervalMinutes;
+      }
+    } else {
+      // Single session per day
+      const sessionEndTime = calculateEndTime(startTime, durationHours);
+      sessions.push({
+        sessionNumber: ++sessionNumber,
+        sessionDate: date,
+        startTime,
+        endTime: sessionEndTime,
+        dayOfWeek: dayNames[date.getDay()],
+      });
+    }
+  }
+
+  return sessions;
 }
 
 /**
@@ -118,9 +204,12 @@ export async function createSchedulePattern(data: SchedulePatternInput) {
       startDate: data.startDate,
       endDate: data.endDate,
       startTime: data.startTime,
+      endTime: data.endTime,
       durationHours: data.durationHours,
       maxStudents: data.maxStudents,
       location: data.location,
+      defaultInstructorId: data.defaultInstructorId,
+      defaultAssistantId: data.defaultAssistantId,
     },
     include: {
       class: {
@@ -161,9 +250,69 @@ export async function getPatternsByClass(classId: number) {
 }
 
 /**
+ * Get a single pattern by ID
+ */
+export async function getPatternById(patternId: number) {
+  const pattern = await prisma.classSchedulePattern.findUnique({
+    where: { id: patternId },
+    include: {
+      class: {
+        select: {
+          name: true,
+        },
+      },
+      classStep: {
+        select: {
+          name: true,
+          stepNumber: true,
+        },
+      },
+    },
+  });
+
+  return pattern;
+}
+
+/**
+ * Regenerate sessions from a pattern (deletes existing sessions first)
+ */
+export async function regenerateSessionsFromPattern(patternId: number) {
+  console.log(
+    "[regenerateSessionsFromPattern] Starting for pattern:",
+    patternId
+  );
+
+  // Delete existing sessions for this pattern
+  const deleted = await prisma.classSession.deleteMany({
+    where: { schedulePatternId: patternId },
+  });
+
+  console.log(
+    `[regenerateSessionsFromPattern] Deleted ${deleted.count} existing sessions`
+  );
+
+  // Generate new sessions
+  return generateSessionsFromPattern(patternId);
+}
+
+/**
  * Generate sessions from a pattern
  */
 export async function generateSessionsFromPattern(patternId: number) {
+  console.log("[generateSessionsFromPattern] Starting for pattern:", patternId);
+
+  // Check if sessions already exist for this pattern
+  const existingSessionCount = await prisma.classSession.count({
+    where: { schedulePatternId: patternId },
+  });
+
+  if (existingSessionCount > 0) {
+    console.log(
+      `[generateSessionsFromPattern] Pattern ${patternId} already has ${existingSessionCount} sessions, skipping generation`
+    );
+    return [];
+  }
+
   const pattern = await prisma.classSchedulePattern.findUnique({
     where: { id: patternId },
     include: {
@@ -179,6 +328,14 @@ export async function generateSessionsFromPattern(patternId: number) {
     throw new Error("Cannot generate sessions from inactive pattern");
   }
 
+  console.log("[generateSessionsFromPattern] Pattern loaded:", {
+    id: pattern.id,
+    recurrenceRule: pattern.recurrenceRule,
+    startTime: pattern.startTime,
+    endTime: pattern.endTime,
+    durationHours: pattern.durationHours.toString(),
+  });
+
   // Generate session dates from pattern
   const sessionDates = generateSessionDates(
     pattern.recurrenceRule,
@@ -186,31 +343,181 @@ export async function generateSessionsFromPattern(patternId: number) {
     pattern.endDate || undefined
   );
 
-  const endTime = calculateEndTime(
-    pattern.startTime,
-    Number(pattern.durationHours)
+  console.log(
+    "[generateSessionsFromPattern] Generated",
+    sessionDates.length,
+    "dates"
   );
 
-  // Create sessions in batch
-  const sessions = await prisma.$transaction(
-    sessionDates.map((sessionDate, index) =>
-      prisma.classSession.create({
-        data: {
+  // Check if this is a series schedule (multiple sessions per day)
+  const rruleParts = pattern.recurrenceRule.split(";");
+  let interval = 1;
+  for (const part of rruleParts) {
+    if (part.startsWith("INTERVAL=")) {
+      interval = parseInt(part.split("=")[1]) || 1;
+      break;
+    }
+  }
+
+  // Check if this is a series schedule (multiple sessions per day)
+  // Series schedule is when endTime is specified and allows for multiple sessions
+  const hasSeriesSchedule =
+    !!pattern.endTime && pattern.endTime !== pattern.startTime;
+
+  console.log("[generateSessionsFromPattern] Series schedule:", {
+    hasSeriesSchedule,
+    interval,
+    endTime: pattern.endTime,
+  });
+
+  // Build session data
+  const sessionData = [];
+  let sessionNumber = 0;
+
+  for (const sessionDate of sessionDates) {
+    if (hasSeriesSchedule && pattern.endTime) {
+      // Generate multiple sessions per day
+      const [startHour, startMin] = pattern.startTime.split(":").map(Number);
+      const [endHour, endMin] = pattern.endTime.split(":").map(Number);
+      const startMinutes = startHour * 60 + startMin;
+      const endMinutes = endHour * 60 + endMin;
+
+      // Use durationHours as the interval between sessions (sessions are back-to-back)
+      const sessionIntervalMinutes = Number(pattern.durationHours) * 60;
+
+      let currentMinutes = startMinutes;
+      while (currentMinutes <= endMinutes) {
+        const currentHour = Math.floor(currentMinutes / 60);
+        const currentMin = currentMinutes % 60;
+        const currentStartTime = `${String(currentHour).padStart(2, "0")}:${String(currentMin).padStart(2, "0")}`;
+
+        const sessionEndTime = calculateEndTime(
+          currentStartTime,
+          Number(pattern.durationHours)
+        );
+
+        sessionData.push({
           studioId: pattern.studioId,
           classId: pattern.classId,
           classStepId: pattern.classStepId,
           schedulePatternId: pattern.id,
-          sessionNumber: index + 1,
+          sessionNumber: ++sessionNumber,
           sessionDate,
-          startTime: pattern.startTime,
-          endTime,
+          startTime: currentStartTime,
+          endTime: sessionEndTime,
           maxStudents: pattern.maxStudents,
           location: pattern.location,
           status: "scheduled",
-        },
-      })
-    )
+        });
+
+        currentMinutes += sessionIntervalMinutes;
+      }
+    } else {
+      // Single session per day
+      const endTime = calculateEndTime(
+        pattern.startTime,
+        Number(pattern.durationHours)
+      );
+
+      sessionData.push({
+        studioId: pattern.studioId,
+        classId: pattern.classId,
+        classStepId: pattern.classStepId,
+        schedulePatternId: pattern.id,
+        sessionNumber: ++sessionNumber,
+        sessionDate,
+        startTime: pattern.startTime,
+        endTime,
+        maxStudents: pattern.maxStudents,
+        location: pattern.location,
+        status: "scheduled",
+      });
+    }
+  }
+
+  console.log(
+    "[generateSessionsFromPattern] Built",
+    sessionData.length,
+    "session data objects"
   );
+
+  // Create sessions in batches (to avoid transaction size limits)
+  const BATCH_SIZE = 50;
+  const sessions = [];
+
+  console.log(
+    "[generateSessionsFromPattern] Creating sessions in batches of",
+    BATCH_SIZE
+  );
+
+  for (let i = 0; i < sessionData.length; i += BATCH_SIZE) {
+    const batch = sessionData.slice(i, i + BATCH_SIZE);
+    console.log(
+      `[generateSessionsFromPattern] Creating batch ${Math.floor(i / BATCH_SIZE) + 1} with ${batch.length} sessions`
+    );
+
+    try {
+      const batchSessions = await prisma.$transaction(
+        batch.map((data) => prisma.classSession.create({ data }))
+      );
+      sessions.push(...batchSessions);
+      console.log(
+        `[generateSessionsFromPattern] Batch ${Math.floor(i / BATCH_SIZE) + 1} created successfully`
+      );
+    } catch (error) {
+      console.error(
+        `[generateSessionsFromPattern] Error in batch ${Math.floor(i / BATCH_SIZE) + 1}:`,
+        error
+      );
+      throw error;
+    }
+  }
+
+  console.log(
+    "[generateSessionsFromPattern] All",
+    sessions.length,
+    "sessions created"
+  );
+
+  // Auto-assign staff from pattern defaults
+  if (pattern.defaultInstructorId || pattern.defaultAssistantId) {
+    const staffAssignments = [];
+
+    for (const session of sessions) {
+      if (pattern.defaultInstructorId) {
+        const instructorData = {
+          sessionId: session.id,
+          customerId: pattern.defaultInstructorId,
+          roleId: null as number | null, // Optional: could lookup from teaching role
+        };
+        console.log("[Staff Assignment] Instructor data:", instructorData);
+        staffAssignments.push(
+          prisma.classSessionInstructor.create({
+            data: instructorData,
+          })
+        );
+      }
+
+      if (pattern.defaultAssistantId) {
+        const assistantData = {
+          sessionId: session.id,
+          customerId: pattern.defaultAssistantId,
+        };
+        console.log("[Staff Assignment] Assistant data:", assistantData);
+        staffAssignments.push(
+          prisma.classSessionAssistant.create({
+            data: assistantData,
+          })
+        );
+      }
+    }
+
+    // Batch staff assignments too
+    for (let i = 0; i < staffAssignments.length; i += BATCH_SIZE) {
+      const batch = staffAssignments.slice(i, i + BATCH_SIZE);
+      await prisma.$transaction(batch);
+    }
+  }
 
   return sessions;
 }
@@ -227,17 +534,27 @@ export async function updateSchedulePattern(
     generateSessionDates(data.recurrenceRule, data.startDate, data.endDate);
   }
 
+  // Build update data object, only including defined fields
+  const updateData: any = {};
+
+  if (data.recurrenceRule !== undefined)
+    updateData.recurrenceRule = data.recurrenceRule;
+  if (data.startDate !== undefined) updateData.startDate = data.startDate;
+  if (data.endDate !== undefined) updateData.endDate = data.endDate; // Can be null
+  if (data.startTime !== undefined) updateData.startTime = data.startTime;
+  if (data.endTime !== undefined) updateData.endTime = data.endTime; // Can be null
+  if (data.durationHours !== undefined)
+    updateData.durationHours = data.durationHours;
+  if (data.maxStudents !== undefined) updateData.maxStudents = data.maxStudents;
+  if (data.location !== undefined) updateData.location = data.location;
+  if (data.defaultInstructorId !== undefined)
+    updateData.defaultInstructorId = data.defaultInstructorId;
+  if (data.defaultAssistantId !== undefined)
+    updateData.defaultAssistantId = data.defaultAssistantId;
+
   const pattern = await prisma.classSchedulePattern.update({
     where: { id: patternId },
-    data: {
-      recurrenceRule: data.recurrenceRule,
-      startDate: data.startDate,
-      endDate: data.endDate,
-      startTime: data.startTime,
-      durationHours: data.durationHours,
-      maxStudents: data.maxStudents,
-      location: data.location,
-    },
+    data: updateData,
     include: {
       sessions: true,
     },
@@ -260,6 +577,42 @@ export async function deleteFutureSessions(patternId: number, fromDate: Date) {
   });
 
   return result;
+}
+
+/**
+ * Delete a schedule pattern and all its sessions
+ */
+export async function deleteSchedulePattern(
+  patternId: number,
+  studioId: number
+) {
+  // Verify the pattern belongs to this studio
+  const pattern = await prisma.classSchedulePattern.findFirst({
+    where: {
+      id: patternId,
+      studioId,
+    },
+  });
+
+  if (!pattern) {
+    throw new Error("Schedule pattern not found or access denied");
+  }
+
+  // Delete all sessions associated with this pattern
+  await prisma.classSession.deleteMany({
+    where: {
+      schedulePatternId: patternId,
+    },
+  });
+
+  // Delete the pattern itself
+  await prisma.classSchedulePattern.delete({
+    where: {
+      id: patternId,
+    },
+  });
+
+  return { success: true };
 }
 
 /**

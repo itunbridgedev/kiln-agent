@@ -88,7 +88,9 @@ export default function StudioCalendar({
       ? getStaffColor(primaryInstructor.id)
       : "#6B7280"; // gray for unassigned
 
-    const opacity = event.isFull ? 0.8 : 1;
+    // Set opacity: 50% for empty classes, 80% for full classes, 100% otherwise
+    const opacity =
+      event.currentEnrollment === 0 ? 0.5 : event.isFull ? 0.8 : 1;
     const borderStyle = event.hasConflict ? "2px dashed #DC2626" : "none";
 
     return {
@@ -181,6 +183,8 @@ export default function StudioCalendar({
         //   event: EventComponent,
         // }}
         popup
+        min={new Date(0, 0, 0, 7, 0, 0)}
+        max={new Date(0, 0, 0, 23, 59, 59)}
         style={{ height: "100%" }}
       />
     </div>

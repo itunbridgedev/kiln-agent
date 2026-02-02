@@ -1,7 +1,12 @@
 "use client";
 
+import Footer from "@/components/home/Footer";
+import Header from "@/components/home/Header";
+import { useAuth } from "@/context/AuthContext";
+import "@/styles/Home.css";
 import { format } from "date-fns";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
@@ -64,6 +69,8 @@ interface WaitlistEntry {
 }
 
 export default function MyClassesPage() {
+  const router = useRouter();
+  const { user, logout, loading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState<"registrations" | "waitlist">(
     "registrations"
   );
@@ -71,10 +78,35 @@ export default function MyClassesPage() {
   const [waitlistEntries, setWaitlistEntries] = useState<WaitlistEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [studioName, setStudioName] = useState<string>("");
+
+  // Redirect to guest bookings page if not authenticated
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push("/my-bookings");
+    }
+  }, [user, authLoading, router]);
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (user) {
+      fetchStudioInfo();
+      fetchData();
+    }
+  }, [user]);
+
+  const fetchStudioInfo = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/studio`, {
+        credentials: "include",
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setStudioName(data.name);
+      }
+    } catch (error) {
+      console.error("Error fetching studio info:", error);
+    }
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -90,8 +122,18 @@ export default function MyClassesPage() {
         }),
       ]);
 
-      if (!regsResponse.ok || !waitlistResponse.ok) {
-        throw new Error("Failed to fetch data");
+      if (!regsResponse.ok) {
+        const errorData = await regsResponse.json();
+        throw new Error(
+          `Failed to fetch registrations: ${errorData.error || regsResponse.statusText}`
+        );
+      }
+
+      if (!waitlistResponse.ok) {
+        const errorData = await waitlistResponse.json();
+        throw new Error(
+          `Failed to fetch waitlist: ${errorData.error || waitlistResponse.statusText}`
+        );
       }
 
       const regsData = await regsResponse.json();
@@ -203,8 +245,33 @@ export default function MyClassesPage() {
     );
   };
 
+  const handleLogout = async () => {
+    await logout();
+    router.push("/login");
+  };
+
+  // Show loading state while checking authentication
+  if (authLoading || !user) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
+      <Header
+        user={user}
+        studioName={studioName}
+        onLogout={handleLogout}
+        onNavigateAdmin={() => router.push("/admin")}
+        onNavigateLogin={() => router.push("/login")}
+      />
+
       {/* Header */}
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -280,7 +347,7 @@ export default function MyClassesPage() {
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-2">
                             <Link
-                              href={`/classes/${registration.class.id}`}
+                              href={`/registrations/${registration.id}`}
                               className="text-xl font-bold text-gray-900 hover:text-blue-600"
                             >
                               {registration.class.name}
@@ -346,6 +413,54 @@ export default function MyClassesPage() {
                               </p>
                             </div>
                           </div>
+                        </div>
+                      )}
+
+                      {/* Registered Sessions */}
+                      {registration.sessions &&
+                      Array.isArray(registration.sessions) &&
+                      registration.sessions.length > 0 ? (
+                        <div className="mb-4 p-4 bg-blue-50 rounded-lg">
+                          <h4 className="font-medium text-gray-900 mb-2">
+                            Your Sessions ({registration.sessions.length}):
+                          </h4>
+                          <div className="space-y-1">
+                            {registration.sessions
+                              .slice(0, 3)
+                              .map((regSession) => (
+                                <div
+                                  key={regSession.id}
+                                  className="text-sm text-gray-700"
+                                >
+                                  <span className="font-medium">
+                                    {format(
+                                      new Date(regSession.session.sessionDate),
+                                      "EEE, MMM d, yyyy"
+                                    )}
+                                  </span>
+                                  {" at "}
+                                  {regSession.session.startTime}
+                                  {regSession.attended && (
+                                    <span className="ml-2 text-green-600">
+                                      ✓ Attended
+                                    </span>
+                                  )}
+                                </div>
+                              ))}
+                            {registration.sessions.length > 3 && (
+                              <p className="text-sm text-gray-500 italic">
+                                ...and {registration.sessions.length - 3} more
+                                session(s)
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="mb-4 p-4 bg-gray-50 rounded-lg">
+                          <p className="text-sm text-gray-600">
+                            Session information not available for this
+                            registration.
+                          </p>
                         </div>
                       )}
 
@@ -447,6 +562,8 @@ export default function MyClassesPage() {
           </>
         )}
       </div>
+
+      <Footer />
     </div>
   );
 }

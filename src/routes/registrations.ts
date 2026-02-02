@@ -80,7 +80,7 @@ router.get("/classes", async (req: Request, res: Response) => {
   }
 });
 
-// GET /api/registrations/classes/:id - Get class details with available schedules
+// GET /api/registrations/classes/:id - Get class details with available sessions
 router.get("/classes/:id", async (req: Request, res: Response) => {
   try {
     // Try to get studioId from tenant middleware, authenticated user, or default to first studio
@@ -117,27 +117,9 @@ router.get("/classes/:id", async (req: Request, res: Response) => {
       include: {
         category: true,
         teachingRole: true,
-        schedules: {
-          where: {
-            startDate: {
-              gte: new Date(),
-            },
-          },
+        resourceRequirements: {
           include: {
-            sessions: {
-              orderBy: {
-                sessionDate: "asc",
-              },
-            },
-            _count: {
-              select: {
-                enrollments: true,
-                waitlistEntries: true,
-              },
-            },
-          },
-          orderBy: {
-            startDate: "asc",
+            resource: true,
           },
         },
         steps: {
@@ -155,34 +137,176 @@ router.get("/classes/:id", async (req: Request, res: Response) => {
       return res.status(404).json({ error: "Class not found" });
     }
 
-    res.json(classDetails);
+    // Fetch upcoming sessions separately
+    const sessions = await prisma.classSession.findMany({
+      where: {
+        studioId,
+        classId,
+        sessionDate: {
+          gte: new Date(),
+        },
+        isCancelled: false,
+      },
+      include: {
+        classStep: true,
+        schedulePattern: {
+          select: {
+            id: true,
+            recurrenceRule: true,
+          },
+        },
+        registrationSessions: {
+          include: {
+            registration: true,
+          },
+        },
+      },
+      orderBy: {
+        sessionDate: "asc",
+      },
+      take: 50, // Limit to next 50 sessions
+    });
+
+    // Add enrollment count to each session (count only confirmed registrations)
+    const sessionsWithEnrollment = sessions.map((session) => {
+      const activeRegistrations = session.registrationSessions.filter(
+        (rs) => rs.registration.registrationStatus === "CONFIRMED"
+      );
+
+      return {
+        ...session,
+        currentEnrollment: activeRegistrations.length,
+        availableSpots:
+          (session.maxStudents || classDetails.maxStudents) -
+          activeRegistrations.length,
+      };
+    });
+
+    // Return class details with sessions
+    const response = {
+      ...classDetails,
+      sessions: sessionsWithEnrollment,
+    };
+
+    res.json(response);
   } catch (error: any) {
     console.error("Error fetching class details:", error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// POST /api/registrations - Create a new registration (requires authentication)
-router.post("/", isAuthenticated, async (req: Request, res: Response) => {
+// GET /api/registrations/resource-availability - Check resource availability for a session (public)
+router.get("/resource-availability", async (req: Request, res: Response) => {
   try {
-    const studioId = (req as AuthenticatedRequest).studioId;
+    const { sessionId } = req.query;
+
+    if (!sessionId) {
+      return res.status(400).json({ error: "Session ID required" });
+    }
+
+    const session = await prisma.classSession.findUnique({
+      where: { id: parseInt(sessionId as string) },
+    });
+
+    if (!session) {
+      return res.status(404).json({ error: "Session not found" });
+    }
+
+    // Get all resources for this studio
+    const resources = await prisma.studioResource.findMany({
+      where: { studioId: session.studioId },
+    });
+
+    // Find all overlapping sessions
+    const overlappingSessions = await prisma.classSession.findMany({
+      where: {
+        studioId: session.studioId,
+        sessionDate: session.sessionDate,
+        isCancelled: false,
+        OR: [
+          {
+            AND: [
+              { startTime: { lte: session.startTime } },
+              { endTime: { gt: session.startTime } },
+            ],
+          },
+          {
+            AND: [
+              { startTime: { lt: session.endTime } },
+              { endTime: { gte: session.endTime } },
+            ],
+          },
+          {
+            AND: [
+              { startTime: { gte: session.startTime } },
+              { endTime: { lte: session.endTime } },
+            ],
+          },
+        ],
+      },
+      select: { id: true },
+    });
+
+    const sessionIds = overlappingSessions.map((s) => s.id);
+
+    // Get all allocations for these sessions
+    const allocations = await prisma.sessionResourceAllocation.findMany({
+      where: {
+        sessionId: { in: sessionIds },
+        registration: {
+          registrationStatus: "CONFIRMED",
+        },
+      },
+      select: { resourceId: true, quantity: true },
+    });
+
+    // Calculate availability for each resource
+    const availability = resources.map((resource) => {
+      const allocated = allocations
+        .filter((a) => a.resourceId === resource.id)
+        .reduce((sum, a) => sum + a.quantity, 0);
+
+      return {
+        resourceId: resource.id,
+        resourceName: resource.name,
+        totalQuantity: resource.quantity,
+        allocated,
+        available: resource.quantity - allocated,
+      };
+    });
+
+    res.json(availability);
+  } catch (error) {
+    console.error("Error checking resource availability:", error);
+    res.status(500).json({ error: "Failed to check availability" });
+  }
+});
+
+// POST /api/registrations - Create a new registration (supports guest bookings)
+router.post("/", async (req: Request, res: Response) => {
+  try {
+    let studioId = (req as AuthenticatedRequest).studioId;
     const customerId = (req as AuthenticatedRequest).user?.id;
-
-    if (!studioId) {
-      return res.status(400).json({ error: "Studio context required" });
-    }
-
-    if (!customerId) {
-      return res.status(401).json({ error: "Authentication required" });
-    }
 
     const {
       classId,
-      scheduleId,
+      sessionId, // Single session booking
       registrationType,
-      sessionIds, // For SINGLE_SESSION or DROP_IN
+      guestCount = 1,
+      amountPaid,
       customerNotes,
+      guestName,
+      guestEmail,
+      guestPhone,
     } = req.body;
+
+    // Require either authentication or guest info
+    const isGuestBooking = !customerId && guestEmail;
+    if (!customerId && !isGuestBooking) {
+      return res.status(401).json({
+        error: "Authentication or guest information (name and email) required",
+      });
+    }
 
     // Validate required fields
     if (!classId || !registrationType) {
@@ -191,29 +315,50 @@ router.post("/", isAuthenticated, async (req: Request, res: Response) => {
       });
     }
 
-    // Validate registration type requirements
-    if (registrationType === "FULL_SCHEDULE" && !scheduleId) {
+    // For single session booking, sessionId is required
+    if (registrationType === "SINGLE_SESSION" && !sessionId) {
       return res.status(400).json({
-        error: "scheduleId required for FULL_SCHEDULE registration",
+        error: "sessionId required for SINGLE_SESSION registration",
       });
     }
 
-    if (
-      (registrationType === "SINGLE_SESSION" ||
-        registrationType === "DROP_IN") &&
-      (!sessionIds || sessionIds.length === 0)
-    ) {
+    // Validate guest info if guest booking
+    if (isGuestBooking && !guestName) {
       return res.status(400).json({
-        error: "sessionIds required for SINGLE_SESSION or DROP_IN registration",
+        error: "Guest name and email are required for guest bookings",
       });
     }
 
-    // Fetch class details to calculate price
+    // Get studioId from the session if not from tenant middleware
+    if (!studioId && sessionId) {
+      const session = await prisma.classSession.findUnique({
+        where: { id: sessionId },
+        select: { studioId: true },
+      });
+      studioId = session?.studioId;
+    }
+
+    // Get studioId from the class if still not found
+    if (!studioId && classId) {
+      const classInfo = await prisma.class.findUnique({
+        where: { id: classId },
+        select: { studioId: true },
+      });
+      studioId = classInfo?.studioId;
+    }
+
+    if (!studioId) {
+      return res.status(400).json({ error: "Studio context required" });
+    }
+
+    // Fetch class details
     const classDetails = await prisma.class.findUnique({
       where: { id: classId, studioId },
       include: {
-        schedules: {
-          where: scheduleId ? { id: scheduleId } : undefined,
+        resourceRequirements: {
+          include: {
+            resource: true,
+          },
         },
       },
     });
@@ -222,102 +367,154 @@ router.post("/", isAuthenticated, async (req: Request, res: Response) => {
       return res.status(404).json({ error: "Class not found" });
     }
 
-    // Calculate amount based on registration type
-    let amountPaid = classDetails.price;
-
-    if (registrationType === "SINGLE_SESSION" && sessionIds) {
-      // For single session, use prorated price or full price
-      // This is simplified - you may want different pricing logic
-      amountPaid = classDetails.price;
-    }
-
-    // Check availability
-    let isWaitlisted = false;
-    if (scheduleId) {
-      const schedule = await prisma.classSchedule.findUnique({
-        where: { id: scheduleId },
-        include: {
-          _count: {
-            select: { enrollments: true },
-          },
-        },
-      });
-
-      if (schedule && schedule._count.enrollments >= classDetails.maxStudents) {
-        isWaitlisted = true;
-      }
-    }
-
-    // Create registration
-    const registration = await prisma.classRegistration.create({
-      data: {
-        studioId,
-        customerId,
-        classId,
-        scheduleId: scheduleId || null,
-        registrationType,
-        registrationStatus: isWaitlisted ? "WAITLISTED" : "PENDING",
-        amountPaid,
-        paymentStatus: "PENDING",
-        customerNotes: customerNotes || null,
-        // Link to specific sessions if applicable
-        sessions:
-          sessionIds && sessionIds.length > 0
-            ? {
-                create: sessionIds.map((sessionId: number) => ({
-                  sessionId,
-                })),
-              }
-            : undefined,
-      },
+    // Fetch session details
+    const session = await prisma.classSession.findUnique({
+      where: { id: sessionId },
       include: {
-        class: {
-          include: {
-            category: true,
-          },
-        },
-        schedule: true,
-        sessions: {
-          include: {
-            session: true,
-          },
-        },
+        class: true,
       },
     });
 
-    // If waitlisted, create waitlist entry
-    if (isWaitlisted && scheduleId) {
-      // Get next position in waitlist
-      const maxPosition = await prisma.classWaitlist.findFirst({
-        where: {
-          scheduleId,
-          removedAt: null,
-        },
-        orderBy: {
-          position: "desc",
-        },
-        select: {
-          position: true,
-        },
-      });
+    if (!session) {
+      return res.status(404).json({ error: "Session not found" });
+    }
 
-      await prisma.classWaitlist.create({
-        data: {
-          studioId,
-          customerId,
-          classId,
-          scheduleId,
-          position: (maxPosition?.position || 0) + 1,
-          customerNotes: customerNotes || null,
-        },
+    // Check if session has enough spots
+    const availableSpots =
+      (session.maxStudents || classDetails.maxStudents) -
+      session.currentEnrollment;
+
+    if (guestCount > availableSpots) {
+      return res.status(409).json({
+        error: `Insufficient spots. Only ${availableSpots} spots available.`,
       });
     }
 
+    // Find overlapping sessions to check resource conflicts
+    const overlappingSessions = await prisma.classSession.findMany({
+      where: {
+        sessionDate: session.sessionDate,
+        isCancelled: false,
+        OR: [
+          {
+            AND: [
+              { startTime: { lte: session.startTime } },
+              { endTime: { gt: session.startTime } },
+            ],
+          },
+          {
+            AND: [
+              { startTime: { lt: session.endTime } },
+              { endTime: { gte: session.endTime } },
+            ],
+          },
+          {
+            AND: [
+              { startTime: { gte: session.startTime } },
+              { endTime: { lte: session.endTime } },
+            ],
+          },
+        ],
+      },
+      select: { id: true },
+    });
+
+    const sessionIds = overlappingSessions.map((s) => s.id);
+
+    // Check resource availability
+    for (const requirement of classDetails.resourceRequirements) {
+      const allocations = await prisma.sessionResourceAllocation.findMany({
+        where: {
+          resourceId: requirement.resourceId,
+          sessionId: { in: sessionIds },
+          registration: {
+            registrationStatus: "CONFIRMED",
+          },
+        },
+        select: { quantity: true },
+      });
+
+      const totalAllocated = allocations.reduce(
+        (sum, a) => sum + a.quantity,
+        0
+      );
+      const available = requirement.resource.quantity - totalAllocated;
+      const needed = guestCount * requirement.quantityPerStudent;
+
+      if (needed > available) {
+        return res.status(409).json({
+          error: `Insufficient ${requirement.resource.name}. Need ${needed}, only ${available} available.`,
+        });
+      }
+    }
+
+    // Create registration with resource allocation in a transaction
+    const registration = await prisma.$transaction(async (tx) => {
+      // Create the registration
+      const newRegistration = await tx.classRegistration.create({
+        data: {
+          studioId,
+          customerId: customerId || null,
+          classId,
+          scheduleId: null,
+          registrationType,
+          registrationStatus: "CONFIRMED",
+          amountPaid:
+            amountPaid ||
+            parseFloat(classDetails.price.toString()) * guestCount,
+          paymentStatus: "PENDING",
+          customerNotes: customerNotes || null,
+          guestName: guestName || null,
+          guestEmail: guestEmail || null,
+          guestPhone: guestPhone || null,
+          sessions: {
+            create: {
+              sessionId,
+            },
+          },
+        },
+        include: {
+          class: {
+            include: {
+              category: true,
+            },
+          },
+          sessions: {
+            include: {
+              session: true,
+            },
+          },
+        },
+      });
+
+      // Allocate resources
+      for (const requirement of classDetails.resourceRequirements) {
+        await tx.sessionResourceAllocation.create({
+          data: {
+            sessionId,
+            resourceId: requirement.resourceId,
+            registrationId: newRegistration.id,
+            quantity: guestCount * requirement.quantityPerStudent,
+          },
+        });
+      }
+
+      // Increment session enrollment
+      await tx.classSession.update({
+        where: { id: sessionId },
+        data: {
+          currentEnrollment: {
+            increment: guestCount,
+          },
+        },
+      });
+
+      return newRegistration;
+    });
+
     res.status(201).json({
       registration,
-      message: isWaitlisted
-        ? "Added to waitlist - you'll be notified when space becomes available"
-        : "Registration created - please complete payment",
+      message: "Registration confirmed!",
     });
   } catch (error: any) {
     console.error("Error creating registration:", error);
@@ -331,21 +528,35 @@ router.get(
   isAuthenticated,
   async (req: Request, res: Response) => {
     try {
-      const studioId = (req as AuthenticatedRequest).studioId;
+      let studioId = (req as AuthenticatedRequest).studioId;
       const customerId = (req as AuthenticatedRequest).user?.id;
-
-      if (!studioId) {
-        return res.status(400).json({ error: "Studio context required" });
-      }
 
       if (!customerId) {
         return res.status(401).json({ error: "Authentication required" });
       }
 
+      // Get studioId from customer if not from tenant middleware
+      if (!studioId) {
+        const customer = await prisma.customer.findUnique({
+          where: { id: customerId },
+          select: { studioId: true },
+        });
+        studioId = customer?.studioId;
+      }
+
+      // Fall back to any studio the customer has registrations in
+      if (!studioId) {
+        const anyRegistration = await prisma.classRegistration.findFirst({
+          where: { customerId },
+          select: { studioId: true },
+        });
+        studioId = anyRegistration?.studioId;
+      }
+
       const registrations = await prisma.classRegistration.findMany({
         where: {
-          studioId,
           customerId,
+          ...(studioId ? { studioId } : {}),
         },
         include: {
           class: {
@@ -353,18 +564,13 @@ router.get(
               category: true,
             },
           },
-          schedule: {
-            include: {
-              sessions: {
-                orderBy: {
-                  sessionDate: "asc",
-                },
-              },
-            },
-          },
           sessions: {
             include: {
-              session: true,
+              session: {
+                include: {
+                  classStep: true,
+                },
+              },
             },
           },
         },
@@ -387,14 +593,28 @@ router.put(
   isAuthenticated,
   async (req: Request, res: Response) => {
     try {
-      const studioId = (req as AuthenticatedRequest).studioId;
+      let studioId = (req as AuthenticatedRequest).studioId;
       const customerId = (req as AuthenticatedRequest).user?.id;
       const registrationId = parseInt(req.params.id);
 
-      if (!studioId || !customerId) {
+      if (!customerId) {
         return res
-          .status(400)
-          .json({ error: "Studio context and authentication required" });
+          .status(401)
+          .json({ error: "Authentication required" });
+      }
+
+      // Get studioId from customer if not from tenant middleware
+      if (!studioId) {
+        const customer = await prisma.customer.findUnique({
+          where: { id: customerId },
+          select: { studioId: true },
+        });
+
+        if (!customer) {
+          return res.status(404).json({ error: "Customer not found" });
+        }
+
+        studioId = customer.studioId;
       }
 
       const { cancellationReason } = req.body;
@@ -533,20 +753,27 @@ router.get(
   isAuthenticated,
   async (req: Request, res: Response) => {
     try {
-      const studioId = (req as AuthenticatedRequest).studioId;
+      let studioId = (req as AuthenticatedRequest).studioId;
       const customerId = (req as AuthenticatedRequest).user?.id;
 
-      if (!studioId || !customerId) {
-        return res
-          .status(400)
-          .json({ error: "Studio context and authentication required" });
+      if (!customerId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      // Get studioId from customer if not from tenant middleware
+      if (!studioId) {
+        const customer = await prisma.customer.findUnique({
+          where: { id: customerId },
+          select: { studioId: true },
+        });
+        studioId = customer?.studioId;
       }
 
       const waitlistEntries = await prisma.classWaitlist.findMany({
         where: {
-          studioId,
           customerId,
           removedAt: null,
+          ...(studioId ? { studioId } : {}),
         },
         include: {
           class: {
@@ -554,8 +781,6 @@ router.get(
               category: true,
             },
           },
-          schedule: true,
-          session: true,
         },
         orderBy: {
           joinedAt: "desc",
@@ -613,5 +838,47 @@ router.delete(
     }
   }
 );
+
+// GET /api/registrations/:id - Get a specific registration (supports both authenticated and guest users)
+// NOTE: This route must be defined LAST to avoid conflicting with specific routes like /my-registrations
+router.get("/:id", async (req: Request, res: Response) => {
+  try {
+    const customerId = (req as AuthenticatedRequest).user?.id;
+    const registrationId = parseInt(req.params.id);
+
+    const registration = await prisma.classRegistration.findFirst({
+      where: {
+        id: registrationId,
+        // If authenticated, verify ownership; if not, allow guest bookings
+        ...(customerId ? { customerId } : {}),
+      },
+      include: {
+        class: {
+          include: {
+            category: true,
+          },
+        },
+        sessions: {
+          include: {
+            session: {
+              include: {
+                classStep: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!registration) {
+      return res.status(404).json({ error: "Registration not found" });
+    }
+
+    res.json(registration);
+  } catch (error: any) {
+    console.error("Error fetching registration:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 export default router;

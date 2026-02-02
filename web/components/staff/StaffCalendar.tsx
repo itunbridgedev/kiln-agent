@@ -82,6 +82,9 @@ export default function StaffCalendar({
       opacity = 0.5;
       backgroundColor = "#999";
       borderColor = "#666";
+    } else if (event.currentEnrollment === 0) {
+      // Set 50% opacity for empty classes (no enrollments)
+      opacity = 0.5;
     }
 
     // Add role indicator - instructors get solid, assistants get striped
@@ -197,6 +200,8 @@ export default function StaffCalendar({
         views={["month", "week", "day"]}
         step={30}
         showMultiDayTimes
+        min={new Date(0, 0, 0, 7, 0, 0)}
+        max={new Date(0, 0, 0, 23, 59, 59)}
         defaultDate={new Date()}
       />
 

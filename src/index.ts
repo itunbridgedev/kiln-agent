@@ -14,8 +14,12 @@ import calendarRoutes from "./routes/calendar";
 import classesRoutes from "./routes/classes";
 import productsRoutes from "./routes/products";
 import registrationsRoutes from "./routes/registrations";
+import resourcesRoutes from "./routes/resources";
 import schedulePatternRoutes from "./routes/schedule-patterns";
 import staffRoutes from "./routes/staff";
+import stripeConnectRoutes from "./routes/stripe-connect";
+import stripePaymentRoutes from "./routes/stripe-payment";
+import stripeWebhookRoutes from "./routes/stripe-webhook";
 import studioRoutes from "./routes/studio";
 import teachingRolesRoutes from "./routes/teaching-roles";
 import usersRoutes from "./routes/users";
@@ -29,7 +33,25 @@ const app = express();
 app.use(cookieParser());
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || "http://localhost:3000",
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps or curl)
+      if (!origin) return callback(null, true);
+
+      // Allow localhost and localhost subdomains (must return the exact origin for credentials)
+      if (
+        origin.match(/^http:\/\/localhost:\d+$/) ||
+        origin.match(/^http:\/\/[\w-]+\.localhost:\d+$/)
+      ) {
+        return callback(null, origin);
+      }
+
+      // Allow configured CLIENT_URL
+      if (process.env.CLIENT_URL && origin === process.env.CLIENT_URL) {
+        return callback(null, origin);
+      }
+
+      callback(new Error("Not allowed by CORS"));
+    },
     credentials: true,
   })
 );
@@ -75,7 +97,8 @@ app.use(
       httpOnly: true,
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
       sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-      // Set domain to allow cookie sharing between api.domain.com and www.domain.com
+      // For development, don't set domain to allow localhost subdomains to work
+      // The cookie will be set for the exact domain that receives it
       domain:
         process.env.NODE_ENV === "production"
           ? process.env.COOKIE_DOMAIN || ".kilnagent.com"
@@ -153,14 +176,25 @@ app.use(passport.session());
 // Multi-tenancy middleware - identifies studio from subdomain
 app.use(tenantMiddleware);
 
+// Stripe webhook - must come before express.json() for raw body
+// Note: In production, you may need to configure this route separately with raw body parser
+app.use(
+  "/api/stripe/webhook",
+  express.raw({ type: "application/json" }),
+  stripeWebhookRoutes
+);
+
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/calendar", calendarRoutes); // Public calendar feeds
 app.use("/api/products", productsRoutes);
 app.use("/api/registrations", registrationsRoutes); // Customer registration
+app.use("/api/stripe/connect", stripeConnectRoutes); // Stripe Connect onboarding
+app.use("/api/stripe/payment", stripePaymentRoutes); // Stripe payment processing
 app.use("/api/admin", adminRoutes);
 app.use("/api/admin/calendar", adminCalendarRoutes);
 app.use("/api/admin/classes", classesRoutes);
+app.use("/api/admin/resources", resourcesRoutes);
 app.use("/api/admin/schedule-patterns", schedulePatternRoutes);
 app.use("/api/admin/teaching-roles", teachingRolesRoutes);
 app.use("/api/admin/users", usersRoutes);

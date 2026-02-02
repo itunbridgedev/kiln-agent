@@ -1,5 +1,20 @@
 import { NextFunction, Request, Response } from "express";
 
+// Extend Express Request type to include authenticated user and studioId
+export interface AuthenticatedRequest extends Request {
+  user?: {
+    id: number;
+    email: string;
+    name: string;
+    roles?: Array<{
+      role: {
+        name: string;
+      };
+    }>;
+  };
+  studioId?: number;
+}
+
 export const isAuthenticated = (
   req: Request,
   res: Response,

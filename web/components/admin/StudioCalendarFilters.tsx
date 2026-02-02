@@ -30,6 +30,7 @@ interface StudioCalendarFiltersProps {
     categoryId: number | null;
     roleType: "instructor" | "assistant" | null;
     enrollmentStatus: "full" | "available" | "low" | null;
+    showEmpty: boolean;
   }) => void;
 }
 
@@ -50,6 +51,7 @@ export default function StudioCalendarFilters({
   const [selectedEnrollmentStatus, setSelectedEnrollmentStatus] = useState<
     "full" | "available" | "low" | null
   >(null);
+  const [showEmpty, setShowEmpty] = useState(true);
   const [isExpanded, setIsExpanded] = useState(false);
 
   useEffect(() => {
@@ -62,12 +64,14 @@ export default function StudioCalendarFilters({
       categoryId: selectedCategoryId,
       roleType: selectedRoleType,
       enrollmentStatus: selectedEnrollmentStatus,
+      showEmpty,
     });
   }, [
     selectedStaffId,
     selectedCategoryId,
     selectedRoleType,
     selectedEnrollmentStatus,
+    showEmpty,
     onFilterChange,
   ]);
 
@@ -90,6 +94,7 @@ export default function StudioCalendarFilters({
     setSelectedCategoryId(null);
     setSelectedRoleType(null);
     setSelectedEnrollmentStatus(null);
+    setShowEmpty(true);
   };
 
   const activeFilterCount = [
@@ -110,6 +115,16 @@ export default function StudioCalendarFilters({
                 {activeFilterCount} active
               </span>
             )}
+            {/* Show Empty Checkbox */}
+            <label className="flex items-center gap-2 ml-4">
+              <input
+                type="checkbox"
+                checked={showEmpty}
+                onChange={(e) => setShowEmpty(e.target.checked)}
+                className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-2 focus:ring-primary"
+              />
+              <span className="text-sm text-gray-700">Show Empty</span>
+            </label>
           </div>
           <div className="flex items-center gap-2">
             {activeFilterCount > 0 && (
