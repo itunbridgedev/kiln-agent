@@ -173,6 +173,11 @@ router.post("/confirm", async (req: Request, res: Response) => {
 
     // Create the registration
     const amountPaid = paymentIntent.amount / 100;
+    
+    // Extract charge ID from PaymentIntent
+    const chargeId = typeof paymentIntent.latest_charge === 'string' 
+      ? paymentIntent.latest_charge 
+      : paymentIntent.latest_charge?.id;
 
     console.log("Creating registration with data:", {
       studioId,
@@ -184,6 +189,7 @@ router.post("/confirm", async (req: Request, res: Response) => {
       guestName,
       guestEmail,
       sessionId,
+      chargeId,
     });
 
     const registration = await prisma.classRegistration.create({
@@ -197,6 +203,7 @@ router.post("/confirm", async (req: Request, res: Response) => {
         amountPaid,
         paymentStatus: "COMPLETED",
         paymentIntentId,
+        stripeChargeId: chargeId,
         customerNotes,
         guestName,
         guestEmail,
