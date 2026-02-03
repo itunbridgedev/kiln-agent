@@ -2,6 +2,13 @@
 
 import { useEffect, useState } from "react";
 
+interface ClassStep {
+  id: number;
+  stepNumber: number;
+  stepName: string;
+  name?: string; // Alias for stepName
+}
+
 interface Class {
   id: number;
   name: string;
@@ -9,6 +16,7 @@ interface Class {
   durationWeeks: number | null;
   durationHours: string | null;
   maxStudents?: number;
+  steps?: ClassStep[];
 }
 
 interface SchedulePattern {
@@ -424,8 +432,7 @@ export default function SchedulePatternManager({
               startDate,
               endDate: indefinite ? null : endDate,
               startTime,
-              endTime:
-                patternType === "series" && endTime ? endTime : undefined,
+              endTime: undefined, // Multi-step patterns don't use endTime
               durationHours: calculatedDuration.toString(),
               maxStudents: classData.maxStudents || 12,
               defaultInstructorId,
