@@ -168,9 +168,9 @@ router.get("/classes/:id", async (req: Request, res: Response) => {
     });
 
     // Add enrollment count to each session (count only confirmed registrations)
-    const sessionsWithEnrollment = sessions.map((session) => {
+    const sessionsWithEnrollment = sessions.map((session: typeof sessions[0]) => {
       const activeRegistrations = session.registrationSessions.filter(
-        (rs) => rs.registration.registrationStatus === "CONFIRMED"
+        (rs: typeof session.registrationSessions[0]) => rs.registration.registrationStatus === "CONFIRMED"
       );
 
       return {
@@ -247,7 +247,7 @@ router.get("/resource-availability", async (req: Request, res: Response) => {
       select: { id: true },
     });
 
-    const sessionIds = overlappingSessions.map((s) => s.id);
+    const sessionIds = overlappingSessions.map((s: { id: number }) => s.id);
 
     // Get all allocations for these sessions
     const allocations = await prisma.sessionResourceAllocation.findMany({
@@ -261,10 +261,10 @@ router.get("/resource-availability", async (req: Request, res: Response) => {
     });
 
     // Calculate availability for each resource
-    const availability = resources.map((resource) => {
+    const availability = resources.map((resource: typeof resources[0]) => {
       const allocated = allocations
-        .filter((a) => a.resourceId === resource.id)
-        .reduce((sum, a) => sum + a.quantity, 0);
+        .filter((a: typeof allocations[0]) => a.resourceId === resource.id)
+        .reduce((sum: number, a: typeof allocations[0]) => sum + a.quantity, 0);
 
       return {
         resourceId: resource.id,
@@ -419,7 +419,7 @@ router.post("/", async (req: Request, res: Response) => {
       select: { id: true },
     });
 
-    const sessionIds = overlappingSessions.map((s) => s.id);
+    const sessionIds = overlappingSessions.map((s: { id: number }) => s.id);
 
     // Check resource availability
     for (const requirement of classDetails.resourceRequirements) {
