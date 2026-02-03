@@ -18,9 +18,13 @@ export async function tenantMiddleware(
     if (process.env.NODE_ENV === "production") {
       // In production, extract subdomain
       const parts = hostname.split(".");
+      
+      // Handle root domains: kilnagent.com, kilnagent-stage.com, kilnagent-dev.com
       if (parts.length === 2 && parts[1] === "com") {
-        // Root domain (kilnagent.com or www.kilnagent.com) - no subdomain
-        isRootDomain = true;
+        const baseDomain = parts[0];
+        if (baseDomain === "kilnagent" || baseDomain === "kilnagent-stage" || baseDomain === "kilnagent-dev") {
+          isRootDomain = true;
+        }
       } else if (parts.length >= 3) {
         const firstPart = parts[0];
         // Check if it's www (treat as root domain)
