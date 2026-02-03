@@ -194,7 +194,7 @@ router.get("/availability", async (req: Request, res: Response) => {
       select: { id: true },
     });
 
-    const sessionIds = overlappingSessions.map((s) => s.id);
+    const sessionIds = overlappingSessions.map((s: { id: number }) => s.id);
 
     // Get all allocations for these sessions
     const allocations = await prisma.sessionResourceAllocation.findMany({
@@ -208,10 +208,10 @@ router.get("/availability", async (req: Request, res: Response) => {
     });
 
     // Calculate availability for each resource
-    const availability = resources.map((resource) => {
+    const availability = resources.map((resource: typeof resources[0]) => {
       const allocated = allocations
-        .filter((a) => a.resourceId === resource.id)
-        .reduce((sum, a) => sum + a.quantity, 0);
+        .filter((a: typeof allocations[0]) => a.resourceId === resource.id)
+        .reduce((sum: number, a: typeof allocations[0]) => sum + a.quantity, 0);
 
       return {
         resourceId: resource.id,
@@ -285,7 +285,7 @@ router.get("/:id/availability", async (req: Request, res: Response) => {
       select: { id: true },
     });
 
-    const sessionIds = overlappingSessions.map((s) => s.id);
+    const sessionIds = overlappingSessions.map((s: { id: number }) => s.id);
 
     // Calculate allocated resources
     const allocations = await prisma.sessionResourceAllocation.findMany({
@@ -299,7 +299,7 @@ router.get("/:id/availability", async (req: Request, res: Response) => {
       select: { quantity: true },
     });
 
-    const totalAllocated = allocations.reduce((sum, a) => sum + a.quantity, 0);
+    const totalAllocated = allocations.reduce((sum: number, a: typeof allocations[0]) => sum + a.quantity, 0);
     const available = resource.quantity - totalAllocated;
 
     res.json({

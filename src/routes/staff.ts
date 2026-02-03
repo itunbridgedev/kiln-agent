@@ -96,7 +96,7 @@ router.get(
       });
 
       // Transform sessions into calendar-friendly format
-      const calendarEvents = sessions.map((session) => {
+      const calendarEvents = sessions.map((session: typeof sessions[0]) => {
         const parentClass = session.class;
         const category = parentClass?.category;
 

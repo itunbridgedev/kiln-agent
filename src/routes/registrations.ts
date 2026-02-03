@@ -449,7 +449,7 @@ router.post("/", async (req: Request, res: Response) => {
     }
 
     // Create registration with resource allocation in a transaction
-    const registration = await prisma.$transaction(async (tx) => {
+    const registration = await prisma.$transaction(async (tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0]) => {
       // Create the registration
       const newRegistration = await tx.classRegistration.create({
         data: {
