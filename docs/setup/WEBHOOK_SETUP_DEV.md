@@ -9,13 +9,13 @@
 
 Your webhook endpoint will be:
 ```
-https://your-dev-api-url.com/api/stripe/webhook
+https://kilnagent-dev.com/api/stripe/webhook
 ```
 
-Example formats:
-- Heroku: `https://kilnagent-dev-api.herokuapp.com/api/stripe/webhook`
-- Render: `https://kilnagent-dev-api.onrender.com/api/stripe/webhook`
-- Custom domain: `https://api-dev.kilnagent.com/api/stripe/webhook`
+**Environment URLs:**
+- DEV: `https://kilnagent-dev.com/api/stripe/webhook`
+- STAGE: `https://kilnagent-stage.com/api/stripe/webhook`
+- PROD: `https://kilnagent.com/api/stripe/webhook`
 
 ## Step 2: Configure Webhook in Stripe Dashboard
 
@@ -27,7 +27,7 @@ Example formats:
 1. Click **"Add endpoint"** or **"+ Add an endpoint"**
 2. Enter your DEV webhook URL:
    ```
-   https://your-dev-api-url.com/api/stripe/webhook
+   https://kilnagent-dev.com/api/stripe/webhook
    ```
 3. Optionally add description: "DEV Environment - Test Mode"
 
