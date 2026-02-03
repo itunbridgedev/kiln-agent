@@ -50,6 +50,18 @@ app.use(
         return callback(null, origin);
       }
 
+      // Allow kilnagent domains (dev, staging, production)
+      if (
+        origin.match(/^https:\/\/(www\.)?kilnagent-dev\.com$/) ||
+        origin.match(/^https:\/\/[\w-]+\.kilnagent-dev\.com$/) ||
+        origin.match(/^https:\/\/(www\.)?kilnagent-stage\.com$/) ||
+        origin.match(/^https:\/\/[\w-]+\.kilnagent-stage\.com$/) ||
+        origin.match(/^https:\/\/(www\.)?kilnagent\.com$/) ||
+        origin.match(/^https:\/\/[\w-]+\.kilnagent\.com$/)
+      ) {
+        return callback(null, origin);
+      }
+
       callback(new Error("Not allowed by CORS"));
     },
     credentials: true,
