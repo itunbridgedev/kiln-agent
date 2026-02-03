@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma } from "@prisma/client";
 import { Request, Response, Router } from "express";
 import { isAuthenticated } from "../middleware/auth";
 
@@ -449,7 +449,7 @@ router.post("/", async (req: Request, res: Response) => {
     }
 
     // Create registration with resource allocation in a transaction
-    const registration = await prisma.$transaction(async (tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0]) => {
+    const registration = await prisma.$transaction(async (tx: Omit<PrismaClient, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>) => {
       // Create the registration
       const newRegistration = await tx.classRegistration.create({
         data: {

@@ -243,7 +243,7 @@ router.get(
       });
 
       // Format the response
-      const enrollments = registrations.map((reg) => ({
+      const enrollments = registrations.map((reg: typeof registrations[0]) => ({
         id: reg.id,
         customerName: reg.customer?.name || reg.guestName || "Unknown",
         customerEmail: reg.customer?.email || reg.guestEmail,
