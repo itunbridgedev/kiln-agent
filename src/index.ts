@@ -71,6 +71,10 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Trust Heroku proxy for secure cookies
+// Required when running behind Heroku's load balancer to properly detect HTTPS
+app.set("trust proxy", 1);
+
 // Request logging middleware
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);

@@ -145,31 +145,15 @@ router.post("/login", (req, res, next) => {
           process.env.SESSION_SECRET || "your-secret-key-change-in-production";
         const signedSessionId = `s:${signature.sign(req.sessionID, secret)}`;
 
-        // Determine cookie domain based on environment (same logic as index.ts)
-        const isDevelopment = process.env.NODE_ENV === "development";
-        let cookieDomain = process.env.COOKIE_DOMAIN;
-        if (!isDevelopment && !cookieDomain) {
-          const apiUrl = process.env.API_URL || "";
-          if (apiUrl.includes("kilnagent-dev.com")) {
-            cookieDomain = ".kilnagent-dev.com";
-          } else if (apiUrl.includes("kilnagent-stage.com")) {
-            cookieDomain = ".kilnagent-stage.com";
-          } else if (apiUrl.includes("kilnagent.com")) {
-            cookieDomain = ".kilnagent.com";
-          }
-        }
-
         const cookieOptions = [
           `connect.sid=${signedSessionId}`,
-          cookieDomain ? `Domain=${cookieDomain}` : "",
+          `Domain=.kilnagent.com`,
           `Path=/`,
           `Expires=${new Date(Date.now() + 24 * 60 * 60 * 1000).toUTCString()}`,
           `HttpOnly`,
           `Secure`,
           `SameSite=None`,
-        ]
-          .filter(Boolean)
-          .join("; ");
+        ].join("; ");
 
         res.setHeader("Set-Cookie", cookieOptions);
         console.log("[Login] Manually set cookie:", cookieOptions);
