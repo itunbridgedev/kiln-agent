@@ -362,6 +362,7 @@ export async function handleWebhookEvent(event: Stripe.Event): Promise<void> {
       case "charge.refunded": {
         const charge = event.data.object as Stripe.Charge;
         console.log(`[Webhook] charge.refunded event received for charge: ${charge.id}`);
+        console.log(`[Webhook] Charge amount: ${charge.amount}, Amount refunded: ${charge.amount_refunded}`);
         
         // Update registration refund status
         const registration = await prisma.classRegistration.findFirst({
@@ -371,17 +372,18 @@ export async function handleWebhookEvent(event: Stripe.Event): Promise<void> {
         console.log(`[Webhook] Found registration: ${registration ? registration.id : 'NONE'}`);
 
         if (registration) {
-          const refund = charge.refunds?.data[0];
-          console.log(`[Webhook] Refund amount: ${refund?.amount}, Charge amount: ${charge.amount}`);
-          console.log(`[Webhook] Setting paymentStatus to: ${refund?.amount === charge.amount ? "REFUNDED" : "COMPLETED"}`);
+          const refundAmount = charge.amount_refunded;
+          const isFullRefund = refundAmount === charge.amount;
+          
+          console.log(`[Webhook] Refund amount: ${refundAmount}, Charge amount: ${charge.amount}, Is full refund: ${isFullRefund}`);
+          console.log(`[Webhook] Setting paymentStatus to: ${isFullRefund ? "REFUNDED" : "COMPLETED"}`);
           
           await prisma.classRegistration.update({
             where: { id: registration.id },
             data: {
-              paymentStatus:
-                refund?.amount === charge.amount ? "REFUNDED" : "COMPLETED",
-              refundAmount: refund ? refund.amount / 100 : null,
-              refundedAt: refund ? new Date(refund.created * 1000) : null,
+              paymentStatus: isFullRefund ? "REFUNDED" : "COMPLETED",
+              refundAmount: refundAmount / 100,
+              refundedAt: new Date(),
             },
           });
           
