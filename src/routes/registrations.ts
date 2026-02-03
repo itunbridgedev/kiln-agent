@@ -435,7 +435,7 @@ router.post("/", async (req: Request, res: Response) => {
       });
 
       const totalAllocated = allocations.reduce(
-        (sum, a) => sum + a.quantity,
+        (sum: number, a: typeof allocations[0]) => sum + a.quantity,
         0
       );
       const available = requirement.resource.quantity - totalAllocated;

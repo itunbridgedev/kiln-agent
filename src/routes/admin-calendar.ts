@@ -77,15 +77,15 @@ router.get("/sessions", isAuthenticated, async (req, res) => {
     if (staffId) {
       const targetStaffId = parseInt(staffId as string);
       filteredSessions = sessions.filter(
-        (session) =>
-          session.instructors.some((i) => i.customer.id === targetStaffId) ||
-          session.assistants.some((a) => a.customer.id === targetStaffId)
+        (session: typeof sessions[0]) =>
+          session.instructors.some((i: typeof session.instructors[0]) => i.customer.id === targetStaffId) ||
+          session.assistants.some((a: typeof session.assistants[0]) => a.customer.id === targetStaffId)
       );
     }
 
     // Apply role type filter
     if (roleType) {
-      filteredSessions = filteredSessions.filter((session) => {
+      filteredSessions = filteredSessions.filter((session: typeof filteredSessions[0]) => {
         if (roleType === "instructor") {
           return session.instructors.length > 0;
         } else if (roleType === "assistant") {
@@ -96,14 +96,14 @@ router.get("/sessions", isAuthenticated, async (req, res) => {
     }
 
     // Transform to calendar event format
-    const calendarEvents = filteredSessions.map((session) => {
+    const calendarEvents = filteredSessions.map((session: typeof filteredSessions[0]) => {
       const allStaff = [
-        ...session.instructors.map((i) => ({
+        ...session.instructors.map((i: typeof session.instructors[0]) => ({
           ...i.customer,
           roleType: "instructor" as const,
           roleName: i.role?.name || "Instructor",
         })),
-        ...session.assistants.map((a) => ({
+        ...session.assistants.map((a: typeof session.assistants[0]) => ({
           ...a.customer,
           roleType: "assistant" as const,
           roleName: a.role?.name || "Assistant",
@@ -273,7 +273,7 @@ router.post("/sessions/:id/staff", isAuthenticated, async (req, res) => {
     });
 
     // Check if times overlap
-    const hasConflict = overlappingSessions.some((otherSession) => {
+    const hasConflict = overlappingSessions.some((otherSession: typeof overlappingSessions[0]) => {
       const sessionStart = session.startTime;
       const sessionEnd = session.endTime;
       const otherStart = otherSession.startTime;

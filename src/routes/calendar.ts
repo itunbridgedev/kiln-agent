@@ -91,7 +91,7 @@ router.get(
       });
 
       // Generate iCal format
-      const icsEvents = sessions.map((session) => {
+      const icsEvents = sessions.map((session: typeof sessions[0]) => {
         const sessionDate = new Date(session.sessionDate);
         const [startHours, startMinutes] = session.startTime
           .split(":")
