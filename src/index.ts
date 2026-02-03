@@ -94,6 +94,28 @@ const pgPool = new Pool({
 });
 
 // Session configuration
+const isProduction = process.env.NODE_ENV === "production";
+const isDevelopment = process.env.NODE_ENV === "development";
+
+// Determine cookie domain based on environment
+let cookieDomain: string | undefined = undefined;
+if (!isDevelopment) {
+  // For deployed environments, set cookie domain from env var or detect from hostname
+  cookieDomain = process.env.COOKIE_DOMAIN;
+  
+  // If not set, try to detect based on common patterns
+  if (!cookieDomain) {
+    const apiUrl = process.env.API_URL || "";
+    if (apiUrl.includes("kilnagent-dev.com")) {
+      cookieDomain = ".kilnagent-dev.com";
+    } else if (apiUrl.includes("kilnagent-stage.com")) {
+      cookieDomain = ".kilnagent-stage.com";
+    } else if (apiUrl.includes("kilnagent.com")) {
+      cookieDomain = ".kilnagent.com";
+    }
+  }
+}
+
 app.use(
   session({
     store: new PgStore({
@@ -105,16 +127,11 @@ app.use(
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: process.env.NODE_ENV === "production",
+      secure: !isDevelopment, // Secure cookies for all deployed environments
       httpOnly: true,
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-      // For development, don't set domain to allow localhost subdomains to work
-      // The cookie will be set for the exact domain that receives it
-      domain:
-        process.env.NODE_ENV === "production"
-          ? process.env.COOKIE_DOMAIN || ".kilnagent.com"
-          : undefined,
+      sameSite: !isDevelopment ? "none" : "lax", // "none" for cross-origin in deployed envs
+      domain: cookieDomain, // Set domain for subdomain sharing in deployed envs
     },
   })
 );
