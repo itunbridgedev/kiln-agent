@@ -41,9 +41,8 @@ export default function LoginPage() {
         // Redirect to demo if on root domain
         if (data.isRootDomain) {
           window.location.href =
-            process.env.NODE_ENV === "production"
-              ? "https://demo.kilnagent.com/login"
-              : "http://localhost:3000/login";
+            (process.env.NEXT_PUBLIC_DEMO_URL || "http://localhost:3000") +
+            "/login";
         }
       }
     } catch (error) {
