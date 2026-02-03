@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import { useAuth } from "@/context/AuthContext";
+import React, { useEffect, useState } from "react";
 
 export interface ClassFormData {
   categoryId?: number | null;
@@ -16,6 +17,20 @@ export interface ClassFormData {
   imageUrl: string;
   isActive: boolean;
   steps?: ClassStep[];
+  resourceRequirements?: ResourceRequirement[];
+}
+
+interface ResourceRequirement {
+  resourceId: number;
+  quantityPerStudent: number;
+}
+
+interface StudioResource {
+  id: number;
+  name: string;
+  description: string | null;
+  quantity: number;
+  isActive: boolean;
 }
 
 interface ClassStep {
@@ -49,6 +64,19 @@ export default function ClassForm({
   categories,
   teachingRoles,
 }: ClassFormProps) {
+  const { user } = useAuth();
+  const [resources, setResources] = useState<StudioResource[]>([]);
+  const [selectedResources, setSelectedResources] = useState<
+    Map<number, number>
+  >(
+    new Map(
+      initialData?.resourceRequirements?.map((r) => [
+        r.resourceId,
+        r.quantityPerStudent,
+      ]) || []
+    )
+  );
+
   const [formData, setFormData] = useState<ClassFormData>({
     categoryId: null,
     teachingRoleId: null,
@@ -69,6 +97,24 @@ export default function ClassForm({
   });
 
   const [steps, setSteps] = useState<ClassStep[]>(initialData?.steps || []);
+
+  // Fetch resources
+  useEffect(() => {
+    const fetchResources = async () => {
+      try {
+        const response = await fetch("/api/admin/resources", {
+          credentials: "include",
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setResources(data.filter((r: StudioResource) => r.isActive));
+        }
+      } catch (error) {
+        console.error("Failed to fetch resources:", error);
+      }
+    };
+    fetchResources();
+  }, []);
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -128,21 +174,24 @@ export default function ClassForm({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    const resourceRequirements = Array.from(selectedResources.entries()).map(
+      ([resourceId, quantityPerStudent]) => ({
+        resourceId,
+        quantityPerStudent,
+      })
+    );
+
     onSubmit({
       ...formData,
       steps: formData.classType === "multi-step" ? steps : undefined,
+      resourceRequirements,
     });
   };
 
-  // Get the Classes main category and its subcategories
-  const classesCategory = categories.find(
-    (c) => c.featureModule === "class-management"
-  );
-  const classSubcategories = categories.filter(
-    (c) =>
-      c.featureModule === "class-management" ||
-      (classesCategory && c.id !== classesCategory.id)
-  );
+  // Categories are already filtered by the admin page to include
+  // the main Classes category and its subcategories
+  const classCategories = categories;
 
   return (
     <form
@@ -380,16 +429,27 @@ export default function ClassForm({
           onChange={handleChange}
           className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-primary focus:border-primary"
           required
+          disabled={classCategories.length === 0}
         >
-          <option value="">Select a category</option>
-          {classSubcategories.map((category) => (
+          <option value="">
+            {classCategories.length === 0
+              ? "No categories available - Contact administrator"
+              : "Select a category"}
+          </option>
+          {classCategories.map((category) => (
             <option key={category.id} value={category.id}>
               {category.name}
             </option>
           ))}
         </select>
         <p className="mt-1 text-xs text-gray-500">
-          Select the category or subcategory for this class
+          {classCategories.length === 0 ? (
+            <span className="text-orange-600 font-medium">
+              ⚠️ The "Classes" category needs to be created by an administrator
+            </span>
+          ) : (
+            "Select the category for this class (you can use the main Classes category or create subcategories in the Categories tab)"
+          )}
         </p>
       </div>
 
@@ -426,6 +486,87 @@ export default function ClassForm({
           Active (visible to customers)
         </label>
       </div>
+
+      {/* Resource Requirements */}
+      {resources.length > 0 && (
+        <div className="mt-6 p-6 bg-gray-50 rounded-lg border border-gray-200">
+          <h4 className="text-base font-semibold text-gray-900 mb-3">
+            Resource Requirements
+          </h4>
+          <p className="text-sm text-gray-600 mb-4">
+            Select which studio resources are needed per student. This helps
+            track equipment capacity during booking.
+          </p>
+          <div className="space-y-3">
+            {resources.map((resource) => {
+              const isSelected = selectedResources.has(resource.id);
+              const quantity = selectedResources.get(resource.id) || 1;
+
+              return (
+                <div
+                  key={resource.id}
+                  className="flex items-center gap-4 p-3 bg-white rounded-lg border border-gray-200"
+                >
+                  <input
+                    type="checkbox"
+                    id={`resource-${resource.id}`}
+                    checked={isSelected}
+                    onChange={(e) => {
+                      const newSelected = new Map(selectedResources);
+                      if (e.target.checked) {
+                        newSelected.set(resource.id, 1);
+                      } else {
+                        newSelected.delete(resource.id);
+                      }
+                      setSelectedResources(newSelected);
+                    }}
+                    className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                  />
+                  <label htmlFor={`resource-${resource.id}`} className="flex-1">
+                    <div className="font-medium text-gray-900">
+                      {resource.name}
+                    </div>
+                    {resource.description && (
+                      <div className="text-xs text-gray-500">
+                        {resource.description}
+                      </div>
+                    )}
+                    <div className="text-xs text-gray-400">
+                      Available: {resource.quantity}
+                    </div>
+                  </label>
+                  {isSelected && (
+                    <div className="flex items-center gap-2">
+                      <label
+                        htmlFor={`quantity-${resource.id}`}
+                        className="text-sm text-gray-600"
+                      >
+                        Per student:
+                      </label>
+                      <input
+                        type="number"
+                        id={`quantity-${resource.id}`}
+                        value={quantity}
+                        onChange={(e) => {
+                          const newSelected = new Map(selectedResources);
+                          newSelected.set(
+                            resource.id,
+                            parseInt(e.target.value) || 1
+                          );
+                          setSelectedResources(newSelected);
+                        }}
+                        min="1"
+                        max={resource.quantity}
+                        className="w-20 px-2 py-1 border border-gray-300 rounded-md text-sm"
+                      />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Multi-Step Builder */}
       {formData.classType === "multi-step" && (

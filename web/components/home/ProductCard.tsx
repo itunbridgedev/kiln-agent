@@ -1,3 +1,7 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+
 interface Product {
   id: number;
   name: string;
@@ -11,8 +15,25 @@ interface ProductCardProps {
 }
 
 export default function ProductCard({ product }: ProductCardProps) {
+  const router = useRouter();
+
+  const handleClick = () => {
+    router.push(`/classes/${product.id}`);
+  };
+
   return (
-    <div className="product-card">
+    <div
+      className="product-card"
+      onClick={handleClick}
+      style={{ cursor: "pointer" }}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          handleClick();
+        }
+      }}
+    >
       {product.imageUrl && (
         <img
           src={product.imageUrl}

@@ -8,50 +8,66 @@ datasource db {
 }
 
 model Studio {
-  id          Int       @id @default(autoincrement())
-  name        String
-  subdomain   String    @unique
-  domain      String?   // Optional custom domain
-  isActive    Boolean   @default(true)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  
-  customers   Customer[]
-  categories  ProductCategory[]
-  classes     Class[]
+  id        Int      @id @default(autoincrement())
+  name      String
+  subdomain String   @unique
+  domain    String? // Optional custom domain
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Stripe Connect integration
+  stripeAccountId     String?   @unique // Stripe Connect account ID
+  stripeAccountStatus String?   @default("not_started") // not_started, pending, complete, rejected
+  stripeOnboardedAt   DateTime? // When onboarding was completed
+  stripeDetailsSubmitted Boolean @default(false) // Whether they've submitted all required details
+  stripeChargesEnabled   Boolean @default(false) // Whether they can accept payments
+  stripePayoutsEnabled   Boolean @default(false) // Whether they can receive payouts
+
+  customers     Customer[]
+  categories    ProductCategory[]
+  classes       Class[]
   teachingRoles TeachingRole[]
+  resources     StudioResource[]
 }
 
 model Customer {
-  id            Int              @id @default(autoincrement())
+  id            Int            @id @default(autoincrement())
   studioId      Int
-  studio        Studio           @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  studio        Studio         @relation(fields: [studioId], references: [id], onDelete: Cascade)
   name          String
   email         String
   phone         String?
   picture       String?
-  passwordHash  String?          // For email/password auth
-  agreedToTerms Boolean          @default(false)
-  agreedToSms   Boolean          @default(false)
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
+  passwordHash  String? // For email/password auth
+  agreedToTerms Boolean        @default(false)
+  agreedToSms   Boolean        @default(false)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
   roles         CustomerRole[]
   accounts      Account[]
   sessions      Session[]
-  
+
   // Class management
-  classEnrollments    ClassEnrollment[]
+  classEnrollments     ClassEnrollment[]
   classStepEnrollments ClassStepEnrollment[]
-  classAttendances    ClassAttendance[]
-  staffTeachingRoles  StaffTeachingRole[]
-  
+  classAttendances     ClassAttendance[]
+  staffTeachingRoles   StaffTeachingRole[]
+  sessionInstructor    ClassSessionInstructor[]
+  sessionAssistant     ClassSessionAssistant[]
+  calendarFeed         StaffCalendarFeed?
+
+  // Customer registrations
+  registrations   ClassRegistration[]
+  waitlistEntries ClassWaitlist[]
+
   @@unique([studioId, email])
   @@index([studioId])
 }
 
 model Role {
-  id   Int    @id @default(autoincrement())
-  name String @unique
+  id        Int            @id @default(autoincrement())
+  name      String         @unique
   customers CustomerRole[]
 }
 
@@ -69,8 +85,8 @@ model Account {
   id                Int       @id @default(autoincrement())
   customer          Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
   customerId        Int
-  provider          String    // "google", "email", etc.
-  providerAccountId String    // Google user ID
+  provider          String // "google", "email", etc.
+  providerAccountId String // Google user ID
   accessToken       String?   @db.Text
   refreshToken      String?   @db.Text
   expiresAt         DateTime?
@@ -94,22 +110,22 @@ model Session {
 }
 
 model ProductCategory {
-  id          Int       @id @default(autoincrement())
-  studioId    Int
-  studio      Studio    @relation(fields: [studioId], references: [id], onDelete: Cascade)
-  name        String
-  description String?
-  displayOrder Int      @default(0)
-  isActive    Boolean   @default(true)
-  isSystemCategory Boolean @default(false)  // System categories can't be deleted
-  featureModule String?  // e.g., "class-management", "firing-workflow"
-  parentCategoryId Int?  // For subcategories
-  parentCategory ProductCategory? @relation("CategoryHierarchy", fields: [parentCategoryId], references: [id], onDelete: Cascade)
-  subcategories ProductCategory[] @relation("CategoryHierarchy")
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  classes     Class[]
-  
+  id               Int               @id @default(autoincrement())
+  studioId         Int
+  studio           Studio            @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  name             String
+  description      String?
+  displayOrder     Int               @default(0)
+  isActive         Boolean           @default(true)
+  isSystemCategory Boolean           @default(false) // System categories can't be deleted
+  featureModule    String? // e.g., "class-management", "firing-workflow"
+  parentCategoryId Int? // For subcategories
+  parentCategory   ProductCategory?  @relation("CategoryHierarchy", fields: [parentCategoryId], references: [id], onDelete: Cascade)
+  subcategories    ProductCategory[] @relation("CategoryHierarchy")
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  classes          Class[]
+
   @@unique([studioId, name])
   @@index([studioId])
   @@index([parentCategoryId])
@@ -117,32 +133,36 @@ model ProductCategory {
 
 // Classes Feature Module
 model Class {
-  id              Int             @id @default(autoincrement())
-  studioId        Int
-  studio          Studio          @relation(fields: [studioId], references: [id], onDelete: Cascade)
-  categoryId      Int             // Link to ProductCategory (can be main category or subcategory)
-  category        ProductCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  teachingRoleId  Int?            // Link to TeachingRole instead of specific instructor
-  teachingRole    TeachingRole?   @relation(fields: [teachingRoleId], references: [id], onDelete: SetNull)
-  name            String
-  description     String?
-  classType       String          @default("multi-session") // "multi-session", "single-session", "series", "multi-step"
-  durationWeeks   Int?            // Number of weeks for multi-session classes (null for single-session)
-  durationHours   Decimal?        @db.Decimal(4, 2) // Duration in hours for single-session classes (null for multi-session)
-  isRecurring     Boolean         @default(false) // True for series classes that renew weekly
-  requiresSequence Boolean        @default(false) // True for multi-step classes where order matters
-  maxStudents     Int             // Maximum capacity
-  price           Decimal         @db.Decimal(10, 2)
-  skillLevel      String?         // "Beginner", "Intermediate", "Advanced", "All Levels"
-  imageUrl        String?
-  isActive        Boolean         @default(true)
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-  
-  schedules       ClassSchedule[]
-  steps           ClassStep[]     // For multi-step classes
-  sessions        ClassSession[]  // Direct sessions for series classes
-  
+  id               Int             @id @default(autoincrement())
+  studioId         Int
+  studio           Studio          @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  categoryId       Int // Link to ProductCategory (can be main category or subcategory)
+  category         ProductCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  teachingRoleId   Int? // Link to TeachingRole instead of specific instructor
+  teachingRole     TeachingRole?   @relation(fields: [teachingRoleId], references: [id], onDelete: SetNull)
+  name             String
+  description      String?
+  classType        String          @default("multi-session") // "multi-session", "single-session", "series", "multi-step"
+  durationWeeks    Int? // Number of weeks for multi-session classes (null for single-session)
+  durationHours    Decimal?        @db.Decimal(4, 2) // Duration in hours for single-session classes (null for multi-session)
+  isRecurring      Boolean         @default(false) // True for series classes that renew weekly
+  requiresSequence Boolean         @default(false) // True for multi-step classes where order matters
+  maxStudents      Int // Maximum capacity
+  price            Decimal         @db.Decimal(10, 2)
+  skillLevel       String? // "Beginner", "Intermediate", "Advanced", "All Levels"
+  imageUrl         String?
+  isActive         Boolean         @default(true)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  schedules            ClassSchedule[]
+  schedulePatterns     ClassSchedulePattern[]
+  steps                ClassStep[] // For multi-step classes
+  sessions             ClassSession[] // Direct sessions for series classes
+  registrations        ClassRegistration[]
+  waitlistEntries      ClassWaitlist[]
+  resourceRequirements ClassResourceRequirement[]
+
   @@index([studioId])
   @@index([categoryId])
   @@index([teachingRoleId])
@@ -151,48 +171,91 @@ model Class {
 
 // For multi-step classes (e.g., Mug Making Part 1, Part 2, Part 3)
 model ClassStep {
-  id              Int             @id @default(autoincrement())
-  studioId        Int
-  classId         Int
-  class           Class           @relation(fields: [classId], references: [id], onDelete: Cascade)
-  stepNumber      Int             // 1, 2, 3, etc.
-  name            String          // "Part 1 - Basic Mug Shape"
-  description     String?
-  durationHours   Decimal         @db.Decimal(4, 2)
-  learningObjectives String?      // What students will learn
-  isActive        Boolean         @default(true)
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-  
-  schedules       ClassSchedule[]
-  sessions        ClassSession[]
-  enrollments     ClassStepEnrollment[]
-  
+  id                 Int      @id @default(autoincrement())
+  studioId           Int
+  classId            Int
+  class              Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  stepNumber         Int // 1, 2, 3, etc.
+  name               String // "Part 1 - Basic Mug Shape"
+  description        String?
+  durationHours      Decimal  @db.Decimal(4, 2)
+  learningObjectives String? // What students will learn
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  schedules        ClassSchedule[]
+  schedulePatterns ClassSchedulePattern[]
+  sessions         ClassSession[]
+  enrollments      ClassStepEnrollment[]
+
   @@unique([classId, stepNumber])
   @@index([studioId])
   @@index([classId])
 }
 
 model ClassSchedule {
-  id              Int             @id @default(autoincrement())
-  studioId        Int
-  classId         Int
-  class           Class           @relation(fields: [classId], references: [id], onDelete: Cascade)
-  classStepId     Int?            // For multi-step classes, which step this schedule is for
-  classStep       ClassStep?      @relation(fields: [classStepId], references: [id], onDelete: Cascade)
-  startDate       DateTime        // First session date (or date of single-session class)
-  endDate         DateTime?       // Last session date (null for single-session/series classes)
-  dayOfWeek       Int?            // 0=Sunday, 1=Monday, etc. (null for single-session)
-  startTime       String          // Format: "HH:MM" (24-hour)
-  endTime         String          // Format: "HH:MM" (24-hour)
-  enrolledCount   Int             @default(0)
-  status          String          @default("open") // "open", "full", "in-progress", "completed", "cancelled"
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-  
+  id            Int        @id @default(autoincrement())
+  studioId      Int
+  classId       Int
+  class         Class      @relation(fields: [classId], references: [id], onDelete: Cascade)
+  classStepId   Int? // For multi-step classes, which step this schedule is for
+  classStep     ClassStep? @relation(fields: [classStepId], references: [id], onDelete: Cascade)
+  startDate     DateTime // First session date (or date of single-session class)
+  endDate       DateTime? // Last session date (null for single-session/series classes)
+  dayOfWeek     Int? // 0=Sunday, 1=Monday, etc. (null for single-session)
+  startTime     String // Format: "HH:MM" (24-hour)
+  endTime       String // Format: "HH:MM" (24-hour)
+  enrolledCount Int        @default(0)
+  status        String     @default("open") // "open", "full", "in-progress", "completed", "cancelled"
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
   sessions        ClassSession[]
   enrollments     ClassEnrollment[]
-  
+  registrations   ClassRegistration[]
+  waitlistEntries ClassWaitlist[]
+
+  @@index([studioId])
+  @@index([classId])
+  @@index([classStepId])
+  @@index([startDate])
+}
+
+// Recurring schedule patterns using RRULE standard
+model ClassSchedulePattern {
+  id          Int        @id @default(autoincrement())
+  studioId    Int
+  classId     Int
+  class       Class      @relation(fields: [classId], references: [id], onDelete: Cascade)
+  classStepId Int? // For multi-step classes
+  classStep   ClassStep? @relation(fields: [classStepId], references: [id], onDelete: Cascade)
+
+  // Pattern definition using RRULE (RFC 5545 iCalendar format)
+  recurrenceRule String // RRULE format: "FREQ=WEEKLY;BYDAY=TU;COUNT=8"
+  startDate      DateTime // Pattern starts on this date
+  endDate        DateTime? // Pattern ends on this date (or COUNT in RRULE)
+
+  // Time slots
+  startTime     String  // Format: "HH:MM" (24-hour)
+  endTime       String? // Format: "HH:MM" - For series schedules, time when last session starts
+  durationHours Decimal @db.Decimal(4, 2) // Duration in hours (e.g., 2.5)
+
+  // Capacity
+  maxStudents Int // Default max students per session
+  location    String? // Default location for sessions
+
+  // Default staff assignments
+  defaultInstructorId Int? // Default instructor for generated sessions
+  defaultAssistantId  Int? // Default assistant for generated sessions
+
+  // Status
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sessions ClassSession[]
+
   @@index([studioId])
   @@index([classId])
   @@index([classStepId])
@@ -200,44 +263,111 @@ model ClassSchedule {
 }
 
 model ClassSession {
-  id              Int             @id @default(autoincrement())
-  studioId        Int
-  scheduleId      Int?            // Null for series classes without pre-defined schedules
-  schedule        ClassSchedule?  @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
-  classId         Int             // Direct link to class for series tracking
-  class           Class           @relation(fields: [classId], references: [id], onDelete: Cascade)
-  classStepId     Int?            // For multi-step classes
-  classStep       ClassStep?      @relation(fields: [classStepId], references: [id], onDelete: Cascade)
-  sessionNumber   Int?            // Week 1, Week 2, etc. (null for series classes)
-  sessionDate     DateTime        // Specific date for this session
-  startTime       String          // Format: "HH:MM" (24-hour)
-  endTime         String          // Format: "HH:MM" (24-hour)
-  topic           String?         // Optional topic for the session
-  notes           String?         // Instructor notes
-  status          String          @default("scheduled") // "scheduled", "in-progress", "completed", "cancelled"
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-  
-  attendances     ClassAttendance[]
-  
+  id                Int                   @id @default(autoincrement())
+  studioId          Int
+  scheduleId        Int? // Null for series classes without pre-defined schedules
+  schedule          ClassSchedule?        @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  schedulePatternId Int? // Link to pattern (null for one-off sessions)
+  schedulePattern   ClassSchedulePattern? @relation(fields: [schedulePatternId], references: [id], onDelete: SetNull)
+  classId           Int // Direct link to class for series tracking
+  class             Class                 @relation(fields: [classId], references: [id], onDelete: Cascade)
+  classStepId       Int? // For multi-step classes
+  classStep         ClassStep?            @relation(fields: [classStepId], references: [id], onDelete: Cascade)
+  sessionNumber     Int? // Week 1, Week 2, etc. (null for series classes)
+  sessionDate       DateTime // Specific date for this session
+  startTime         String // Format: "HH:MM" (24-hour)
+  endTime           String // Format: "HH:MM" (24-hour)
+  maxStudents       Int? // Override pattern default if needed
+  currentEnrollment Int                   @default(0)
+  location          String? // Override pattern default if needed
+  topic             String? // Optional topic for the session
+  notes             String? // Instructor notes
+  isCancelled       Boolean               @default(false)
+  status            String                @default("scheduled") // "scheduled", "in-progress", "completed", "cancelled"
+
+  // Calendar sync metadata
+  externalEventId    String? // Google/Outlook event ID
+  calendarSyncStatus String? // 'synced', 'pending', 'error'
+  lastSyncedAt       DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  attendances          ClassAttendance[]
+  instructors          ClassSessionInstructor[]
+  assistants           ClassSessionAssistant[]
+  registrationSessions RegistrationSession[]
+  waitlistEntries      ClassWaitlist[]
+  resourceAllocations  SessionResourceAllocation[]
+
   @@index([studioId])
   @@index([scheduleId])
+  @@index([schedulePatternId])
   @@index([classId])
   @@index([classStepId])
   @@index([sessionDate])
 }
 
+// Track instructors assigned to a session
+model ClassSessionInstructor {
+  id         Int           @id @default(autoincrement())
+  sessionId  Int
+  session    ClassSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  customerId Int // Staff member assigned as instructor
+  customer   Customer      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  roleId     Int? // Optional: specific teaching role for this session
+  role       TeachingRole? @relation(fields: [roleId], references: [id], onDelete: SetNull)
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  @@unique([sessionId, customerId])
+  @@index([sessionId])
+  @@index([customerId])
+  @@index([roleId])
+}
+
+// Track assistants assigned to a session
+model ClassSessionAssistant {
+  id         Int           @id @default(autoincrement())
+  sessionId  Int
+  session    ClassSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  customerId Int // Staff member assigned as assistant
+  customer   Customer      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  roleId     Int? // Optional: specific teaching role for this session
+  role       TeachingRole? @relation(fields: [roleId], references: [id], onDelete: SetNull)
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  @@unique([sessionId, customerId])
+  @@index([sessionId])
+  @@index([customerId])
+  @@index([roleId])
+}
+
+// Calendar feed subscriptions for staff members
+model StaffCalendarFeed {
+  id          Int      @id @default(autoincrement())
+  customerId  Int      @unique // One feed per staff member
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  secureToken String   @unique @default(uuid()) // Secure token for feed URL
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([secureToken])
+}
+
 // Track student enrollments in a class schedule
 model ClassEnrollment {
-  id              Int             @id @default(autoincrement())
-  studioId        Int
-  scheduleId      Int
-  schedule        ClassSchedule   @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
-  customerId      Int
-  customer        Customer        @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  enrolledAt      DateTime        @default(now())
-  status          String          @default("active") // "active", "completed", "dropped", "waitlist"
-  
+  id         Int           @id @default(autoincrement())
+  studioId   Int
+  scheduleId Int
+  schedule   ClassSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  customerId Int
+  customer   Customer      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  enrolledAt DateTime      @default(now())
+  status     String        @default("active") // "active", "completed", "dropped", "waitlist"
+
   @@unique([scheduleId, customerId])
   @@index([studioId])
   @@index([scheduleId])
@@ -246,15 +376,15 @@ model ClassEnrollment {
 
 // Track which steps a student has completed in multi-step classes
 model ClassStepEnrollment {
-  id              Int             @id @default(autoincrement())
-  studioId        Int
-  classStepId     Int
-  classStep       ClassStep       @relation(fields: [classStepId], references: [id], onDelete: Cascade)
-  customerId      Int
-  customer        Customer        @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  completedAt     DateTime?       // Null if not yet completed
-  status          String          @default("in-progress") // "in-progress", "completed", "skipped"
-  
+  id          Int       @id @default(autoincrement())
+  studioId    Int
+  classStepId Int
+  classStep   ClassStep @relation(fields: [classStepId], references: [id], onDelete: Cascade)
+  customerId  Int
+  customer    Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  completedAt DateTime? // Null if not yet completed
+  status      String    @default("in-progress") // "in-progress", "completed", "skipped"
+
   @@unique([classStepId, customerId])
   @@index([studioId])
   @@index([classStepId])
@@ -263,15 +393,15 @@ model ClassStepEnrollment {
 
 // Track attendance for individual sessions (especially for series classes)
 model ClassAttendance {
-  id              Int             @id @default(autoincrement())
-  studioId        Int
-  sessionId       Int
-  session         ClassSession    @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  customerId      Int
-  customer        Customer        @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  attendedAt      DateTime        @default(now())
-  notes           String?         // Optional attendance notes
-  
+  id         Int          @id @default(autoincrement())
+  studioId   Int
+  sessionId  Int
+  session    ClassSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  customerId Int
+  customer   Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  attendedAt DateTime     @default(now())
+  notes      String? // Optional attendance notes
+
   @@unique([sessionId, customerId])
   @@index([studioId])
   @@index([sessionId])
@@ -283,31 +413,225 @@ model TeachingRole {
   id          Int      @id @default(autoincrement())
   studioId    Int
   studio      Studio   @relation(fields: [studioId], references: [id], onDelete: Cascade)
-  name        String   // "Basic Teacher", "Intermediate Teacher", "Glazing Specialist"
+  name        String // "Basic Teacher", "Intermediate Teacher", "Glazing Specialist"
   description String?
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
-  staffRoles  StaffTeachingRole[]
-  classes     Class[]
-  
+
+  staffRoles         StaffTeachingRole[]
+  classes            Class[]
+  sessionInstructors ClassSessionInstructor[]
+  sessionAssistants  ClassSessionAssistant[]
+
   @@unique([studioId, name])
   @@index([studioId])
 }
 
 model StaffTeachingRole {
-  id          Int      @id @default(autoincrement())
-  customerId  Int      // References Customer (staff member)
-  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  id          Int          @id @default(autoincrement())
+  customerId  Int // References Customer (staff member)
+  customer    Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
   roleId      Int
   role        TeachingRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
   certifiedAt DateTime?
   notes       String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
   @@unique([customerId, roleId])
   @@index([customerId])
   @@index([roleId])
+}
+
+// Customer Registration & Enrollment
+enum RegistrationType {
+  SINGLE_SESSION // Register for one specific session
+  FULL_SCHEDULE // Register for all sessions in a schedule
+  DROP_IN // Drop-in registration for series classes
+}
+
+enum RegistrationStatus {
+  PENDING // Payment pending or admin approval needed
+  CONFIRMED // Confirmed and paid
+  WAITLISTED // Added to waitlist (full class)
+  CANCELLED // Cancelled by customer
+  REFUNDED // Cancelled and refunded
+  NO_SHOW // Customer didn't attend
+}
+
+enum PaymentStatus {
+  PENDING // Payment not yet processed
+  COMPLETED // Payment successful
+  FAILED // Payment failed
+  REFUNDED // Payment refunded
+  PARTIAL_REFUND // Partial refund issued
+}
+
+model ClassRegistration {
+  id         Int      @id @default(autoincrement())
+  studioId   Int
+  customerId Int?
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  // Guest booking information (for non-authenticated bookings)
+  guestName  String?
+  guestEmail String?
+  guestPhone String?
+
+  // What they're registering for
+  scheduleId Int? // For FULL_SCHEDULE type
+  schedule   ClassSchedule? @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  classId    Int // Always link to the class
+  class      Class          @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  // Registration details
+  registrationType   RegistrationType
+  registrationStatus RegistrationStatus @default(PENDING)
+  guestCount         Int                @default(1) // Number of people attending
+  registeredAt       DateTime           @default(now())
+  confirmedAt        DateTime? // When status changed to CONFIRMED
+  cancelledAt        DateTime? // When cancelled
+  cancellationReason String?
+
+  // Payment information
+  amountPaid      Decimal       @db.Decimal(10, 2)
+  paymentStatus   PaymentStatus @default(PENDING)
+  paymentIntentId String? // Stripe PaymentIntent ID
+  stripeChargeId  String? // Stripe Charge ID
+  stripeTransferId String? // Stripe Transfer ID (for Connect transfers to studio)
+  stripeFeeAmount Decimal? @db.Decimal(10, 2) // Platform fee taken
+  studioPayoutAmount Decimal? @db.Decimal(10, 2) // Amount transferred to studio
+  refundAmount    Decimal?      @db.Decimal(10, 2)
+  refundedAt      DateTime?
+
+  // Notes
+  customerNotes String? // Notes from customer during registration
+  adminNotes    String? // Internal notes from staff
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // For SINGLE_SESSION or DROP_IN, track which specific sessions
+  sessions            RegistrationSession[]
+  resourceAllocations SessionResourceAllocation[]
+
+  @@index([studioId])
+  @@index([customerId])
+  @@index([scheduleId])
+  @@index([classId])
+  @@index([registrationStatus])
+  @@index([paymentStatus])
+}
+
+// Junction table linking registrations to specific sessions
+model RegistrationSession {
+  id             Int               @id @default(autoincrement())
+  registrationId Int
+  registration   ClassRegistration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  sessionId      Int
+  session        ClassSession      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  // Track attendance for this specific session
+  attended   Boolean   @default(false)
+  attendedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([registrationId, sessionId])
+  @@index([registrationId])
+  @@index([sessionId])
+}
+
+// Waitlist for fully booked classes
+model ClassWaitlist {
+  id         Int      @id @default(autoincrement())
+  studioId   Int
+  customerId Int
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  // What they're waiting for
+  scheduleId Int? // Specific schedule
+  schedule   ClassSchedule? @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  sessionId  Int? // Specific session for DROP_IN
+  session    ClassSession?  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  classId    Int // Always link to the class
+  class      Class          @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  // Waitlist management
+  position                Int // Position in line
+  joinedAt                DateTime  @default(now())
+  notifiedAt              DateTime? // When customer was notified of opening
+  expiresAt               DateTime? // Notification expires after X hours
+  convertedToRegistration Boolean   @default(false)
+  registrationId          Int? // If they registered after notification
+  removedAt               DateTime? // If removed from waitlist
+  removalReason           String? // "registered", "expired", "cancelled"
+
+  customerNotes String? // Notes from customer
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([studioId])
+  @@index([customerId])
+  @@index([scheduleId])
+  @@index([sessionId])
+  @@index([classId])
+  @@index([position])
+}
+
+// Studio Resources (wheels, kilns, painting stations, etc.)
+model StudioResource {
+  id          Int      @id @default(autoincrement())
+  studioId    Int
+  name        String // "Pottery Wheel", "Painting Station", "Glazing Station", etc.
+  description String?
+  quantity    Int // Total number available
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  classResourceRequirements  ClassResourceRequirement[]
+  sessionResourceAllocations SessionResourceAllocation[]
+  studio                     Studio                      @relation(fields: [studioId], references: [id])
+
+  @@unique([studioId, name])
+  @@index([studioId])
+}
+
+// Resources required for a class type
+model ClassResourceRequirement {
+  id                 Int            @id @default(autoincrement())
+  classId            Int
+  class              Class          @relation(fields: [classId], references: [id], onDelete: Cascade)
+  resourceId         Int
+  resource           StudioResource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  quantityPerStudent Int            @default(1) // How many of this resource each student needs
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  @@unique([classId, resourceId])
+  @@index([classId])
+  @@index([resourceId])
+}
+
+// Track resource allocation for each registration
+model SessionResourceAllocation {
+  id             Int               @id @default(autoincrement())
+  registrationId Int
+  registration   ClassRegistration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  sessionId      Int
+  session        ClassSession      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  resourceId     Int
+  resource       StudioResource    @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  quantity       Int // Number of resources allocated (based on guest count)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@index([registrationId])
+  @@index([sessionId])
+  @@index([resourceId])
+  @@index([sessionId, resourceId]) // For availability checks
 }

@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - develop
+      - feature/classes-module
 
 jobs:
   test:
@@ -42,7 +43,7 @@ jobs:
           HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
         run: |
           git remote add heroku https://heroku:$HEROKU_API_KEY@git.heroku.com/kilnagent-dev-api.git || true
-          git push heroku develop:main --force
+          git push heroku HEAD:main --force
 
   deploy-web:
     needs: test
@@ -57,4 +58,4 @@ jobs:
           HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
         run: |
           git remote add heroku https://heroku:$HEROKU_API_KEY@git.heroku.com/kilnagent-dev-web.git || true
-          git subtree push --prefix web heroku develop:main || git push heroku `git subtree split --prefix web develop`:main --force
+          git subtree push --prefix web heroku HEAD:main || git push heroku `git subtree split --prefix web HEAD`:main --force

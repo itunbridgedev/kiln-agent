@@ -177,6 +177,13 @@ router.post("/login", (req, res, next) => {
 
 router.get(
   "/google",
+  (req, res, next) => {
+    // Store returnUrl in session if provided
+    if (req.query.returnUrl) {
+      (req.session as any).returnUrl = req.query.returnUrl as string;
+    }
+    next();
+  },
   passport.authenticate("google", {
     scope: ["profile", "email"],
   })
@@ -209,9 +216,13 @@ router.get(
       const user = req.user as any;
       const needsCompletion = !user.agreedToTerms;
 
+      // Check for returnUrl from session
+      const returnUrl = (req.session as any).returnUrl;
+      delete (req.session as any).returnUrl; // Clean up
+
       const redirectUrl = needsCompletion
         ? `${process.env.CLIENT_URL || "http://localhost:3000"}/complete-registration`
-        : `${process.env.CLIENT_URL || "http://localhost:3000"}/`;
+        : returnUrl || `${process.env.CLIENT_URL || "http://localhost:3000"}/`;
 
       // Manually set signed cookie header with correct domain
       const sessionSecret =
@@ -246,6 +257,13 @@ router.get(
 
 router.get(
   "/apple",
+  (req, res, next) => {
+    // Store returnUrl in session if provided
+    if (req.query.returnUrl) {
+      (req.session as any).returnUrl = req.query.returnUrl as string;
+    }
+    next();
+  },
   passport.authenticate("apple", {
     scope: ["name", "email"],
   })
@@ -317,9 +335,14 @@ router.post("/apple/callback", (req, res, next) => {
           // Check if user needs to complete registration
           const needsCompletion = !(user as any).agreedToTerms;
 
+          // Check for returnUrl from session
+          const returnUrl = (req.session as any).returnUrl;
+          delete (req.session as any).returnUrl; // Clean up
+
           const redirectUrl = needsCompletion
             ? `${process.env.CLIENT_URL || "http://localhost:3000"}/complete-registration`
-            : `${process.env.CLIENT_URL || "http://localhost:3000"}/`;
+            : returnUrl ||
+              `${process.env.CLIENT_URL || "http://localhost:3000"}/`;
 
           console.log(
             `[Apple Callback] Session saved, redirecting to: ${redirectUrl}`

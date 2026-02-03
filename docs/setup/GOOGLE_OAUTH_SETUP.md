@@ -23,6 +23,7 @@ Google OAuth uses OAuth 2.0 with traditional client ID and secret pairs, making 
 ## Local Development
 
 For local development testing:
+
 - **Frontend**: http://localhost:3000
 - **API**: http://localhost:4000
 - **Callback**: http://localhost:4000/api/auth/google/callback
@@ -245,6 +246,7 @@ npm run studio
 ```
 
 Check:
+
 - **Customer** table has the new user
 - **Account** table has provider = "google"
 - User's email, name, and picture are stored
@@ -315,6 +317,7 @@ If users are logged in but sessions aren't persisting:
 ### "Can't reach database" Error
 
 For local development:
+
 - Make sure all Docker containers are running: `docker compose ps`
 - Restart containers if needed: `docker compose down && docker compose up -d`
 
@@ -421,4 +424,3 @@ After setting up Google OAuth, you can:
 - [CI/CD Documentation](../development/CI_CD.md)
 - [Multi-Tenancy Summary](../architecture/MULTI_TENANCY_SUMMARY.md)
 - [Architecture Overview](../architecture/ARCHITECTURE.md)
-
