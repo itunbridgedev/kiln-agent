@@ -68,6 +68,13 @@ app.use(
   })
 );
 
+// Stripe webhook - MUST come before express.json() to preserve raw body
+app.use(
+  "/api/stripe/webhook",
+  express.raw({ type: "application/json" }),
+  stripeWebhookRoutes
+);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -208,14 +215,6 @@ app.use(passport.session());
 
 // Multi-tenancy middleware - identifies studio from subdomain
 app.use(tenantMiddleware);
-
-// Stripe webhook - must come before express.json() for raw body
-// Note: In production, you may need to configure this route separately with raw body parser
-app.use(
-  "/api/stripe/webhook",
-  express.raw({ type: "application/json" }),
-  stripeWebhookRoutes
-);
 
 // Routes
 app.use("/api/auth", authRoutes);
