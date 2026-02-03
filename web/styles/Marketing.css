@@ -90,6 +90,14 @@
   flex-wrap: wrap;
 }
 
+.cta-buttons {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+}
+
 .cta-button {
   padding: 1rem 2.5rem;
   font-size: 1.1rem;

@@ -1,8 +1,29 @@
 export default function MarketingPage() {
-  const demoUrl = process.env.NEXT_PUBLIC_DEMO_URL || "http://localhost:3000";
+  // Dynamically construct demo URL based on current hostname
+  // kilnagent.com -> demo.kilnagent.com
+  // kilnagent-stage.com -> demo.kilnagent-stage.com
+  // kilnagent-dev.com -> demo.kilnagent-dev.com
+  // localhost:3000 -> localhost:3000
+  const getDemoUrl = () => {
+    if (typeof window === 'undefined') {
+      return process.env.NEXT_PUBLIC_DEMO_URL || "http://localhost:3000";
+    }
+    
+    const hostname = window.location.hostname;
+    const protocol = window.location.protocol;
+    
+    // If localhost, stay on localhost
+    if (hostname === 'localhost') {
+      return `${protocol}//${hostname}:${window.location.port}`;
+    }
+    
+    // For root domains, add 'demo.' subdomain
+    // kilnagent.com -> demo.kilnagent.com
+    // kilnagent-stage.com -> demo.kilnagent-stage.com
+    return `${protocol}//demo.${hostname}`;
+  };
   
-  console.log("[MarketingPage] NEXT_PUBLIC_DEMO_URL:", process.env.NEXT_PUBLIC_DEMO_URL);
-  console.log("[MarketingPage] demoUrl:", demoUrl);
+  const demoUrl = getDemoUrl();
   
   return (
     <div className="marketing-container">
