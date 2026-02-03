@@ -1,4 +1,9 @@
 export default function MarketingPage() {
+  const demoUrl = process.env.NEXT_PUBLIC_DEMO_URL || "http://localhost:3000";
+  
+  console.log("[MarketingPage] NEXT_PUBLIC_DEMO_URL:", process.env.NEXT_PUBLIC_DEMO_URL);
+  console.log("[MarketingPage] demoUrl:", demoUrl);
+  
   return (
     <div className="marketing-container">
       <div className="marketing-hero">
@@ -36,9 +41,9 @@ export default function MarketingPage() {
             </div>
           </div>
 
-          <div className="marketing-cta">
+          <div className="cta-buttons">
             <a
-              href={process.env.NEXT_PUBLIC_DEMO_URL || "http://localhost:3000"}
+              href={demoUrl}
               className="cta-button primary"
             >
               View Demo Studio
