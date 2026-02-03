@@ -20,6 +20,8 @@ interface Registration {
   guestName?: string;
   guestEmail?: string;
   guestPhone?: string;
+  refundAmount?: number | null;
+  refundedAt?: string | null;
   class: {
     id: number;
     name: string;
@@ -169,24 +171,56 @@ export default function RegistrationConfirmationPage() {
 
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Success Banner */}
-        <div className="bg-green-50 border-2 border-green-200 rounded-lg p-6 mb-8">
+        <div
+          className={`border-2 rounded-lg p-6 mb-8 ${
+            registration.paymentStatus === "REFUNDED"
+              ? "bg-red-50 border-red-200"
+              : "bg-green-50 border-green-200"
+          }`}
+        >
           <div className="flex items-center">
             <svg
-              className="w-12 h-12 text-green-600 mr-4"
+              className={`w-12 h-12 mr-4 ${
+                registration.paymentStatus === "REFUNDED"
+                  ? "text-red-600"
+                  : "text-green-600"
+              }`}
               fill="currentColor"
               viewBox="0 0 20 20"
             >
-              <path
-                fillRule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                clipRule="evenodd"
-              />
+              {registration.paymentStatus === "REFUNDED" ? (
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                  clipRule="evenodd"
+                />
+              ) : (
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                  clipRule="evenodd"
+                />
+              )}
             </svg>
             <div>
-              <h1 className="text-2xl font-bold text-green-900">
-                Booking Confirmed!
+              <h1
+                className={`text-2xl font-bold ${
+                  registration.paymentStatus === "REFUNDED"
+                    ? "text-red-900"
+                    : "text-green-900"
+                }`}
+              >
+                {registration.paymentStatus === "REFUNDED"
+                  ? "Booking Refunded"
+                  : "Booking Confirmed!"}
               </h1>
-              <p className="text-green-700 mt-1">
+              <p
+                className={`mt-1 ${
+                  registration.paymentStatus === "REFUNDED"
+                    ? "text-red-700"
+                    : "text-green-700"
+                }`}
+              >
                 Confirmation #{registration.id}
               </p>
             </div>
@@ -301,24 +335,44 @@ export default function RegistrationConfirmationPage() {
                     {formatPrice(registration.amountPaid)}
                   </span>
                 </div>
+                {registration.refundedAt && registration.refundAmount && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Refund Amount:</span>
+                    <span className="font-bold text-red-600 text-lg">
+                      -{formatPrice(registration.refundAmount)}
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-gray-600">Payment Status:</span>
                   <span
-                    className={`px-2 py-1 text-xs rounded ${
+                    className={`px-2 py-1 text-xs rounded font-medium ${
                       registration.paymentStatus === "PENDING"
                         ? "bg-yellow-100 text-yellow-800"
+                        : registration.paymentStatus === "REFUNDED"
+                        ? "bg-red-100 text-red-800"
                         : "bg-green-100 text-green-800"
                     }`}
                   >
                     {registration.paymentStatus}
                   </span>
                 </div>
+                {registration.refundedAt && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Refunded On:</span>
+                    <span className="text-gray-900">
+                      {format(new Date(registration.refundedAt), "MMM d, yyyy")}
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-gray-600">Registration Status:</span>
                   <span
-                    className={`px-2 py-1 text-xs rounded ${
+                    className={`px-2 py-1 text-xs rounded font-medium ${
                       registration.registrationStatus === "CONFIRMED"
                         ? "bg-green-100 text-green-800"
+                        : registration.registrationStatus === "CANCELLED"
+                        ? "bg-red-100 text-red-800"
                         : "bg-yellow-100 text-yellow-800"
                     }`}
                   >
