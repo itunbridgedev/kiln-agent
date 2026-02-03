@@ -1,4 +1,4 @@
-import { PrismaClient, Prisma } from "@prisma/client";
+import { PrismaClient } from "@prisma/client";
 import { Request, Response, Router } from "express";
 import { isAuthenticated } from "../middleware/auth";
 
@@ -168,19 +168,22 @@ router.get("/classes/:id", async (req: Request, res: Response) => {
     });
 
     // Add enrollment count to each session (count only confirmed registrations)
-    const sessionsWithEnrollment = sessions.map((session: typeof sessions[0]) => {
-      const activeRegistrations = session.registrationSessions.filter(
-        (rs: typeof session.registrationSessions[0]) => rs.registration.registrationStatus === "CONFIRMED"
-      );
+    const sessionsWithEnrollment = sessions.map(
+      (session: (typeof sessions)[0]) => {
+        const activeRegistrations = session.registrationSessions.filter(
+          (rs: (typeof session.registrationSessions)[0]) =>
+            rs.registration.registrationStatus === "CONFIRMED"
+        );
 
-      return {
-        ...session,
-        currentEnrollment: activeRegistrations.length,
-        availableSpots:
-          (session.maxStudents || classDetails.maxStudents) -
-          activeRegistrations.length,
-      };
-    });
+        return {
+          ...session,
+          currentEnrollment: activeRegistrations.length,
+          availableSpots:
+            (session.maxStudents || classDetails.maxStudents) -
+            activeRegistrations.length,
+        };
+      }
+    );
 
     // Return class details with sessions
     const response = {
@@ -261,10 +264,13 @@ router.get("/resource-availability", async (req: Request, res: Response) => {
     });
 
     // Calculate availability for each resource
-    const availability = resources.map((resource: typeof resources[0]) => {
+    const availability = resources.map((resource: (typeof resources)[0]) => {
       const allocated = allocations
-        .filter((a: typeof allocations[0]) => a.resourceId === resource.id)
-        .reduce((sum: number, a: typeof allocations[0]) => sum + a.quantity, 0);
+        .filter((a: (typeof allocations)[0]) => a.resourceId === resource.id)
+        .reduce(
+          (sum: number, a: (typeof allocations)[0]) => sum + a.quantity,
+          0
+        );
 
       return {
         resourceId: resource.id,
@@ -435,7 +441,7 @@ router.post("/", async (req: Request, res: Response) => {
       });
 
       const totalAllocated = allocations.reduce(
-        (sum: number, a: typeof allocations[0]) => sum + a.quantity,
+        (sum: number, a: (typeof allocations)[0]) => sum + a.quantity,
         0
       );
       const available = requirement.resource.quantity - totalAllocated;
@@ -449,68 +455,80 @@ router.post("/", async (req: Request, res: Response) => {
     }
 
     // Create registration with resource allocation in a transaction
-    const registration = await prisma.$transaction(async (tx: Omit<PrismaClient, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>) => {
-      // Create the registration
-      const newRegistration = await tx.classRegistration.create({
-        data: {
-          studioId,
-          customerId: customerId || null,
-          classId,
-          scheduleId: null,
-          registrationType,
-          registrationStatus: "CONFIRMED",
-          amountPaid:
-            amountPaid ||
-            parseFloat(classDetails.price.toString()) * guestCount,
-          paymentStatus: "PENDING",
-          customerNotes: customerNotes || null,
-          guestName: guestName || null,
-          guestEmail: guestEmail || null,
-          guestPhone: guestPhone || null,
-          sessions: {
-            create: {
-              sessionId,
-            },
-          },
-        },
-        include: {
-          class: {
-            include: {
-              category: true,
-            },
-          },
-          sessions: {
-            include: {
-              session: true,
-            },
-          },
-        },
-      });
-
-      // Allocate resources
-      for (const requirement of classDetails.resourceRequirements) {
-        await tx.sessionResourceAllocation.create({
+    const registration = await prisma.$transaction(
+      async (
+        tx: Omit<
+          PrismaClient,
+          | "$connect"
+          | "$disconnect"
+          | "$on"
+          | "$transaction"
+          | "$use"
+          | "$extends"
+        >
+      ) => {
+        // Create the registration
+        const newRegistration = await tx.classRegistration.create({
           data: {
-            sessionId,
-            resourceId: requirement.resourceId,
-            registrationId: newRegistration.id,
-            quantity: guestCount * requirement.quantityPerStudent,
+            studioId,
+            customerId: customerId || null,
+            classId,
+            scheduleId: null,
+            registrationType,
+            registrationStatus: "CONFIRMED",
+            amountPaid:
+              amountPaid ||
+              parseFloat(classDetails.price.toString()) * guestCount,
+            paymentStatus: "PENDING",
+            customerNotes: customerNotes || null,
+            guestName: guestName || null,
+            guestEmail: guestEmail || null,
+            guestPhone: guestPhone || null,
+            sessions: {
+              create: {
+                sessionId,
+              },
+            },
+          },
+          include: {
+            class: {
+              include: {
+                category: true,
+              },
+            },
+            sessions: {
+              include: {
+                session: true,
+              },
+            },
           },
         });
-      }
 
-      // Increment session enrollment
-      await tx.classSession.update({
-        where: { id: sessionId },
-        data: {
-          currentEnrollment: {
-            increment: guestCount,
+        // Allocate resources
+        for (const requirement of classDetails.resourceRequirements) {
+          await tx.sessionResourceAllocation.create({
+            data: {
+              sessionId,
+              resourceId: requirement.resourceId,
+              registrationId: newRegistration.id,
+              quantity: guestCount * requirement.quantityPerStudent,
+            },
+          });
+        }
+
+        // Increment session enrollment
+        await tx.classSession.update({
+          where: { id: sessionId },
+          data: {
+            currentEnrollment: {
+              increment: guestCount,
+            },
           },
-        },
-      });
+        });
 
-      return newRegistration;
-    });
+        return newRegistration;
+      }
+    );
 
     res.status(201).json({
       registration,
@@ -598,9 +616,7 @@ router.put(
       const registrationId = parseInt(req.params.id);
 
       if (!customerId) {
-        return res
-          .status(401)
-          .json({ error: "Authentication required" });
+        return res.status(401).json({ error: "Authentication required" });
       }
 
       // Get studioId from customer if not from tenant middleware

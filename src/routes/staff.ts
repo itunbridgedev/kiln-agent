@@ -96,7 +96,7 @@ router.get(
       });
 
       // Transform sessions into calendar-friendly format
-      const calendarEvents = sessions.map((session: typeof sessions[0]) => {
+      const calendarEvents = sessions.map((session: (typeof sessions)[0]) => {
         const parentClass = session.class;
         const category = parentClass?.category;
 
@@ -243,16 +243,18 @@ router.get(
       });
 
       // Format the response
-      const enrollments = registrations.map((reg: typeof registrations[0]) => ({
-        id: reg.id,
-        customerName: reg.customer?.name || reg.guestName || "Unknown",
-        customerEmail: reg.customer?.email || reg.guestEmail,
-        customerPhone: reg.customer?.phone || reg.guestPhone,
-        isGuest: !reg.customerId,
-        guestCount: reg.guestCount,
-        registeredAt: reg.registeredAt,
-        status: reg.registrationStatus,
-      }));
+      const enrollments = registrations.map(
+        (reg: (typeof registrations)[0]) => ({
+          id: reg.id,
+          customerName: reg.customer?.name || reg.guestName || "Unknown",
+          customerEmail: reg.customer?.email || reg.guestEmail,
+          customerPhone: reg.customer?.phone || reg.guestPhone,
+          isGuest: !reg.customerId,
+          guestCount: reg.guestCount,
+          registeredAt: reg.registeredAt,
+          status: reg.registrationStatus,
+        })
+      );
 
       res.json({
         sessionId,

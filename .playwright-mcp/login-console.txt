@@ -1,0 +1,3 @@
+[ERROR] Failed to load resource: the server responded with a status of 404 () @ https://demo.kilnagent-dev.com/favicon.ico:0
+[ERROR] Failed to load resource: the server responded with a status of 401 () @ https://demo.kilnagent-dev.com/api/auth/me:0
+[ERROR] Failed to load resource: the server responded with a status of 401 () @ https://demo.kilnagent-dev.com/api/auth/login:0

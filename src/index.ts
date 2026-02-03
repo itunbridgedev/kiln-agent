@@ -102,7 +102,7 @@ let cookieDomain: string | undefined = undefined;
 if (!isDevelopment) {
   // For deployed environments, set cookie domain from env var or detect from hostname
   cookieDomain = process.env.COOKIE_DOMAIN;
-  
+
   // If not set, try to detect based on common patterns
   if (!cookieDomain) {
     const apiUrl = process.env.API_URL || "";

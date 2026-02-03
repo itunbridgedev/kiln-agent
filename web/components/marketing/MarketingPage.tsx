@@ -38,10 +38,7 @@ export default function MarketingPage() {
 
           <div className="marketing-cta">
             <a
-              href={
-                process.env.NEXT_PUBLIC_DEMO_URL ||
-                "http://localhost:3000"
-              }
+              href={process.env.NEXT_PUBLIC_DEMO_URL || "http://localhost:3000"}
               className="cta-button primary"
             >
               View Demo Studio

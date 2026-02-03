@@ -77,74 +77,84 @@ router.get("/sessions", isAuthenticated, async (req, res) => {
     if (staffId) {
       const targetStaffId = parseInt(staffId as string);
       filteredSessions = sessions.filter(
-        (session: typeof sessions[0]) =>
-          session.instructors.some((i: typeof session.instructors[0]) => i.customer.id === targetStaffId) ||
-          session.assistants.some((a: typeof session.assistants[0]) => a.customer.id === targetStaffId)
+        (session: (typeof sessions)[0]) =>
+          session.instructors.some(
+            (i: (typeof session.instructors)[0]) =>
+              i.customer.id === targetStaffId
+          ) ||
+          session.assistants.some(
+            (a: (typeof session.assistants)[0]) =>
+              a.customer.id === targetStaffId
+          )
       );
     }
 
     // Apply role type filter
     if (roleType) {
-      filteredSessions = filteredSessions.filter((session: typeof filteredSessions[0]) => {
-        if (roleType === "instructor") {
-          return session.instructors.length > 0;
-        } else if (roleType === "assistant") {
-          return session.assistants.length > 0;
+      filteredSessions = filteredSessions.filter(
+        (session: (typeof filteredSessions)[0]) => {
+          if (roleType === "instructor") {
+            return session.instructors.length > 0;
+          } else if (roleType === "assistant") {
+            return session.assistants.length > 0;
+          }
+          return true;
         }
-        return true;
-      });
+      );
     }
 
     // Transform to calendar event format
-    const calendarEvents = filteredSessions.map((session: typeof filteredSessions[0]) => {
-      const allStaff = [
-        ...session.instructors.map((i: typeof session.instructors[0]) => ({
-          ...i.customer,
-          roleType: "instructor" as const,
-          roleName: i.role?.name || "Instructor",
-        })),
-        ...session.assistants.map((a: typeof session.assistants[0]) => ({
-          ...a.customer,
-          roleType: "assistant" as const,
-          roleName: a.role?.name || "Assistant",
-        })),
-      ];
+    const calendarEvents = filteredSessions.map(
+      (session: (typeof filteredSessions)[0]) => {
+        const allStaff = [
+          ...session.instructors.map((i: (typeof session.instructors)[0]) => ({
+            ...i.customer,
+            roleType: "instructor" as const,
+            roleName: i.role?.name || "Instructor",
+          })),
+          ...session.assistants.map((a: (typeof session.assistants)[0]) => ({
+            ...a.customer,
+            roleType: "assistant" as const,
+            roleName: a.role?.name || "Assistant",
+          })),
+        ];
 
-      // Build start and end datetime from sessionDate + startTime/endTime
-      // Extract just the date components to avoid timezone issues
-      const sessionDateObj = new Date(session.sessionDate);
-      const year = sessionDateObj.getUTCFullYear();
-      const month = sessionDateObj.getUTCMonth();
-      const day = sessionDateObj.getUTCDate();
+        // Build start and end datetime from sessionDate + startTime/endTime
+        // Extract just the date components to avoid timezone issues
+        const sessionDateObj = new Date(session.sessionDate);
+        const year = sessionDateObj.getUTCFullYear();
+        const month = sessionDateObj.getUTCMonth();
+        const day = sessionDateObj.getUTCDate();
 
-      const [startHour, startMin] = session.startTime.split(":").map(Number);
-      const [endHour, endMin] = session.endTime.split(":").map(Number);
+        const [startHour, startMin] = session.startTime.split(":").map(Number);
+        const [endHour, endMin] = session.endTime.split(":").map(Number);
 
-      // Create ISO strings without timezone conversion
-      const pad = (n: number) => String(n).padStart(2, "0");
-      const startDateTime = `${year}-${pad(month + 1)}-${pad(day)}T${pad(startHour)}:${pad(startMin)}:00`;
-      const endDateTime = `${year}-${pad(month + 1)}-${pad(day)}T${pad(endHour)}:${pad(endMin)}:00`;
+        // Create ISO strings without timezone conversion
+        const pad = (n: number) => String(n).padStart(2, "0");
+        const startDateTime = `${year}-${pad(month + 1)}-${pad(day)}T${pad(startHour)}:${pad(startMin)}:00`;
+        const endDateTime = `${year}-${pad(month + 1)}-${pad(day)}T${pad(endHour)}:${pad(endMin)}:00`;
 
-      return {
-        id: session.id,
-        title: session.class.name,
-        start: startDateTime,
-        end: endDateTime,
-        classId: session.classId,
-        className: session.class.name,
-        categoryName: session.class.category.name,
-        categoryId: session.class.category.id,
-        maxStudents: session.maxStudents || 0,
-        currentEnrollment: session.currentEnrollment,
-        isFull: session.maxStudents
-          ? session.currentEnrollment >= session.maxStudents
-          : false,
-        staff: allStaff,
-        instructorCount: session.instructors.length,
-        assistantCount: session.assistants.length,
-        hasConflict: false, // Will be computed client-side
-      };
-    });
+        return {
+          id: session.id,
+          title: session.class.name,
+          start: startDateTime,
+          end: endDateTime,
+          classId: session.classId,
+          className: session.class.name,
+          categoryName: session.class.category.name,
+          categoryId: session.class.category.id,
+          maxStudents: session.maxStudents || 0,
+          currentEnrollment: session.currentEnrollment,
+          isFull: session.maxStudents
+            ? session.currentEnrollment >= session.maxStudents
+            : false,
+          staff: allStaff,
+          instructorCount: session.instructors.length,
+          assistantCount: session.assistants.length,
+          hasConflict: false, // Will be computed client-side
+        };
+      }
+    );
 
     res.json(calendarEvents);
   } catch (error) {
@@ -273,15 +283,17 @@ router.post("/sessions/:id/staff", isAuthenticated, async (req, res) => {
     });
 
     // Check if times overlap
-    const hasConflict = overlappingSessions.some((otherSession: typeof overlappingSessions[0]) => {
-      const sessionStart = session.startTime;
-      const sessionEnd = session.endTime;
-      const otherStart = otherSession.startTime;
-      const otherEnd = otherSession.endTime;
+    const hasConflict = overlappingSessions.some(
+      (otherSession: (typeof overlappingSessions)[0]) => {
+        const sessionStart = session.startTime;
+        const sessionEnd = session.endTime;
+        const otherStart = otherSession.startTime;
+        const otherEnd = otherSession.endTime;
 
-      // Times overlap if: (start1 < end2) AND (end1 > start2)
-      return sessionStart < otherEnd && sessionEnd > otherStart;
-    });
+        // Times overlap if: (start1 < end2) AND (end1 > start2)
+        return sessionStart < otherEnd && sessionEnd > otherStart;
+      }
+    );
 
     if (hasConflict) {
       return res.status(409).json({

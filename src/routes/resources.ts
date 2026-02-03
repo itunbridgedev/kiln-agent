@@ -208,10 +208,13 @@ router.get("/availability", async (req: Request, res: Response) => {
     });
 
     // Calculate availability for each resource
-    const availability = resources.map((resource: typeof resources[0]) => {
+    const availability = resources.map((resource: (typeof resources)[0]) => {
       const allocated = allocations
-        .filter((a: typeof allocations[0]) => a.resourceId === resource.id)
-        .reduce((sum: number, a: typeof allocations[0]) => sum + a.quantity, 0);
+        .filter((a: (typeof allocations)[0]) => a.resourceId === resource.id)
+        .reduce(
+          (sum: number, a: (typeof allocations)[0]) => sum + a.quantity,
+          0
+        );
 
       return {
         resourceId: resource.id,
@@ -299,7 +302,10 @@ router.get("/:id/availability", async (req: Request, res: Response) => {
       select: { quantity: true },
     });
 
-    const totalAllocated = allocations.reduce((sum: number, a: typeof allocations[0]) => sum + a.quantity, 0);
+    const totalAllocated = allocations.reduce(
+      (sum: number, a: (typeof allocations)[0]) => sum + a.quantity,
+      0
+    );
     const available = resource.quantity - totalAllocated;
 
     res.json({
