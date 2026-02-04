@@ -1,8 +1,7 @@
-import { PrismaClient } from "@prisma/client";
 import express from "express";
+import prisma from "../prisma";
 
 const router = express.Router();
-const prisma = new PrismaClient();
 
 // GET /api/calendar/feed/:userId/:token - Public iCal feed (no auth required)
 router.get(

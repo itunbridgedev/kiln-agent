@@ -1,9 +1,8 @@
-import { PrismaClient } from "@prisma/client";
 import express from "express";
 import { isAdmin, isAuthenticated } from "../middleware/auth";
+import prisma from "../prisma";
 
 const router = express.Router();
-const prisma = new PrismaClient();
 
 // Apply auth middleware to all routes
 router.use(isAuthenticated);
