@@ -1,3 +1,4 @@
+import { PrismaClient } from "@prisma/client";
 import { Request, Response, Router } from "express";
 import { isAuthenticated } from "../middleware/auth";
 import prisma from "../prisma";
