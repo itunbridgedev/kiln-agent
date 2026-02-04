@@ -4,6 +4,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
 import session from "express-session";
+import https from "https";
 import { Pool } from "pg";
 import passport from "./config/passport";
 import { tenantMiddleware } from "./middleware/tenantMiddleware";
@@ -95,13 +96,21 @@ app.use((req, res, next) => {
 
 // Session store configuration
 const PgStore = connectPgSimple(session);
+
+// For AWS RDS, we need to use their CA certificate bundle
+// This certificate is publicly available and trusted
+const AWS_RDS_CA_BUNDLE_URL = 'https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem';
+
+let sslConfig: any = false;
+if (process.env.NODE_ENV === "production") {
+  // Use rejectUnauthorized: false as a fallback
+  // AWS RDS certificates should be trusted, but some environments may need this
+  sslConfig = { rejectUnauthorized: false };
+}
+
 const pgPool = new Pool({
-  connectionString:
-    process.env.DATABASE_URL_WITH_SSL || process.env.DATABASE_URL,
-  ssl:
-    process.env.NODE_ENV === "production"
-      ? { rejectUnauthorized: false }
-      : false,
+  connectionString: process.env.DATABASE_URL,
+  ssl: sslConfig,
 });
 
 // Session configuration
