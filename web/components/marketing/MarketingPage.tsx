@@ -1,20 +1,27 @@
 export default function MarketingPage() {
   // Dynamically construct demo URL based on current hostname
+  // www.kilnagent.com -> demo.kilnagent.com
   // kilnagent.com -> demo.kilnagent.com
+  // www.kilnagent-stage.com -> demo.kilnagent-stage.com
   // kilnagent-stage.com -> demo.kilnagent-stage.com
-  // kilnagent-dev.com -> demo.kilnagent-dev.com
   // localhost:3000 -> localhost:3000
   const getDemoUrl = () => {
     if (typeof window === 'undefined') {
       return process.env.NEXT_PUBLIC_DEMO_URL || "http://localhost:3000";
     }
     
-    const hostname = window.location.hostname;
+    let hostname = window.location.hostname;
     const protocol = window.location.protocol;
     
     // If localhost, stay on localhost
     if (hostname === 'localhost') {
       return `${protocol}//${hostname}:${window.location.port}`;
+    }
+    
+    // Strip www. subdomain if present
+    // www.kilnagent-stage.com -> kilnagent-stage.com
+    if (hostname.startsWith('www.')) {
+      hostname = hostname.substring(4);
     }
     
     // For root domains, add 'demo.' subdomain
