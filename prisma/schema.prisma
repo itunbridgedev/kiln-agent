@@ -29,6 +29,8 @@ model Studio {
   classes       Class[]
   teachingRoles TeachingRole[]
   resources     StudioResource[]
+  noShowPolicies NoShowPolicy[]
+  customerSuspensions CustomerSuspension[]
 }
 
 model Customer {
@@ -60,6 +62,14 @@ model Customer {
   // Customer registrations
   registrations   ClassRegistration[]
   waitlistEntries ClassWaitlist[]
+
+  // Reservation system
+  reservedBy          SessionReservation[] @relation("ReservedBy")
+  checkedInBy         SessionReservation[] @relation("CheckedInBy")
+  cancelledBy         SessionReservation[] @relation("CancelledBy")
+  reservationHistory  ReservationHistory[]
+  suspensions         CustomerSuspension[]
+  suspensionsLifted   CustomerSuspension[] @relation("LiftedBy")
 
   @@unique([studioId, email])
   @@index([studioId])
@@ -162,6 +172,7 @@ model Class {
   registrations        ClassRegistration[]
   waitlistEntries      ClassWaitlist[]
   resourceRequirements ClassResourceRequirement[]
+  noShowPolicies       NoShowPolicy[]
 
   @@index([studioId])
   @@index([categoryId])
@@ -180,6 +191,8 @@ model ClassStep {
   description        String?
   durationHours      Decimal  @db.Decimal(4, 2)
   learningObjectives String? // What students will learn
+  requiresSequence   Boolean  @default(false) // Must complete previous steps first
+  allowMakeup        Boolean  @default(false) // Can be used for makeup sessions
   isActive           Boolean  @default(true)
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
@@ -297,6 +310,7 @@ model ClassSession {
   instructors          ClassSessionInstructor[]
   assistants           ClassSessionAssistant[]
   registrationSessions RegistrationSession[]
+  reservations         SessionReservation[]
   waitlistEntries      ClassWaitlist[]
   resourceAllocations  SessionResourceAllocation[]
 
@@ -468,6 +482,21 @@ enum PaymentStatus {
   PARTIAL_REFUND // Partial refund issued
 }
 
+enum PassType {
+  UNLIMITED_SERIES // Attend any session within date range
+  PUNCH_PASS // Limited number of sessions (e.g., 8-session pass)
+  FULL_COURSE // Must attend all sessions in sequence
+}
+
+enum ReservationStatus {
+  PENDING // Reserved but not attended
+  CHECKED_IN // Customer checked in
+  ATTENDED // Confirmed attendance
+  NO_SHOW // Didn't show for reservation
+  CANCELLED // Cancelled by customer
+  AUTO_CANCELLED // System cancelled due to previous absence
+}
+
 model ClassRegistration {
   id         Int      @id @default(autoincrement())
   studioId   Int
@@ -494,6 +523,17 @@ model ClassRegistration {
   cancelledAt        DateTime? // When cancelled
   cancellationReason String?
 
+  // Flexible reservation fields
+  passType                      PassType? @default(FULL_COURSE)
+  sessionsIncluded              Int? // null = unlimited, number = punch pass limit
+  sessionsRemaining             Int? // Tracks remaining punches
+  sessionsAttended              Int       @default(0) // Total sessions attended
+  maxAdvanceReservations        Int       @default(3) // Max sessions that can be reserved in advance
+  requiresSequentialAttendance  Boolean   @default(false) // Must complete in order (multi-step series)
+  absenceGracePeriodHours       Int       @default(24) // Hours before auto-canceling future reservations
+  validFrom                     DateTime? // Pass start date
+  validUntil                    DateTime? // Pass expiration date
+
   // Payment information
   amountPaid      Decimal       @db.Decimal(10, 2)
   paymentStatus   PaymentStatus @default(PENDING)
@@ -512,8 +552,9 @@ model ClassRegistration {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // For SINGLE_SESSION or DROP_IN, track which specific sessions
+  // Relations
   sessions            RegistrationSession[]
+  reservations        SessionReservation[]
   resourceAllocations SessionResourceAllocation[]
 
   @@index([studioId])
@@ -522,6 +563,9 @@ model ClassRegistration {
   @@index([classId])
   @@index([registrationStatus])
   @@index([paymentStatus])
+  @@index([passType])
+  @@index([validFrom])
+  @@index([validUntil])
 }
 
 // Junction table linking registrations to specific sessions
@@ -542,6 +586,139 @@ model RegistrationSession {
   @@unique([registrationId, sessionId])
   @@index([registrationId])
   @@index([sessionId])
+}
+
+// Enhanced reservation system for flexible class booking
+model SessionReservation {
+  id             Int               @id @default(autoincrement())
+  studioId       Int
+  registrationId Int
+  registration   ClassRegistration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  sessionId      Int
+  session        ClassSession      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  // Reservation status
+  reservationStatus ReservationStatus @default(PENDING)
+
+  // Reservation lifecycle
+  reservedAt DateTime  @default(now())
+  reservedBy Int? // Customer who made reservation
+  reservedByCustomer Customer? @relation("ReservedBy", fields: [reservedBy], references: [id], onDelete: SetNull)
+
+  // Check-in tracking
+  checkedInAt     DateTime?
+  checkedInBy     Int? // Customer or staff who checked in
+  checkedInByCustomer Customer? @relation("CheckedInBy", fields: [checkedInBy], references: [id], onDelete: SetNull)
+  checkedInMethod String? // 'SELF', 'STAFF', 'AUTO'
+
+  // Attendance tracking
+  attendedAt       DateTime?
+  noShowDetectedAt DateTime?
+  autoCancelledAt  DateTime?
+
+  // Cancellation
+  cancelledAt       DateTime?
+  cancelledBy       Int? // Customer who cancelled
+  cancelledByCustomer Customer? @relation("CancelledBy", fields: [cancelledBy], references: [id], onDelete: SetNull)
+  cancellationReason String?
+
+  // Notes
+  staffNotes    String?
+  customerNotes String?
+
+  // Punch tracking
+  punchUsed       Boolean   @default(false)
+  punchDeductedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  history ReservationHistory[]
+
+  @@unique([registrationId, sessionId])
+  @@index([studioId])
+  @@index([registrationId])
+  @@index([sessionId])
+  @@index([reservationStatus])
+  @@index([registrationId, reservationStatus])
+  @@index([sessionId, reservationStatus])
+  @@index([reservedAt])
+  @@index([checkedInAt])
+}
+
+// Audit log for reservation changes
+model ReservationHistory {
+  id            Int                @id @default(autoincrement())
+  reservationId Int
+  reservation   SessionReservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+
+  action          String // 'CREATED', 'CHECKED_IN', 'CANCELLED', 'NO_SHOW', 'AUTO_CANCELLED'
+  performedBy     Int? // Customer who performed action
+  performedByCustomer Customer? @relation(fields: [performedBy], references: [id], onDelete: SetNull)
+  performedByRole String? // 'CUSTOMER', 'STAFF', 'SYSTEM'
+  previousStatus  ReservationStatus?
+  newStatus       ReservationStatus?
+  reason          String?
+  metadata        Json? // Additional context
+
+  timestamp DateTime @default(now())
+
+  @@index([reservationId])
+  @@index([timestamp])
+}
+
+// Configurable no-show policies per studio/class
+model NoShowPolicy {
+  id       Int    @id @default(autoincrement())
+  studioId Int
+  studio   Studio @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  classId  Int? // null means studio-wide default
+  class    Class? @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  // Policy settings
+  gracePeriodHours            Int     @default(24) // Hours after no-show before auto-cancel
+  maxNoShowsBeforeSuspension  Int?    @default(3)
+  suspensionDurationDays      Int?    @default(7)
+  deductPunchOnNoShow         Boolean @default(true)
+  allowSameDayRebooking       Boolean @default(false)
+  sendNoShowNotification      Boolean @default(true)
+  sendAutoCancelNotification  Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([studioId, classId])
+  @@index([studioId])
+  @@index([classId])
+}
+
+// Track suspended customers due to no-shows
+model CustomerSuspension {
+  id         Int      @id @default(autoincrement())
+  studioId   Int
+  studio     Studio   @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  customerId Int
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  reason       String
+  noShowCount  Int      @default(0)
+  suspendedAt  DateTime @default(now())
+  suspendedUntil DateTime
+
+  liftedAt     DateTime?
+  liftedBy     Int? // Staff member who lifted suspension
+  liftedByStaff Customer? @relation("LiftedBy", fields: [liftedBy], references: [id], onDelete: SetNull)
+  liftedReason String?
+  isActive     Boolean   @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([studioId])
+  @@index([customerId])
+  @@index([isActive])
+  @@index([suspendedUntil])
 }
 
 // Waitlist for fully booked classes
