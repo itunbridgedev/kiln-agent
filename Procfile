@@ -1,2 +1,2 @@
 web: npm start
-release: npx prisma migrate deploy
+release: bash scripts/release.sh
