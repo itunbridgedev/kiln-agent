@@ -27,6 +27,8 @@ interface Registration {
     name: string;
     description: string;
     price: number;
+    classType: string;
+    requiresSequence: boolean;
     category: {
       name: string;
     };
@@ -113,6 +115,13 @@ export default function RegistrationConfirmationPage() {
       style: "currency",
       currency: "USD",
     }).format(price);
+  };
+
+  const formatTime = (time: string) => {
+    const [hours, minutes] = time.split(':').map(Number);
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+    return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
   };
 
   if (loading) {
@@ -299,7 +308,7 @@ export default function RegistrationConfirmationPage() {
                   <div className="flex justify-between">
                     <span className="text-gray-600">Time:</span>
                     <span className="font-medium text-gray-900">
-                      {session.startTime} - {session.endTime}
+                      {formatTime(session.startTime)} - {formatTime(session.endTime)}
                     </span>
                   </div>
                   {session.location && (
@@ -387,6 +396,79 @@ export default function RegistrationConfirmationPage() {
               <h4 className="text-sm font-medium text-gray-500 mb-3">
                 What's Next?
               </h4>
+              
+              {/* Show reservation prompt for multi-step classes */}
+              {registration.class.classType === "multi-step" && registration.class.requiresSequence && session?.classStep && (
+                <div className="mb-4 bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
+                  <div className="flex items-start">
+                    <svg
+                      className="w-6 h-6 text-blue-600 mr-3 flex-shrink-0"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                    <div className="flex-1">
+                      <p className="font-semibold text-blue-900 mb-1">
+                        📅 Book Your Remaining Sessions
+                      </p>
+                      <p className="text-sm text-blue-800 mb-3">
+                        You've successfully reserved Part {session.classStep.stepNumber}! This is a multi-step course, so after completing this session, you'll need to reserve the next parts in sequence to continue your learning journey.
+                      </p>
+                      <button
+                        onClick={() => router.push(`/registrations/${registration.id}/reservations`)}
+                        className="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors inline-flex items-center shadow-sm"
+                      >
+                        View & Reserve Next Sessions
+                        <svg className="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Show reservation prompt for other non-single-session registrations */}
+              {registration.registrationType !== "SINGLE_SESSION" && registration.class.classType !== "multi-step" && registration.sessions.length === 0 && (
+                <div className="mb-4 bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
+                  <div className="flex items-start">
+                    <svg
+                      className="w-6 h-6 text-blue-600 mr-3 flex-shrink-0"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                    <div className="flex-1">
+                      <p className="font-semibold text-blue-900 mb-1">
+                        Reserve Your Sessions Now!
+                      </p>
+                      <p className="text-sm text-blue-800 mb-3">
+                        This is a multi-session class. You need to reserve individual sessions to attend.
+                      </p>
+                      <button
+                        onClick={() => router.push(`/registrations/${registration.id}/reservations`)}
+                        className="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors inline-flex items-center"
+                      >
+                        Reserve Sessions
+                        <svg className="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
               <ul className="space-y-2 text-sm text-gray-600">
                 <li className="flex items-start">
                   <svg
@@ -438,7 +520,15 @@ export default function RegistrationConfirmationPage() {
         </div>
 
         {/* Action Buttons */}
-        <div className="mt-8 flex gap-4">
+        <div className="mt-8 flex flex-col sm:flex-row gap-4">
+          {registration.registrationType !== "SINGLE_SESSION" && (
+            <button
+              onClick={() => router.push(`/registrations/${registration.id}/reservations`)}
+              className="flex-1 px-6 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition-colors"
+            >
+              Manage Session Reservations
+            </button>
+          )}
           <button
             onClick={() => router.push("/my-classes")}
             className="flex-1 px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors"

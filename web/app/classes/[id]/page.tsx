@@ -7,7 +7,7 @@ import { useAuth } from "@/context/AuthContext";
 import "@/styles/Home.css";
 import { Elements } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js";
-import { format } from "date-fns";
+import { format, parseISO, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, addMonths, subMonths, startOfDay } from "date-fns";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -16,6 +16,15 @@ const stripePromise = loadStripe(
 );
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+
+type CalendarView = "month" | "week" | "day" | "list";
+
+const formatTime = (time: string) => {
+  const [hours, minutes] = time.split(':').map(Number);
+  const period = hours >= 12 ? 'PM' : 'AM';
+  const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+  return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
+};
 
 interface Category {
   id: number;
@@ -111,6 +120,8 @@ export default function ClassDetailPage() {
   const [showPayment, setShowPayment] = useState(false);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
+  const [calendarView, setCalendarView] = useState<CalendarView>("month");
+  const [currentDate, setCurrentDate] = useState(new Date());
 
   useEffect(() => {
     fetchStudioInfo();
@@ -250,6 +261,14 @@ export default function ClassDetailPage() {
     setRegistering(true);
 
     try {
+      // Determine registration type based on class type
+      let registrationType = "SINGLE_SESSION";
+      if (classDetails?.classType === "multi-session" || classDetails?.classType === "series") {
+        // For multi-session classes, use FULL_SCHEDULE to register for all sessions
+        // DROP_IN type allows registering for individual sessions within a series
+        registrationType = "FULL_SCHEDULE";
+      }
+
       // Step 1: Create payment intent
       const response = await fetch(
         `${API_BASE_URL}/api/stripe/payment/create-intent`,
@@ -262,7 +281,7 @@ export default function ClassDetailPage() {
           body: JSON.stringify({
             classId: classDetails!.id,
             sessionId: selectedSessionId,
-            registrationType: "SINGLE_SESSION",
+            registrationType,
             guestCount,
           }),
         }
@@ -289,12 +308,18 @@ export default function ClassDetailPage() {
     setRegistering(true);
 
     try {
+      // Determine registration type based on class type
+      let registrationType = "SINGLE_SESSION";
+      if (classDetails?.classType === "multi-session" || classDetails?.classType === "series") {
+        registrationType = "FULL_SCHEDULE";
+      }
+
       // Step 2: Confirm payment and create registration
       const requestBody: any = {
         paymentIntentId,
         classId: classDetails!.id,
         sessionId: selectedSessionId,
-        registrationType: "SINGLE_SESSION",
+        registrationType,
         guestCount,
       };
 
@@ -386,6 +411,69 @@ export default function ClassDetailPage() {
   const handleLogout = async () => {
     await logout();
     router.push("/login");
+  };
+
+  // Calendar helper functions
+  const getCalendarDays = () => {
+    let start, end;
+    
+    if (calendarView === "month") {
+      start = startOfWeek(startOfMonth(currentDate));
+      end = endOfWeek(endOfMonth(currentDate));
+    } else if (calendarView === "week") {
+      start = startOfWeek(currentDate);
+      end = endOfWeek(currentDate);
+    } else {
+      start = startOfDay(currentDate);
+      end = startOfDay(currentDate);
+    }
+    
+    return eachDayOfInterval({ start, end });
+  };
+
+  const getSessionsForDay = (day: Date) => {
+    if (!classDetails) return [];
+    return classDetails.sessions.filter(session => {
+      const sessionDate = parseISO(session.sessionDate);
+      return isSameDay(sessionDate, day);
+    });
+  };
+
+  const navigateCalendar = (direction: "prev" | "next") => {
+    if (calendarView === "month") {
+      setCurrentDate(direction === "next" ? addMonths(currentDate, 1) : subMonths(currentDate, 1));
+    } else if (calendarView === "week") {
+      setCurrentDate(direction === "next" ? new Date(currentDate.getTime() + 7 * 24 * 60 * 60 * 1000) : new Date(currentDate.getTime() - 7 * 24 * 60 * 60 * 1000));
+    } else {
+      setCurrentDate(direction === "next" ? new Date(currentDate.getTime() + 24 * 60 * 60 * 1000) : new Date(currentDate.getTime() - 24 * 60 * 60 * 1000));
+    }
+  };
+
+  const handleShowMore = (day: Date) => {
+    setCurrentDate(day);
+    setCalendarView("week");
+  };
+
+  const getTimeSlots = () => {
+    const slots = [];
+    for (let hour = 7; hour <= 22; hour++) {
+      slots.push(`${hour > 12 ? hour - 12 : hour}:00 ${hour >= 12 ? 'PM' : 'AM'}`);
+    }
+    return slots;
+  };
+
+  const getSessionPosition = (startTime: string) => {
+    const [hours, minutes] = startTime.split(':').map(Number);
+    const totalMinutes = hours * 60 + minutes;
+    const startMinutes = 7 * 60; // 7:00 AM baseline
+    return ((totalMinutes - startMinutes) / 60) * 48; // 48px per hour (matches h-12)
+  };
+
+  const getSessionHeight = (startTime: string, endTime: string) => {
+    const [startHours, startMinutes] = startTime.split(':').map(Number);
+    const [endHours, endMinutes] = endTime.split(':').map(Number);
+    const durationMinutes = (endHours * 60 + endMinutes) - (startHours * 60 + startMinutes);
+    return (durationMinutes / 60) * 48; // 48px per hour (matches h-12)
   };
 
   if (loading) {
@@ -576,91 +664,363 @@ export default function ClassDetailPage() {
             </p>
           </div>
         ) : (
-          <div className="space-y-4">
-            {classDetails.sessions.map((session) => {
-              const isFull = session.availableSpots <= 0;
-              const sessionDate = new Date(session.sessionDate);
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            {/* View Tabs and Navigation */}
+            <div className="mb-6">
+              <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+                {/* View Tabs */}
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setCalendarView("month")}
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                      calendarView === "month"
+                        ? "bg-blue-600 text-white"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    }`}
+                  >
+                    Month
+                  </button>
+                  <button
+                    onClick={() => setCalendarView("week")}
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                      calendarView === "week"
+                        ? "bg-blue-600 text-white"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    }`}
+                  >
+                    Week
+                  </button>
+                  <button
+                    onClick={() => setCalendarView("day")}
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                      calendarView === "day"
+                        ? "bg-blue-600 text-white"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    }`}
+                  >
+                    Day
+                  </button>
+                  <button
+                    onClick={() => setCalendarView("list")}
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                      calendarView === "list"
+                        ? "bg-blue-600 text-white"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    }`}
+                  >
+                    List
+                  </button>
+                </div>
 
-              return (
-                <div
-                  key={session.id}
-                  className="bg-white rounded-lg shadow-sm border border-gray-200 p-6"
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-3">
-                        <h3 className="text-lg font-semibold text-gray-900">
-                          {format(sessionDate, "EEEE, MMMM d, yyyy")}
-                        </h3>
-                        {session.classStep && (
-                          <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded">
-                            Part {session.classStep.stepNumber}:{" "}
-                            {session.classStep.name}
-                          </span>
-                        )}
-                        {isFull ? (
-                          <span className="text-xs font-medium text-red-600 bg-red-50 px-2 py-1 rounded">
-                            SOLD OUT
-                          </span>
-                        ) : session.availableSpots <= 3 ? (
-                          <span className="text-xs font-medium text-yellow-600 bg-yellow-50 px-2 py-1 rounded">
-                            {session.availableSpots} SPOTS LEFT
-                          </span>
-                        ) : (
-                          <span className="text-xs font-medium text-green-600 bg-green-50 px-2 py-1 rounded">
-                            {session.availableSpots} SPOTS AVAILABLE
-                          </span>
-                        )}
+                {/* Navigation Controls */}
+                {calendarView !== "list" && (
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => navigateCalendar("prev")}
+                      className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-lg"
+                    >
+                      ←
+                    </button>
+                    <div className="font-semibold text-gray-900 min-w-[200px] text-center">
+                      {calendarView === "month" && format(currentDate, "MMMM yyyy")}
+                      {calendarView === "week" && `Week of ${format(startOfWeek(currentDate), "MMM d, yyyy")}`}
+                      {calendarView === "day" && format(currentDate, "EEEE, MMMM d, yyyy")}
+                    </div>
+                    <button
+                      onClick={() => navigateCalendar("next")}
+                      className="px-3 py-1 bg-gray-100 hover:bg-gray-200 rounded-lg"
+                    >
+                      →
+                    </button>
+                    <button
+                      onClick={() => setCurrentDate(new Date())}
+                      className="px-3 py-1 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded-lg text-sm"
+                    >
+                      Today
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Calendar Grid - Month View */}
+              {calendarView === "month" && (
+                <div className="grid grid-cols-7 gap-2">
+                  {/* Day headers */}
+                  {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(day => (
+                    <div key={day} className="text-center font-semibold text-sm text-gray-600 py-2">
+                      {day}
+                    </div>
+                  ))}
+                  
+                  {/* Calendar days */}
+                  {getCalendarDays().map((day, idx) => {
+                    const sessions = getSessionsForDay(day);
+                    const isToday = isSameDay(day, new Date());
+                    const isCurrentMonth = day.getMonth() === currentDate.getMonth();
+                    
+                    return (
+                      <div
+                        key={idx}
+                        className={`min-h-24 border rounded-lg p-2 ${
+                          isToday ? "border-blue-500 bg-blue-50" : "border-gray-200"
+                        } ${!isCurrentMonth ? "opacity-40" : ""}`}
+                      >
+                        <div className={`text-sm font-medium mb-1 ${isToday ? "text-blue-700" : "text-gray-700"}`}>
+                          {format(day, "d")}
+                        </div>
+                        <div className="space-y-1">
+                          {sessions.slice(0, 3).map(session => {
+                            const isFull = session.availableSpots <= 0;
+                            return (
+                              <div
+                                key={session.id}
+                                className={`text-xs p-1 rounded cursor-pointer ${
+                                  isFull
+                                    ? "bg-gray-100 text-gray-600"
+                                    : "bg-blue-100 text-blue-800 hover:bg-blue-200"
+                                }`}
+                                onClick={() => !isFull && handleRegister(session.id)}
+                              >
+                                {formatTime(session.startTime)}
+                                {isFull && " (Full)"}
+                              </div>
+                            );
+                          })}
+                          {sessions.length > 3 && (
+                            <button
+                              onClick={() => handleShowMore(day)}
+                              className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                            >
+                              +{sessions.length - 3} more
+                            </button>
+                          )}
+                        </div>
                       </div>
+                    );
+                  })}
+                </div>
+              )}
 
-                      <div className="space-y-2 text-gray-600">
-                        <p>
-                          <span className="font-medium">Time:</span>{" "}
-                          {session.startTime} - {session.endTime}
-                        </p>
-                        {session.location && (
-                          <p>
-                            <span className="font-medium">Location:</span>{" "}
-                            {session.location}
-                          </p>
-                        )}
-                        {session.topic && (
-                          <p>
-                            <span className="font-medium">Topic:</span>{" "}
-                            {session.topic}
-                          </p>
-                        )}
-                        <p>
-                          <span className="font-medium">Enrolled:</span>{" "}
-                          {session.currentEnrollment} /{" "}
-                          {session.maxStudents || classDetails.maxStudents}
-                        </p>
+              {/* Week View - Time Grid */}
+              {calendarView === "week" && (
+                <div className="flex border rounded-lg overflow-hidden">
+                  {/* Time column */}
+                  <div className="w-20 border-r">
+                    <div className="h-12 border-b"></div>
+                    {getTimeSlots().map((time, idx) => (
+                      <div key={idx} className="h-12 border-b relative">
+                        <span className="absolute bottom-0 right-2 text-xs text-gray-600 bg-white pb-0.5">{time}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Days columns */}
+                  {eachDayOfInterval({ start: startOfWeek(currentDate), end: endOfWeek(currentDate) }).map((day) => {
+                    const sessions = getSessionsForDay(day);
+                    const isToday = isSameDay(day, new Date());
+                    
+                    return (
+                      <div key={day.toString()} className="flex-1 border-r last:border-r-0">
+                        {/* Day header */}
+                        <div className={`h-12 border-b text-center py-1 ${isToday ? "bg-blue-100" : "bg-gray-50"}`}>
+                          <div className="text-xs text-gray-600">{format(day, "EEE")}</div>
+                          <div className={`text-sm font-semibold ${isToday ? "text-blue-700" : "text-gray-900"}`}>
+                            {format(day, "d")}
+                          </div>
+                        </div>
+
+                        {/* Time grid with sessions */}
+                        <div className="relative">
+                          {getTimeSlots().map((_, idx) => (
+                            <div key={idx} className="h-12 border-b"></div>
+                          ))}
+
+                          {/* Sessions positioned absolutely */}
+                          {sessions.map(session => {
+                            const isFull = session.availableSpots <= 0;
+                            return (
+                              <div
+                                key={session.id}
+                                className={`absolute left-0 right-0 mx-1 rounded px-2 py-1 text-xs cursor-pointer overflow-hidden ${
+                                  isFull
+                                    ? "bg-gray-200 text-gray-600 border-l-4 border-gray-400"
+                                    : "bg-blue-200 text-blue-900 border-l-4 border-blue-600 hover:bg-blue-300"
+                                }`}
+                                style={{
+                                  top: `${getSessionPosition(session.startTime) + 48}px`,
+                                  height: `${getSessionHeight(session.startTime, session.endTime)}px`,
+                                  minHeight: '24px'
+                                }}
+                                onClick={() => !isFull && handleRegister(session.id)}
+                              >
+                                <div className="font-semibold">{formatTime(session.startTime)} - {formatTime(session.endTime)}</div>
+                                {session.classStep && <div className="text-xs">Part {session.classStep.stepNumber}</div>}
+                                {isFull && <div className="text-gray-600">Full</div>}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Day View - Single Column Time Grid */}
+              {calendarView === "day" && (
+                <div className="flex border rounded-lg overflow-hidden max-w-2xl">
+                  {/* Time column */}
+                  <div className="w-24 border-r">
+                    <div className="h-12 border-b bg-gray-50 flex items-center justify-center">
+                      <div className="text-center">
+                        <div className="text-xs text-gray-600">{format(currentDate, "EEE")}</div>
+                        <div className="text-lg font-semibold text-gray-900">{format(currentDate, "d")}</div>
                       </div>
                     </div>
+                    {getTimeSlots().map((time, idx) => (
+                      <div key={idx} className="h-12 border-b relative">
+                        <span className="absolute bottom-0 right-3 text-sm text-gray-600 bg-white pb-0.5">{time}</span>
+                      </div>
+                    ))}
+                  </div>
 
-                    {/* Action Button */}
-                    <div className="ml-6">
-                      {isFull ? (
-                        <button
-                          onClick={() => handleRegister(session.id)}
-                          className="px-6 py-3 bg-yellow-500 text-white font-semibold rounded-lg hover:bg-yellow-600 transition-colors"
-                          disabled
-                        >
-                          Sold Out
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => handleRegister(session.id)}
-                          className="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors"
-                        >
-                          Book Now
-                        </button>
-                      )}
+                  {/* Day column */}
+                  <div className="flex-1 relative">
+                    <div className="h-12 border-b bg-blue-50 flex items-center justify-center font-semibold text-gray-900">
+                      {format(currentDate, "MMMM d, yyyy")}
+                    </div>
+
+                    {/* Time grid */}
+                    <div className="relative">
+                      {getTimeSlots().map((_, idx) => (
+                        <div key={idx} className="h-12 border-b"></div>
+                      ))}
+
+                      {/* Sessions */}
+                      {getSessionsForDay(currentDate).map(session => {
+                        const isFull = session.availableSpots <= 0;
+                        return (
+                          <div
+                            key={session.id}
+                            className={`absolute left-0 right-0 mx-2 rounded px-3 py-2 text-sm cursor-pointer ${
+                              isFull
+                                ? "bg-gray-200 text-gray-600 border-l-4 border-gray-400"
+                                : "bg-blue-200 text-blue-900 border-l-4 border-blue-600 hover:bg-blue-300"
+                            }`}
+                            style={{
+                              top: `${getSessionPosition(session.startTime) + 48}px`,
+                              height: `${getSessionHeight(session.startTime, session.endTime)}px`,
+                              minHeight: '40px'
+                            }}
+                            onClick={() => !isFull && handleRegister(session.id)}
+                          >
+                            <div className="font-bold">{formatTime(session.startTime)} - {formatTime(session.endTime)}</div>
+                            {session.classStep && (
+                              <div className="text-xs mt-1">Part {session.classStep.stepNumber}: {session.classStep.name}</div>
+                            )}
+                            {session.topic && <div className="text-xs mt-1">{session.topic}</div>}
+                            <div className="text-xs mt-1">
+                              {session.currentEnrollment}/{session.maxStudents || classDetails.maxStudents} enrolled
+                            </div>
+                            {isFull && <div className="text-gray-600 font-semibold mt-1">Full</div>}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
-              );
-            })}
+              )}
+
+              {/* List View */}
+              {calendarView === "list" && (
+                <div className="space-y-4">
+                  {classDetails.sessions.map((session) => {
+                    const isFull = session.availableSpots <= 0;
+                    const sessionDate = new Date(session.sessionDate);
+
+                    return (
+                      <div
+                        key={session.id}
+                        className="bg-white rounded-lg shadow-sm border border-gray-200 p-6"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-3">
+                              <h3 className="text-lg font-semibold text-gray-900">
+                                {format(sessionDate, "EEEE, MMMM d, yyyy")}
+                              </h3>
+                              {session.classStep && (
+                                <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                                  Part {session.classStep.stepNumber}:{" "}
+                                  {session.classStep.name}
+                                </span>
+                              )}
+                              {isFull ? (
+                                <span className="text-xs font-medium text-red-600 bg-red-50 px-2 py-1 rounded">
+                                  SOLD OUT
+                                </span>
+                              ) : session.availableSpots <= 3 ? (
+                                <span className="text-xs font-medium text-yellow-600 bg-yellow-50 px-2 py-1 rounded">
+                                  {session.availableSpots} SPOTS LEFT
+                                </span>
+                              ) : (
+                                <span className="text-xs font-medium text-green-600 bg-green-50 px-2 py-1 rounded">
+                                  {session.availableSpots} SPOTS AVAILABLE
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="space-y-2 text-gray-600">
+                              <p>
+                                <span className="font-medium">Time:</span>{" "}
+                                {formatTime(session.startTime)} - {formatTime(session.endTime)}
+                              </p>
+                              {session.location && (
+                                <p>
+                                  <span className="font-medium">Location:</span>{" "}
+                                  {session.location}
+                                </p>
+                              )}
+                              {session.topic && (
+                                <p>
+                                  <span className="font-medium">Topic:</span>{" "}
+                                  {session.topic}
+                                </p>
+                              )}
+                              <p>
+                                <span className="font-medium">Enrolled:</span>{" "}
+                                {session.currentEnrollment} /{" "}
+                                {session.maxStudents || classDetails.maxStudents}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Action Button */}
+                          <div className="ml-6">
+                            {isFull ? (
+                              <button
+                                onClick={() => handleRegister(session.id)}
+                                className="px-6 py-3 bg-yellow-500 text-white font-semibold rounded-lg hover:bg-yellow-600 transition-colors"
+                                disabled
+                              >
+                                Sold Out
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleRegister(session.id)}
+                                className="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors"
+                              >
+                                Book Now
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -694,7 +1054,7 @@ export default function ClassDetailPage() {
                   )}
                 </p>
                 <p className="text-gray-600">
-                  {selectedSession.startTime} - {selectedSession.endTime}
+                  {formatTime(selectedSession.startTime)} - {formatTime(selectedSession.endTime)}
                 </p>
               </div>
               {selectedSession.classStep && (

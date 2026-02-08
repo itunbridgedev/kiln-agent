@@ -100,6 +100,7 @@ export default function HomePage() {
         onLogout={handleLogout}
         onNavigateAdmin={() => router.push("/admin")}
         onNavigateLogin={() => router.push("/login")}
+        onNavigateReservations={() => router.push("/my-reservations")}
       />
 
       <main className="home-main">

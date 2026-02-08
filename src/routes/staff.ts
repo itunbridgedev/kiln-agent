@@ -88,6 +88,18 @@ router.get(
               role: true,
             },
           },
+          _count: {
+            select: {
+              registrationSessions: true,
+              reservations: {
+                where: {
+                  reservationStatus: {
+                    in: ['PENDING', 'CHECKED_IN', 'ATTENDED']
+                  }
+                }
+              }
+            }
+          }
         },
         orderBy: {
           sessionDate: "asc",
@@ -123,6 +135,9 @@ router.get(
         const startTime = `${year}-${pad(month + 1)}-${pad(day)}T${pad(startHours)}:${pad(startMinutes)}:00`;
         const endTime = `${year}-${pad(month + 1)}-${pad(day)}T${pad(endHours)}:${pad(endMinutes)}:00`;
 
+        // Calculate current enrollment from both initial bookings and flexible reservations
+        const currentEnrollment = session._count.registrationSessions + session._count.reservations;
+
         return {
           id: session.id,
           title: session.classStep
@@ -132,7 +147,7 @@ router.get(
           end: endTime,
           location: session.location,
           maxStudents: session.maxStudents,
-          currentEnrollment: session.currentEnrollment,
+          currentEnrollment: currentEnrollment,
           isCancelled: session.isCancelled,
           category: category
             ? {
@@ -214,37 +229,67 @@ router.get(
           .json({ error: "You are not assigned to this session" });
       }
 
-      // Get enrollments for this session
-      const registrations = await prisma.classRegistration.findMany({
-        where: {
-          sessions: {
-            some: {
-              sessionId: sessionId,
+      // Get enrollments for this session - both initial registrations and flexible reservations
+      const [registrations, reservations] = await Promise.all([
+        // Initial course registrations
+        prisma.classRegistration.findMany({
+          where: {
+            sessions: {
+              some: {
+                sessionId: sessionId,
+              },
+            },
+            registrationStatus: {
+              in: ["CONFIRMED", "PENDING"],
             },
           },
-          registrationStatus: {
-            in: ["CONFIRMED", "PENDING"],
-          },
-        },
-        include: {
-          customer: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              phone: true,
+          include: {
+            customer: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                phone: true,
+              },
             },
           },
-        },
-        orderBy: {
-          registeredAt: "asc",
-        },
-      });
+          orderBy: {
+            registeredAt: "asc",
+          },
+        }),
+        // Flexible reservations
+        prisma.sessionReservation.findMany({
+          where: {
+            sessionId: sessionId,
+            reservationStatus: {
+              in: ["PENDING", "CHECKED_IN", "ATTENDED"],
+            },
+          },
+          include: {
+            registration: {
+              include: {
+                customer: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    phone: true,
+                  },
+                },
+              },
+            },
+          },
+          orderBy: {
+            reservedAt: "asc",
+          },
+        }),
+      ]);
 
-      // Format the response
-      const enrollments = registrations.map(
-        (reg: (typeof registrations)[0]) => ({
+      // Format the response - combine both types
+      const enrollments = [
+        ...registrations.map((reg) => ({
           id: reg.id,
+          type: "registration" as const,
           customerName: reg.customer?.name || reg.guestName || "Unknown",
           customerEmail: reg.customer?.email || reg.guestEmail,
           customerPhone: reg.customer?.phone || reg.guestPhone,
@@ -252,12 +297,37 @@ router.get(
           guestCount: reg.guestCount,
           registeredAt: reg.registeredAt,
           status: reg.registrationStatus,
-        })
-      );
+        })),
+        ...reservations.map((res) => ({
+          id: res.id,
+          type: "reservation" as const,
+          customerName: res.registration.customer?.name || res.registration.guestName || "Unknown",
+          customerEmail: res.registration.customer?.email || res.registration.guestEmail,
+          customerPhone: res.registration.customer?.phone || res.registration.guestPhone,
+          isGuest: !res.registration.customerId,
+          guestCount: res.registration.guestCount,
+          registeredAt: res.reservedAt,
+          status: res.reservationStatus,
+        })),
+      ];
+
+      // Calculate actual enrollment count
+      const totalEnrollment = registrations.length + reservations.length;
+
+      console.log(`[Staff Enrollments] Session ${sessionId}:`, {
+        registrations: registrations.length,
+        reservations: reservations.length,
+        totalEnrollment,
+        reservationDetails: reservations.map(r => ({
+          id: r.id,
+          status: r.reservationStatus,
+          customer: r.registration.customer?.name || r.registration.guestName,
+        })),
+      });
 
       res.json({
         sessionId,
-        totalEnrollment: session.currentEnrollment,
+        totalEnrollment,
         maxStudents: session.maxStudents,
         enrollments,
       });

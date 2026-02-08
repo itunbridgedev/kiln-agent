@@ -1,0 +1,645 @@
+import express, { Request, Response } from 'express';
+import { isAuthenticated, AuthenticatedRequest } from '../middleware/auth';
+import { reservationService } from '../services/ReservationService';
+import { checkInService } from '../services/CheckInService';
+import prisma from '../prisma';
+import { ReservationStatus } from '@prisma/client';
+
+const router = express.Router();
+
+/**
+ * POST /api/reservations
+ * Create a new reservation
+ */
+router.post('/', isAuthenticated, async (req: Request, res: Response) => {
+  const authReq = req as AuthenticatedRequest;
+  try {
+    const { registrationId, sessionId, customerNotes } = req.body;
+    const customerId = authReq.user?.id;
+    
+    if (!customerId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    if (!registrationId || !sessionId) {
+      return res.status(400).json({ 
+        error: 'Missing required fields: registrationId, sessionId' 
+      });
+    }
+
+    // Verify registration belongs to customer
+    const registration = await prisma.classRegistration.findUnique({
+      where: { id: registrationId },
+      select: { customerId: true }
+    });
+
+    if (!registration || registration.customerId !== customerId) {
+      return res.status(403).json({ 
+        error: 'You can only create reservations for your own registrations' 
+      });
+    }
+
+    // Run all validations
+    const validation = await reservationService.validateReservation(
+      customerId,
+      registrationId,
+      sessionId
+    );
+
+    if (!validation.valid) {
+      return res.status(400).json({ 
+        error: validation.error,
+        errorCode: validation.errorCode
+      });
+    }
+
+    // Create reservation
+    const reservation = await reservationService.createReservation(
+      customerId,
+      registrationId,
+      sessionId,
+      customerNotes
+    );
+
+    // Calculate check-in window
+    const checkInWindow = checkInService.getCheckInWindow(
+      reservation.session.sessionDate,
+      reservation.session.startTime,
+      false // customer check-in window
+    );
+
+    res.status(201).json({
+      reservation: {
+        id: reservation.id,
+        sessionId: reservation.sessionId,
+        status: reservation.reservationStatus,
+        reservedAt: reservation.reservedAt,
+        session: {
+          date: reservation.session.sessionDate,
+          startTime: reservation.session.startTime,
+          endTime: reservation.session.endTime,
+          topic: reservation.session.topic,
+          className: reservation.session.class.name
+        },
+        checkInWindow: {
+          start: checkInWindow.windowStart,
+          end: checkInWindow.windowEnd,
+          canCheckIn: checkInWindow.canCheckIn
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error creating reservation:', error);
+    res.status(500).json({ error: 'Failed to create reservation' });
+  }
+});
+
+/**
+ * GET /api/reservations/available
+ * List available sessions for reservation
+ */
+router.get('/available', isAuthenticated, async (req: Request, res: Response) => {
+  const authReq = req as AuthenticatedRequest;
+  try {
+    const { registrationId } = req.query;
+    const customerId = authReq.user?.id;
+    
+    if (!customerId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    if (!registrationId) {
+      return res.status(400).json({ error: 'Missing registrationId parameter' });
+    }
+
+    const regId = parseInt(registrationId as string);
+
+    // Verify registration belongs to customer
+    const registration = await prisma.classRegistration.findUnique({
+      where: { id: regId },
+      select: { 
+        customerId: true,
+        passType: true,
+        maxAdvanceReservations: true,
+        sessionsRemaining: true
+      }
+    });
+
+    if (!registration || registration.customerId !== customerId) {
+      return res.status(403).json({ 
+        error: 'You can only view your own registration details' 
+      });
+    }
+
+    // Get current reservation count
+    const currentReservations = await prisma.sessionReservation.count({
+      where: {
+        registrationId: regId,
+        reservationStatus: {
+          in: [ReservationStatus.PENDING, ReservationStatus.CHECKED_IN]
+        }
+      }
+    });
+
+    // Get available sessions
+    const sessions = await reservationService.getAvailableSessions(regId);
+
+    // Check which sessions are already reserved (exclude cancelled)
+    const reservedSessionIds = await prisma.sessionReservation.findMany({
+      where: { 
+        registrationId: regId,
+        reservationStatus: {
+          notIn: ['CANCELLED']
+        }
+      },
+      select: { sessionId: true }
+    });
+    const reservedIds = new Set(reservedSessionIds.map(r => r.sessionId));
+
+    const availableSessions = sessions.map(session => {
+      const currentReservations = session._count.reservations;
+      const availableSpots = (session.maxStudents || 0) - currentReservations;
+      const isReserved = reservedIds.has(session.id);
+
+      return {
+        id: session.id,
+        date: session.sessionDate,
+        startTime: session.startTime,
+        endTime: session.endTime,
+        topic: session.topic,
+        className: session.class?.name || '',
+        maxStudents: session.maxStudents,
+        currentReservations,
+        availableSpots,
+        isAvailable: availableSpots > 0 && !isReserved,
+        isReserved
+      };
+    });
+
+    res.json({
+      registration: {
+        passType: registration.passType,
+        maxAdvanceReservations: registration.maxAdvanceReservations,
+        currentReservations,
+        canReserveMore: currentReservations < registration.maxAdvanceReservations,
+        sessionsRemaining: registration.sessionsRemaining
+      },
+      sessions: availableSessions
+    });
+  } catch (error) {
+    console.error('Error fetching available sessions:', error);
+    res.status(500).json({ error: 'Failed to fetch available sessions' });
+  }
+});
+
+/**
+ * DELETE /api/reservations/:id
+ * Cancel a reservation
+ */
+router.delete('/:id', isAuthenticated, async (req: Request, res: Response) => {
+  const authReq = req as AuthenticatedRequest;
+  try {
+    const reservationId = parseInt(req.params.id);
+    const customerId = authReq.user?.id;
+    
+    if (!customerId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    const { reason } = req.body;
+
+    // Verify reservation belongs to customer
+    const reservation = await prisma.sessionReservation.findUnique({
+      where: { id: reservationId },
+      include: {
+        registration: {
+          select: { customerId: true }
+        }
+      }
+    });
+
+    if (!reservation || reservation.registration.customerId !== customerId) {
+      return res.status(403).json({ 
+        error: 'You can only cancel your own reservations' 
+      });
+    }
+
+    const cancelled = await reservationService.cancelReservation(
+      reservationId,
+      customerId,
+      reason
+    );
+
+    res.json({
+      message: 'Reservation cancelled successfully',
+      reservation: {
+        id: cancelled.id,
+        status: cancelled.reservationStatus,
+        cancelledAt: cancelled.cancelledAt,
+        session: {
+          date: cancelled.session.sessionDate,
+          startTime: cancelled.session.startTime
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error cancelling reservation:', error);
+    const message = error instanceof Error ? error.message : 'Failed to cancel reservation';
+    res.status(400).json({ error: message });
+  }
+});
+
+/**
+ * POST /api/reservations/:id/check-in
+ * Check-in (customer self check-in or staff check-in on behalf)
+ */
+router.post('/:id/check-in', isAuthenticated, async (req: Request, res: Response) => {
+  const authReq = req as AuthenticatedRequest;
+  try {
+    const reservationId = parseInt(req.params.id);
+    const userId = authReq.user?.id;
+    
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // Check if user is staff (has admin or instructor role)
+    const userRoles = await prisma.customerRole.findMany({
+      where: { customerId: userId },
+      include: { role: true }
+    });
+    const isStaff = userRoles.some(r => ['admin', 'instructor', 'assistant'].includes(r.role.name));
+
+    // Validate check-in
+    const validation = await checkInService.validateCheckIn(
+      reservationId,
+      userId,
+      isStaff
+    );
+
+    if (!validation.valid) {
+      return res.status(400).json({ 
+        error: validation.error,
+        errorCode: validation.errorCode
+      });
+    }
+
+    // Perform check-in
+    const checkedIn = await checkInService.checkIn(
+      reservationId,
+      userId,
+      isStaff
+    );
+
+    res.json({
+      message: 'Checked in successfully',
+      reservation: {
+        id: checkedIn.id,
+        status: checkedIn.reservationStatus,
+        checkedInAt: checkedIn.checkedInAt,
+        punchUsed: checkedIn.punchUsed,
+        session: {
+          date: checkedIn.session.sessionDate,
+          startTime: checkedIn.session.startTime,
+          endTime: checkedIn.session.endTime,
+          topic: checkedIn.session.topic,
+          className: checkedIn.session.class.name
+        },
+        registration: {
+          sessionsAttended: checkedIn.registration.sessionsAttended,
+          sessionsRemaining: checkedIn.registration.sessionsRemaining
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error checking in:', error);
+    const message = error instanceof Error ? error.message : 'Failed to check in';
+    res.status(400).json({ error: message });
+  }
+});
+
+/**
+ * POST /api/reservations/:id/undo-check-in
+ * Undo check-in (staff only - for correcting mistakes)
+ */
+router.post('/:id/undo-check-in', isAuthenticated, async (req: Request, res: Response) => {
+  const authReq = req as AuthenticatedRequest;
+  try {
+    const reservationId = parseInt(req.params.id);
+    const staffId = authReq.user?.id;
+    
+    if (!staffId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // Get the reservation
+    const reservation = await prisma.sessionReservation.findUnique({
+      where: { id: reservationId },
+      include: {
+        registration: true,
+        session: true,
+      }
+    });
+
+    if (!reservation) {
+      return res.status(404).json({ error: 'Reservation not found' });
+    }
+
+    if (reservation.reservationStatus !== 'CHECKED_IN') {
+      return res.status(400).json({ error: 'Reservation is not checked in' });
+    }
+
+    // Undo check-in: revert to PENDING
+    const updated = await prisma.sessionReservation.update({
+      where: { id: reservationId },
+      data: {
+        reservationStatus: 'PENDING',
+        checkedInAt: null,
+        checkedInBy: null,
+        checkedInMethod: null,
+      },
+      include: {
+        registration: true,
+        session: {
+          include: {
+            class: true,
+          }
+        }
+      }
+    });
+
+    // If a punch was used, restore it
+    if (reservation.punchUsed && reservation.punchDeductedAt) {
+      await prisma.classRegistration.update({
+        where: { id: reservation.registrationId },
+        data: {
+          sessionsRemaining: { increment: 1 },
+          sessionsAttended: { decrement: 1 },
+        }
+      });
+    }
+
+    res.json({
+      message: 'Check-in undone successfully',
+      reservation: {
+        id: updated.id,
+        status: updated.reservationStatus,
+        session: {
+          date: updated.session.sessionDate,
+          startTime: updated.session.startTime,
+          endTime: updated.session.endTime,
+          className: updated.session.class.name
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error undoing check-in:', error);
+    const message = error instanceof Error ? error.message : 'Failed to undo check-in';
+    res.status(500).json({ error: message });
+  }
+});
+
+/**
+ * GET /api/reservations/my
+ * List customer's reservations across all their registrations
+ */
+router.get('/my', isAuthenticated, async (req: Request, res: Response) => {
+  const authReq = req as AuthenticatedRequest;
+  try {
+    const customerId = authReq.user?.id;
+    
+    if (!customerId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    const { status, upcoming } = req.query;
+
+    const where: {
+      registration: { customerId: number };
+      reservationStatus?: { in: ReservationStatus[] };
+      session?: { sessionDate: { gte: Date } };
+    } = {
+      registration: {
+        customerId
+      }
+    };
+
+    if (status && typeof status === 'string') {
+      where.reservationStatus = { in: [status as ReservationStatus] };
+    }
+
+    if (upcoming === 'true') {
+      where.session = {
+        sessionDate: {
+          gte: new Date()
+        }
+      };
+    }
+
+    const reservations = await prisma.sessionReservation.findMany({
+      where,
+      include: {
+        session: {
+          include: {
+            class: true
+          }
+        },
+        registration: {
+          select: {
+            id: true,
+            passType: true,
+            class: {
+              select: {
+                name: true
+              }
+            }
+          }
+        }
+      },
+      orderBy: {
+        session: {
+          sessionDate: 'asc'
+        }
+      }
+    });
+
+    const formatted = reservations.map(r => {
+      const checkInWindow = checkInService.getCheckInWindow(
+        r.session.sessionDate,
+        r.session.startTime,
+        false
+      );
+
+      return {
+        id: r.id,
+        status: r.reservationStatus,
+        reservedAt: r.reservedAt,
+        checkedInAt: r.checkedInAt,
+        attendedAt: r.attendedAt,
+        cancelledAt: r.cancelledAt,
+        punchUsed: r.punchUsed,
+        session: {
+          id: r.session.id,
+          date: r.session.sessionDate,
+          startTime: r.session.startTime,
+          endTime: r.session.endTime,
+          topic: r.session.topic,
+          className: r.session.class.name
+        },
+        registration: {
+          id: r.registration.id,
+          className: r.registration.class.name,
+          passType: r.registration.passType
+        },
+        checkInWindow: r.reservationStatus === ReservationStatus.PENDING ? {
+          start: checkInWindow.windowStart,
+          end: checkInWindow.windowEnd,
+          canCheckIn: checkInWindow.canCheckIn
+        } : null
+      };
+    });
+
+    res.json({ reservations: formatted });
+  } catch (error) {
+    console.error('Error fetching reservations:', error);
+    res.status(500).json({ error: 'Failed to fetch reservations' });
+  }
+});
+
+/**
+ * GET /api/reservations/my-reservations
+ * Get all reservations across all registrations for the current customer
+ */
+router.get('/my-reservations', isAuthenticated, async (req: Request, res: Response) => {
+  const authReq = req as AuthenticatedRequest;
+  try {
+    const customerId = authReq.user?.id;
+    
+    if (!customerId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // Get today's date at midnight in local timezone, then get the UTC date portion
+    // This ensures we include sessions from "today" in the local timezone
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    // Convert to UTC by getting just the date portion and setting to midnight UTC
+    const todayUTC = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
+
+    console.log('[DEBUG] Current time:', now.toISOString());
+    console.log('[DEBUG] Today local midnight as UTC:', todayUTC.toISOString());
+
+    // Get all registrations for the customer
+    const registrations = await prisma.classRegistration.findMany({
+      where: { customerId },
+      include: {
+        class: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        reservations: {
+          where: {
+            reservationStatus: {
+              in: ['PENDING', 'CHECKED_IN']
+            },
+            session: {
+              sessionDate: {
+                gte: todayUTC
+              }
+            }
+          },
+          include: {
+            session: {
+              select: {
+                id: true,
+                sessionDate: true,
+                startTime: true,
+                endTime: true,
+                topic: true,
+                class: {
+                  select: {
+                    name: true
+                  }
+                }
+              }
+            }
+          },
+          orderBy: [
+            {
+              session: {
+                sessionDate: 'asc'
+              }
+            },
+            {
+              session: {
+                startTime: 'asc'
+              }
+            }
+          ]
+        }
+      }
+    });
+
+    // Count current reservations for each registration
+    const registrationsWithCounts = await Promise.all(
+      registrations.map(async (reg) => {
+        const currentReservations = await prisma.sessionReservation.count({
+          where: {
+            registrationId: reg.id,
+            reservationStatus: {
+              in: ['PENDING', 'CHECKED_IN']
+            }
+          }
+        });
+
+        console.log(`[DEBUG] Registration ${reg.id}: ${reg.reservations.length} reservations included from query`);
+        reg.reservations.forEach(r => {
+          console.log(`  - ${r.reservationStatus} on ${r.session.sessionDate.toISOString().split('T')[0]} at ${r.session.startTime}`);
+        });
+
+        return {
+          id: reg.id,
+          className: reg.class.name,
+          passType: reg.passType,
+          currentReservations,
+          maxReservations: reg.maxAdvanceReservations,
+          sessionsRemaining: reg.sessionsRemaining,
+          upcomingReservations: reg.reservations.map(r => {
+            // Calculate check-in window for each reservation
+            const checkInWindow = checkInService.getCheckInWindow(
+              r.session.sessionDate,
+              r.session.startTime,
+              false // customer check-in
+            );
+
+            return {
+              id: r.id,
+              status: r.reservationStatus,
+              reservedAt: r.reservedAt,
+              session: {
+                id: r.session.id,
+                date: r.session.sessionDate,
+                startTime: r.session.startTime,
+                endTime: r.session.endTime,
+                topic: r.session.topic,
+                className: r.session.class.name
+              },
+              checkInWindow: {
+                start: checkInWindow.windowStart.toISOString(),
+                end: checkInWindow.windowEnd.toISOString(),
+                canCheckIn: checkInWindow.canCheckIn
+              }
+            };
+          })
+        };
+      })
+    );
+
+    res.json({ registrations: registrationsWithCounts });
+  } catch (error) {
+    console.error('Error fetching my reservations:', error);
+    res.status(500).json({ error: 'Failed to fetch reservations' });
+  }
+});
+
+export default router;

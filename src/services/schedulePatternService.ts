@@ -386,7 +386,7 @@ export async function generateSessionsFromPattern(patternId: number) {
       const sessionIntervalMinutes = Number(pattern.durationHours) * 60;
 
       let currentMinutes = startMinutes;
-      while (currentMinutes <= endMinutes) {
+      while (currentMinutes + sessionIntervalMinutes <= endMinutes) {
         const currentHour = Math.floor(currentMinutes / 60);
         const currentMin = currentMinutes % 60;
         const currentStartTime = `${String(currentHour).padStart(2, "0")}:${String(currentMin).padStart(2, "0")}`;

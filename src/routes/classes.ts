@@ -30,6 +30,11 @@ router.get("/", async (req: Request, res: Response) => {
         steps: {
           orderBy: { stepNumber: "asc" },
         },
+        resourceRequirements: {
+          include: {
+            resource: true,
+          },
+        },
         _count: {
           select: { schedules: true, sessions: true },
         },
@@ -70,6 +75,11 @@ router.get("/:id", async (req: Request, res: Response) => {
         },
         steps: {
           orderBy: { stepNumber: "asc" },
+        },
+        resourceRequirements: {
+          include: {
+            resource: true,
+          },
         },
       },
     });
@@ -141,6 +151,7 @@ router.post("/", async (req: Request, res: Response) => {
     if (classType === "multi-step" && steps && steps.length > 0) {
       await prisma.classStep.createMany({
         data: steps.map((step: any, index: number) => ({
+          studioId: classData.studioId,
           classId: classData.id,
           stepNumber: index + 1,
           name: step.name,
@@ -171,8 +182,10 @@ router.post("/", async (req: Request, res: Response) => {
 
 // PUT /api/admin/classes/:id - Update a class
 router.put("/:id", async (req: Request, res: Response) => {
+  console.log("PUT /api/admin/classes/:id called", req.params.id);
   try {
     const id = parseInt(req.params.id);
+    console.log("Request body:", JSON.stringify(req.body, null, 2));
     const {
       categoryId,
       teachingRoleId,
@@ -189,6 +202,7 @@ router.put("/:id", async (req: Request, res: Response) => {
       imageUrl,
       isActive,
       steps,
+      resourceRequirements,
     } = req.body;
 
     // Update the class
@@ -214,22 +228,72 @@ router.put("/:id", async (req: Request, res: Response) => {
 
     // If multi-step class, update steps
     if (classType === "multi-step" && steps) {
-      // Delete existing steps
-      await prisma.classStep.deleteMany({
+      // Get existing steps
+      const existingSteps = await prisma.classStep.findMany({
         where: { classId: id },
+        orderBy: { stepNumber: 'asc' }
       });
 
-      // Create new steps
-      if (steps.length > 0) {
-        await prisma.classStep.createMany({
-          data: steps.map((step: any, index: number) => ({
+      // Create a map of existing steps by their step number
+      const existingStepsMap = new Map(existingSteps.map(step => [step.stepNumber, step]));
+
+      // Update or create steps
+      for (let i = 0; i < steps.length; i++) {
+        const step = steps[i];
+        const stepNumber = i + 1;
+        const existingStep = existingStepsMap.get(stepNumber);
+
+        if (existingStep) {
+          // Update existing step
+          await prisma.classStep.update({
+            where: { id: existingStep.id },
+            data: {
+              name: step.name,
+              description: step.description,
+              durationHours: step.durationHours,
+              learningObjectives: step.learningObjectives,
+            }
+          });
+          existingStepsMap.delete(stepNumber);
+        } else {
+          // Create new step - need studioId from the class
+          await prisma.classStep.create({
+            data: {
+              studioId: classData.studioId,
+              classId: id,
+              stepNumber,
+              name: step.name,
+              description: step.description,
+              durationHours: step.durationHours,
+              learningObjectives: step.learningObjectives,
+            }
+          });
+        }
+      }
+
+      // Delete steps that are no longer present (only if step count decreased)
+      for (const [stepNumber, step] of existingStepsMap.entries()) {
+        await prisma.classStep.delete({
+          where: { id: step.id }
+        });
+      }
+    }
+
+    // Update resource requirements if provided
+    if (resourceRequirements !== undefined) {
+      // Delete existing resource requirements
+      await prisma.classResourceRequirement.deleteMany({
+        where: { classId: id }
+      });
+
+      // Create new resource requirements
+      if (resourceRequirements.length > 0) {
+        await prisma.classResourceRequirement.createMany({
+          data: resourceRequirements.map((req: any) => ({
             classId: id,
-            stepNumber: index + 1,
-            name: step.name,
-            description: step.description,
-            durationHours: step.durationHours,
-            learningObjectives: step.learningObjectives,
-          })),
+            resourceId: req.resourceId,
+            quantityPerStudent: req.quantityPerStudent
+          }))
         });
       }
     }
@@ -242,6 +306,11 @@ router.put("/:id", async (req: Request, res: Response) => {
         steps: {
           orderBy: { stepNumber: "asc" },
         },
+        resourceRequirements: {
+          include: {
+            resource: true
+          }
+        }
       },
     });
 

@@ -15,9 +15,11 @@ import calendarRoutes from "./routes/calendar";
 import classesRoutes from "./routes/classes";
 import productsRoutes from "./routes/products";
 import registrationsRoutes from "./routes/registrations";
+import reservationsRoutes from "./routes/reservations";
 import resourcesRoutes from "./routes/resources";
 import schedulePatternRoutes from "./routes/schedule-patterns";
 import staffRoutes from "./routes/staff";
+import staffReservationsRoutes from "./routes/staff-reservations";
 import stripeConnectRoutes from "./routes/stripe-connect";
 import stripePaymentRoutes from "./routes/stripe-payment";
 import stripeWebhookRoutes from "./routes/stripe-webhook";
@@ -230,6 +232,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/calendar", calendarRoutes); // Public calendar feeds
 app.use("/api/products", productsRoutes);
 app.use("/api/registrations", registrationsRoutes); // Customer registration
+app.use("/api/reservations", reservationsRoutes); // Flexible reservation system
 app.use("/api/stripe/connect", stripeConnectRoutes); // Stripe Connect onboarding
 app.use("/api/stripe/payment", stripePaymentRoutes); // Stripe payment processing
 app.use("/api/admin", adminRoutes);
@@ -240,6 +243,7 @@ app.use("/api/admin/schedule-patterns", schedulePatternRoutes);
 app.use("/api/admin/teaching-roles", teachingRolesRoutes);
 app.use("/api/admin/users", usersRoutes);
 app.use("/api/staff", staffRoutes);
+app.use("/api/staff", staffReservationsRoutes); // Staff reservation management
 app.use("/api/studio", studioRoutes);
 
 // Example route

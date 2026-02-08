@@ -1,20 +1,10 @@
 import { PrismaClient } from "@prisma/client";
 import { Request, Response, Router } from "express";
-import { isAuthenticated } from "../middleware/auth";
+import { isAuthenticated, AuthenticatedRequest } from "../middleware/auth";
 import prisma from "../prisma";
+import { checkInService } from "../services/CheckInService";
 
 const router = Router();
-
-// Extend Request type to include custom properties
-interface AuthenticatedRequest extends Request {
-  studioId?: number;
-  user?: {
-    id: number;
-    email: string;
-    name: string;
-    roles: string[];
-  };
-}
 
 // GET /api/registrations/classes - Browse available classes (public/customer view)
 router.get("/classes", async (req: Request, res: Response) => {
@@ -137,16 +127,71 @@ router.get("/classes/:id", async (req: Request, res: Response) => {
       return res.status(404).json({ error: "Class not found" });
     }
 
-    // Fetch upcoming sessions separately
-    const sessions = await prisma.classSession.findMany({
-      where: {
-        studioId,
-        classId,
-        sessionDate: {
-          gte: new Date(),
-        },
-        isCancelled: false,
+    // For multi-step classes that require sequence, determine which sessions to show
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0); // Start of today in UTC (to match sessionDate which is stored in UTC)
+    
+    let sessionWhereClause: any = {
+      studioId,
+      classId,
+      sessionDate: {
+        gte: today,
       },
+      isCancelled: false,
+    };
+
+    // If this is a multi-step class that requires sequential completion,
+    // only show sessions from the first step that are from "starting point" patterns
+    if (classDetails.classType === 'multi-step' && classDetails.requiresSequence) {
+      // Get the first step
+      const firstStep = await prisma.classStep.findFirst({
+        where: {
+          classId,
+          stepNumber: 1
+        },
+        select: {
+          id: true
+        }
+      });
+
+      if (firstStep) {
+        // Get patterns for this step and filter to "starting point" patterns
+        // Starting points are patterns with BYSETPOS containing 1, 2, 7, or 8
+        // (first week and makeup week occurrences)
+        const patterns = await prisma.classSchedulePattern.findMany({
+          where: {
+            classId,
+            classStepId: firstStep.id,
+            recurrenceRule: {
+              contains: 'BYSETPOS'
+            }
+          }
+        });
+
+        // Filter to patterns with BYSETPOS containing 1, 2, 7, or 8
+        const startingPatternIds = patterns
+          .filter(p => {
+            const match = p.recurrenceRule.match(/BYSETPOS=([^;]+)/);
+            if (!match) return false;
+            const positions = match[1].split(',').map(n => parseInt(n.trim()));
+            // Include patterns with 1, 2, 7, or 8 (first week and makeup week)
+            return positions.some(pos => [1, 2, 7, 8].includes(pos));
+          })
+          .map(p => p.id);
+
+        if (startingPatternIds.length > 0) {
+          sessionWhereClause.classStepId = firstStep.id;
+          sessionWhereClause.schedulePatternId = { in: startingPatternIds };
+        } else {
+          // No BYSETPOS patterns, so just filter to step 1
+          sessionWhereClause.classStepId = firstStep.id;
+        }
+      }
+    }
+
+    // Fetch upcoming sessions
+    const sessions = await prisma.classSession.findMany({
+      where: sessionWhereClause,
       include: {
         classStep: true,
         schedulePattern: {
@@ -257,7 +302,7 @@ router.get("/resource-availability", async (req: Request, res: Response) => {
       where: {
         sessionId: { in: sessionIds },
         registration: {
-          registrationStatus: "CONFIRMED",
+          registrationStatus: { in: ["CONFIRMED", "PENDING"] }, // Include both CONFIRMED and PENDING
         },
       },
       select: { resourceId: true, quantity: true },
@@ -282,8 +327,8 @@ router.get("/resource-availability", async (req: Request, res: Response) => {
     });
 
     res.json(availability);
-  } catch (error) {
-    console.error("Error checking resource availability:", error);
+  } catch (error: any) {
+    console.error("Error checking resource availability:", error.message);
     res.status(500).json({ error: "Failed to check availability" });
   }
 });
@@ -884,6 +929,204 @@ router.get("/:id", async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error("Error fetching registration:", error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// GET /api/registrations/:id/calendar - Get calendar view of reservations
+router.get("/:id/calendar", isAuthenticated, async (req: Request, res: Response) => {
+  try {
+    const registrationId = parseInt(req.params.id);
+    const customerId = (req as AuthenticatedRequest).user?.id;
+    
+    if (!customerId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // Verify registration belongs to customer
+    const registration = await prisma.classRegistration.findUnique({
+      where: { id: registrationId },
+      select: {
+        customerId: true,
+        passType: true,
+        sessionsIncluded: true,
+        sessionsRemaining: true,
+        sessionsAttended: true,
+        maxAdvanceReservations: true,
+        validFrom: true,
+        validUntil: true,
+        class: {
+          select: {
+            id: true,
+            name: true,
+            classType: true
+          }
+        }
+      }
+    });
+
+    if (!registration || registration.customerId !== customerId) {
+      return res.status(403).json({ 
+        error: "You can only view your own registration calendar" 
+      });
+    }
+
+    // Count current reservations from both sources
+    const flexibleReservationCount = await prisma.sessionReservation.count({
+      where: {
+        registrationId,
+        reservationStatus: {
+          in: ["PENDING", "CHECKED_IN"]
+        }
+      }
+    });
+
+    const initialBookingCount = await prisma.registrationSession.count({
+      where: {
+        registrationId
+      }
+    });
+
+    const currentReservations = flexibleReservationCount + initialBookingCount;
+
+    // Get flexible reservations
+    const flexibleReservations = await prisma.sessionReservation.findMany({
+      where: { registrationId },
+      include: {
+        session: {
+          include: {
+            class: {
+              select: {
+                name: true
+              }
+            }
+          }
+        }
+      }
+    });
+
+    // Get initial booking sessions
+    const initialBookings = await prisma.registrationSession.findMany({
+      where: { registrationId },
+      include: {
+        session: {
+          include: {
+            class: {
+              select: {
+                name: true
+              }
+            },
+            classStep: true
+          }
+        }
+      }
+    });
+
+    // Combine both types into a unified format
+    const reservations = [
+      ...flexibleReservations.map(r => ({
+        id: r.id,
+        registrationId: r.registrationId,
+        sessionId: r.sessionId,
+        reservationStatus: r.reservationStatus,
+        reservedAt: r.reservedAt,
+        checkedInAt: r.checkedInAt,
+        attendedAt: r.attendedAt,
+        noShowDetectedAt: r.noShowDetectedAt,
+        cancelledAt: r.cancelledAt,
+        cancellationReason: r.cancellationReason,
+        punchUsed: r.punchUsed,
+        customerNotes: r.customerNotes,
+        session: r.session,
+        source: 'flexible' as const
+      })),
+      ...initialBookings.map(ib => ({
+        id: ib.id,
+        registrationId: ib.registrationId,
+        sessionId: ib.sessionId,
+        reservationStatus: 'PENDING' as const,
+        reservedAt: registration.validFrom || new Date(),
+        checkedInAt: null,
+        attendedAt: null,
+        noShowDetectedAt: null,
+        cancelledAt: null,
+        cancellationReason: null,
+        punchUsed: false,
+        customerNotes: null,
+        session: ib.session,
+        source: 'initial' as const
+      }))
+    ].sort((a, b) => 
+      new Date(b.session.sessionDate).getTime() - new Date(a.session.sessionDate).getTime()
+    );
+
+    const formatted = reservations.map((r) => {
+      // Calculate check-in window for each reservation
+      const checkInWindow = checkInService.getCheckInWindow(
+        r.session.sessionDate,
+        r.session.startTime,
+        false // customer check-in
+      );
+
+      return {
+        id: r.id,
+        status: r.reservationStatus,
+        reservedAt: r.reservedAt,
+        checkedInAt: r.checkedInAt,
+        attendedAt: r.attendedAt,
+        noShowDetectedAt: r.noShowDetectedAt,
+        cancelledAt: r.cancelledAt,
+        cancellationReason: r.cancellationReason,
+        punchUsed: r.punchUsed,
+        customerNotes: r.customerNotes,
+        session: {
+          id: r.session.id,
+          date: r.session.sessionDate,
+          startTime: r.session.startTime,
+          endTime: r.session.endTime,
+          topic: r.session.topic,
+          className: r.session.class?.name || ''
+        },
+        checkInWindow: {
+          start: checkInWindow.windowStart.toISOString(),
+          end: checkInWindow.windowEnd.toISOString(),
+          canCheckIn: checkInWindow.canCheckIn
+        }
+      };
+    });
+
+    // For multi-step classes, max reservations should be the number of steps
+    let maxReservations = registration.maxAdvanceReservations;
+    if (registration.class.classType === 'multi-step') {
+      const stepCount = await prisma.classStep.count({
+        where: { classId: registration.class.id, isActive: true }
+      });
+      maxReservations = stepCount;
+    }
+
+    res.json({
+      registration: {
+        id: registrationId,
+        class: {
+          id: registration.class.id,
+          name: registration.class.name,
+          classType: registration.class.classType
+        },
+        passType: registration.passType,
+        sessionsIncluded: registration.sessionsIncluded,
+        sessionsRemaining: registration.sessionsRemaining,
+        sessionsAttended: registration.sessionsAttended,
+        currentReservations,
+        maxReservations: maxReservations,
+        canReserveMore: currentReservations < maxReservations,
+        validFrom: registration.validFrom,
+        validUntil: registration.validUntil
+      },
+      reservations: formatted
+    });
+  } catch (error) {
+    console.error("Error fetching registration calendar:", error);
+    const message = error instanceof Error ? error.message : 'Failed to fetch registration calendar';
+    res.status(500).json({ error: message });
   }
 });
 

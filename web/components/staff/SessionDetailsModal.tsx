@@ -5,6 +5,7 @@ import { CalendarEvent } from "./StaffCalendar";
 
 interface Enrollment {
   id: number;
+  type: 'registration' | 'reservation';
   customerName: string;
   customerEmail: string | null;
   customerPhone: string | null;
@@ -28,6 +29,7 @@ export default function SessionDetailsModal({
   const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
   const [loadingEnrollments, setLoadingEnrollments] = useState(false);
   const [showEnrollments, setShowEnrollments] = useState(false);
+  const [checkingIn, setCheckingIn] = useState<number | null>(null);
 
   useEffect(() => {
     if (event && showEnrollments && enrollments.length === 0) {
@@ -49,6 +51,12 @@ export default function SessionDetailsModal({
 
       if (response.ok) {
         const data = await response.json();
+        console.log('[SessionDetailsModal] Enrollments API response:', {
+          sessionId: event.id,
+          totalEnrollment: data.totalEnrollment,
+          enrollmentsCount: data.enrollments?.length,
+          enrollments: data.enrollments,
+        });
         setEnrollments(data.enrollments || []);
       } else {
         console.error("Failed to fetch enrollments");
@@ -60,7 +68,87 @@ export default function SessionDetailsModal({
     }
   };
 
+  const handleCheckIn = async (enrollment: Enrollment) => {
+    if (enrollment.type !== 'reservation') {
+      alert('Can only check in flexible reservations');
+      return;
+    }
+
+    setCheckingIn(enrollment.id);
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/reservations/${enrollment.id}/check-in`,
+        {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (response.ok) {
+        // Refresh enrollments to show updated status
+        await fetchEnrollments();
+      } else {
+        const error = await response.json();
+        alert(`Failed to check in: ${error.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error checking in:', error);
+      alert('Failed to check in student');
+    } finally {
+      setCheckingIn(null);
+    }
+  };
+
+  const handleUndoCheckIn = async (enrollment: Enrollment) => {
+    if (enrollment.type !== 'reservation') {
+      return;
+    }
+
+    if (!confirm(`Undo check-in for ${enrollment.customerName}?`)) {
+      return;
+    }
+
+    setCheckingIn(enrollment.id);
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/reservations/${enrollment.id}/undo-check-in`,
+        {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (response.ok) {
+        // Refresh enrollments to show updated status
+        await fetchEnrollments();
+      } else {
+        const error = await response.json();
+        alert(`Failed to undo check-in: ${error.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error undoing check-in:', error);
+      alert('Failed to undo check-in');
+    } finally {
+      setCheckingIn(null);
+    }
+  };
+
   if (!event) return null;
+
+  // Debug logging
+  console.log('[SessionDetailsModal] Event data:', {
+    id: event.id,
+    title: event.title,
+    currentEnrollment: event.currentEnrollment,
+    maxStudents: event.maxStudents,
+    startTime: event.startTime,
+  });
 
   const startDate =
     typeof event.start === "string" ? new Date(event.start) : event.start;
@@ -329,39 +417,78 @@ export default function SessionDetailsModal({
                         <p className="text-xs font-medium text-gray-700 mb-2">
                           Enrolled Students:
                         </p>
-                        {enrollments.map((enrollment, index) => (
-                          <div
-                            key={enrollment.id}
-                            className="flex items-center justify-between py-2 px-3 bg-white rounded border border-gray-200"
-                          >
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs font-medium text-gray-500">
-                                {index + 1}.
-                              </span>
-                              <div>
-                                <p className="text-sm font-medium text-gray-900">
-                                  {enrollment.customerName}
-                                  {enrollment.isGuest && (
-                                    <span className="ml-1 text-xs text-gray-500">
-                                      (Guest)
-                                    </span>
+                        {enrollments.map((enrollment, index) => {
+                          const isCheckedIn = enrollment.status === 'CHECKED_IN' || enrollment.status === 'ATTENDED';
+                          const canCheckIn = enrollment.type === 'reservation' && enrollment.status === 'PENDING';
+                          const canUndoCheckIn = enrollment.type === 'reservation' && enrollment.status === 'CHECKED_IN';
+
+                          return (
+                            <div
+                              key={enrollment.id}
+                              className="flex items-center justify-between py-2 px-3 bg-white rounded border border-gray-200"
+                            >
+                              <div className="flex items-center gap-2 flex-1">
+                                <span className="text-xs font-medium text-gray-500">
+                                  {index + 1}.
+                                </span>
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <p className="text-sm font-medium text-gray-900">
+                                      {enrollment.customerName}
+                                      {enrollment.isGuest && (
+                                        <span className="ml-1 text-xs text-gray-500">
+                                          (Guest)
+                                        </span>
+                                      )}
+                                    </p>
+                                    {isCheckedIn && (
+                                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                                        ✓ Checked In
+                                      </span>
+                                    )}
+                                    {enrollment.status === 'PENDING' && (
+                                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                                        Pending
+                                      </span>
+                                    )}
+                                  </div>
+                                  {enrollment.customerEmail && (
+                                    <p className="text-xs text-gray-500">
+                                      {enrollment.customerEmail}
+                                    </p>
                                   )}
-                                </p>
-                                {enrollment.customerEmail && (
-                                  <p className="text-xs text-gray-500">
-                                    {enrollment.customerEmail}
-                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {enrollment.guestCount > 1 && (
+                                  <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                                    +{enrollment.guestCount - 1} guest
+                                    {enrollment.guestCount > 2 ? "s" : ""}
+                                  </span>
+                                )}
+                                {canCheckIn && (
+                                  <button
+                                    onClick={() => handleCheckIn(enrollment)}
+                                    disabled={checkingIn === enrollment.id}
+                                    className="px-3 py-1 text-xs font-medium text-white bg-green-600 hover:bg-green-700 disabled:bg-gray-400 rounded transition-colors"
+                                  >
+                                    {checkingIn === enrollment.id ? 'Checking in...' : 'Check In'}
+                                  </button>
+                                )}
+                                {canUndoCheckIn && (
+                                  <button
+                                    onClick={() => handleUndoCheckIn(enrollment)}
+                                    disabled={checkingIn === enrollment.id}
+                                    className="px-3 py-1 text-xs font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 disabled:bg-gray-100 rounded transition-colors"
+                                    title="Undo check-in"
+                                  >
+                                    {checkingIn === enrollment.id ? 'Undoing...' : 'Undo'}
+                                  </button>
                                 )}
                               </div>
                             </div>
-                            {enrollment.guestCount > 1 && (
-                              <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded">
-                                +{enrollment.guestCount - 1} guest
-                                {enrollment.guestCount > 2 ? "s" : ""}
-                              </span>
-                            )}
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     ) : (
                       <p className="text-sm text-gray-500 text-center py-2">

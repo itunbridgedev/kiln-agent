@@ -474,6 +474,16 @@ export default function MyClassesPage() {
                           )}
                         </span>
                         <div className="flex-1"></div>
+                        {/* Show Manage Reservations button for multi-step classes or non-single-session registrations */}
+                        {(registration.registrationType !== "SINGLE_SESSION" || registration.class.classType === "multi-step") &&
+                          registration.registrationStatus !== "CANCELLED" && (
+                            <Link
+                              href={`/registrations/${registration.id}/reservations`}
+                              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium"
+                            >
+                              Manage Reservations
+                            </Link>
+                          )}
                         {registration.registrationStatus === "PENDING" && (
                           <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
                             Complete Payment

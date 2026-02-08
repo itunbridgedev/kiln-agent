@@ -2,32 +2,6 @@
 > api@1.0.0 dev
 > cross-env NODE_ENV=development ts-node-dev src/index.ts
 
-[INFO] 19:16:31 ts-node-dev ver. 2.0.0 (using ts-node ver. 10.9.2, typescript ver. 5.9.3)
+[INFO] 16:47:34 ts-node-dev ver. 2.0.0 (using ts-node ver. 10.9.2, typescript ver. 5.9.3)
 [dotenv@17.2.3] injecting env (0) from .env.development -- tip: ⚙️  suppress all logs with { quiet: true }
 API listening on port 4000
-[2026-02-02T02:16:48.581Z] GET /api/registrations/resource-availability
-  Origin: http://localhost:3000
-  Cookies: present
-  Cookie value: __stripe_mid=db237a36-cecb-4e87-a33c-3a57a5092349789ec3; __stripe_sid=1eeaf39b-dd31-4a98-9d72-3759f0
-[Session Debug] GET /api/registrations/resource-availability
-  Cookie header: present
-  Session ID: CzR2qed5cFiEQvPU-P2dYUn60Qrvv_-o
-  Session user: none
-  Is authenticated: false
-[Response] GET /resource-availability
-  Set-Cookie header: NOT SET
-[Response] GET /resource-availability
-  Set-Cookie header: NOT SET
-[2026-02-02T02:18:12.123Z] POST /api/stripe/payment/create-intent
-  Origin: http://localhost:3000
-  Cookies: present
-  Cookie value: __stripe_mid=db237a36-cecb-4e87-a33c-3a57a5092349789ec3; __stripe_sid=1eeaf39b-dd31-4a98-9d72-3759f0
-[Session Debug] POST /api/stripe/payment/create-intent
-  Cookie header: present
-  Session ID: v00YRxUeQl8gFIjDZJjVs8xQLUKIctkI
-  Session user: none
-  Is authenticated: false
-[Response] POST /create-intent
-  Set-Cookie header: NOT SET
-[Response] POST /create-intent
-  Set-Cookie header: NOT SET

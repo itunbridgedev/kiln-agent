@@ -12,6 +12,13 @@ const nonTenantModels = [
   "ClassSessionInstructor",
   "ClassSessionAssistant",
   "RegistrationSession",
+  "SessionResourceAllocation",
+  "SessionReservation",
+  "ReservationHistory",
+  "NoShowPolicy",
+  "CustomerSuspension",
+  "ClassResourceRequirement",
+  "StaffCalendarFeed",
 ];
 
 // Create base Prisma client

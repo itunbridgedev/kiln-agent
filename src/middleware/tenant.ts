@@ -17,7 +17,21 @@ export function createTenantMiddleware() {
     const tenantId = getStudioContext();
 
     // Skip middleware for Studio model and other non-tenant models
-    const nonTenantModels = ["Studio", "Role", "CustomerRole"];
+    const nonTenantModels = [
+      "Studio",
+      "Role",
+      "CustomerRole",
+      "ClassResourceRequirement",
+      "ClassSessionInstructor",
+      "ClassSessionAssistant",
+      "StaffCalendarFeed",
+      "StaffTeachingRole",
+      "RegistrationSession",
+      "ReservationHistory",
+      "SessionResourceAllocation",
+      "Account",
+      "Session"
+    ];
     if (nonTenantModels.includes(params.model)) {
       return next(params);
     }

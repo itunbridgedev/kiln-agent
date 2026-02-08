@@ -66,6 +66,18 @@ router.get("/sessions", isAuthenticated, async (req, res) => {
             role: true,
           },
         },
+        _count: {
+          select: {
+            registrationSessions: true,
+            reservations: {
+              where: {
+                reservationStatus: {
+                  in: ['PENDING', 'CHECKED_IN', 'ATTENDED']
+                }
+              }
+            }
+          }
+        }
       },
       orderBy: {
         sessionDate: "asc",
@@ -134,6 +146,16 @@ router.get("/sessions", isAuthenticated, async (req, res) => {
         const startDateTime = `${year}-${pad(month + 1)}-${pad(day)}T${pad(startHour)}:${pad(startMin)}:00`;
         const endDateTime = `${year}-${pad(month + 1)}-${pad(day)}T${pad(endHour)}:${pad(endMin)}:00`;
 
+        // Calculate current enrollment from both initial bookings and flexible reservations
+        const currentEnrollment = session._count.registrationSessions + session._count.reservations;
+
+        console.log(`[Admin Calendar] Session ${session.id} (${session.startTime}):`, {
+          registrationSessions: session._count.registrationSessions,
+          reservations: session._count.reservations,
+          currentEnrollment,
+          maxStudents: session.maxStudents,
+        });
+
         return {
           id: session.id,
           title: session.class.name,
@@ -144,9 +166,9 @@ router.get("/sessions", isAuthenticated, async (req, res) => {
           categoryName: session.class.category.name,
           categoryId: session.class.category.id,
           maxStudents: session.maxStudents || 0,
-          currentEnrollment: session.currentEnrollment,
+          currentEnrollment: currentEnrollment,
           isFull: session.maxStudents
-            ? session.currentEnrollment >= session.maxStudents
+            ? currentEnrollment >= session.maxStudents
             : false,
           staff: allStaff,
           instructorCount: session.instructors.length,
