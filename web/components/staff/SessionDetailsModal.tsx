@@ -51,12 +51,6 @@ export default function SessionDetailsModal({
 
       if (response.ok) {
         const data = await response.json();
-        console.log('[SessionDetailsModal] Enrollments API response:', {
-          sessionId: event.id,
-          totalEnrollment: data.totalEnrollment,
-          enrollmentsCount: data.enrollments?.length,
-          enrollments: data.enrollments,
-        });
         setEnrollments(data.enrollments || []);
       } else {
         console.error("Failed to fetch enrollments");
@@ -140,15 +134,6 @@ export default function SessionDetailsModal({
   };
 
   if (!event) return null;
-
-  // Debug logging
-  console.log('[SessionDetailsModal] Event data:', {
-    id: event.id,
-    title: event.title,
-    currentEnrollment: event.currentEnrollment,
-    maxStudents: event.maxStudents,
-    startTime: event.startTime,
-  });
 
   const startDate =
     typeof event.start === "string" ? new Date(event.start) : event.start;

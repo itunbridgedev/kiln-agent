@@ -149,13 +149,6 @@ router.get("/sessions", isAuthenticated, async (req, res) => {
         // Calculate current enrollment from both initial bookings and flexible reservations
         const currentEnrollment = session._count.registrationSessions + session._count.reservations;
 
-        console.log(`[Admin Calendar] Session ${session.id} (${session.startTime}):`, {
-          registrationSessions: session._count.registrationSessions,
-          reservations: session._count.reservations,
-          currentEnrollment,
-          maxStudents: session.maxStudents,
-        });
-
         return {
           id: session.id,
           title: session.class.name,

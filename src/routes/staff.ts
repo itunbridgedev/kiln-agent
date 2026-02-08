@@ -314,17 +314,6 @@ router.get(
       // Calculate actual enrollment count
       const totalEnrollment = registrations.length + reservations.length;
 
-      console.log(`[Staff Enrollments] Session ${sessionId}:`, {
-        registrations: registrations.length,
-        reservations: reservations.length,
-        totalEnrollment,
-        reservationDetails: reservations.map(r => ({
-          id: r.id,
-          status: r.reservationStatus,
-          customer: r.registration.customer?.name || r.registration.guestName,
-        })),
-      });
-
       res.json({
         sessionId,
         totalEnrollment,
