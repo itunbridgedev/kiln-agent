@@ -373,6 +373,14 @@ router.post("/", async (req: Request, res: Response) => {
       });
     }
 
+    // For multi-session registrations (FULL_SCHEDULE, DROP_IN), session ID indicates
+    // which session the user clicked to register from - we'll create initial booking for it
+    if (!sessionId) {
+      return res.status(400).json({
+        error: "sessionId is required to create initial booking",
+      });
+    }
+
     // Validate guest info if guest booking
     if (isGuestBooking && !guestName) {
       return res.status(400).json({

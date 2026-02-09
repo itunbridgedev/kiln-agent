@@ -214,8 +214,9 @@ router.post("/confirm", async (req: Request, res: Response) => {
 
     console.log("Registration created:", registration.id);
 
-    // If single session, link to specific session
-    if (registrationType === "SINGLE_SESSION" && sessionId) {
+    // If a session was selected during registration, create initial booking
+    // This applies to all registration types (SINGLE_SESSION, FULL_SCHEDULE, DROP_IN)
+    if (sessionId) {
       const sessionLinkData = {
         registrationId: registration.id,
         sessionId,
@@ -224,7 +225,7 @@ router.post("/confirm", async (req: Request, res: Response) => {
       await prisma.registrationSession.create({
         data: sessionLinkData,
       });
-      console.log("RegistrationSession created successfully");
+      console.log("RegistrationSession created successfully for session:", sessionId);
     }
 
     // Update payment details from PaymentIntent
