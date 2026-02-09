@@ -587,6 +587,7 @@ router.get('/my-reservations', isAuthenticated, async (req: Request, res: Respon
         // Get initial bookings (RegistrationSession)
         sessions: {
           where: {
+            attended: false,
             session: {
               sessionDate: {
                 gte: todayUTC
@@ -608,7 +609,19 @@ router.get('/my-reservations', isAuthenticated, async (req: Request, res: Respon
                 }
               }
             }
-          }
+          },
+          orderBy: [
+            {
+              session: {
+                sessionDate: 'asc'
+              }
+            },
+            {
+              session: {
+                startTime: 'asc'
+              }
+            }
+          ]
         }
       }
     });
