@@ -99,6 +99,11 @@ export default function SchedulePatternManager({
   );
   const [staff, setStaff] = useState<any[]>([]);
   const [loadingStaff, setLoadingStaff] = useState(false);
+  const [resources, setResources] = useState<any[]>([]);
+  const [loadingResources, setLoadingResources] = useState(false);
+  const [selectedResources, setSelectedResources] = useState<
+    { resourceId: number; quantityPerStudent: number }[]
+  >([]);
 
   const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -163,7 +168,25 @@ export default function SchedulePatternManager({
   useEffect(() => {
     fetchPatterns();
     fetchStaff();
+    fetchResources();
   }, [classData.id]);
+
+  const fetchResources = async () => {
+    setLoadingResources(true);
+    try {
+      const response = await fetch("/api/admin/resources", {
+        credentials: "include",
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setResources(data.filter((r: any) => r.isActive));
+      }
+    } catch (error) {
+      console.error("Error fetching resources:", error);
+    } finally {
+      setLoadingResources(false);
+    }
+  };
 
   const fetchStaff = async () => {
     setLoadingStaff(true);
@@ -534,6 +557,24 @@ export default function SchedulePatternManager({
         setShowForm(false);
         setShowPreview(false);
         setEditingPattern(null);
+        
+        // Save class resource requirements if any resources are selected
+        if (selectedResources.length > 0) {
+          try {
+            await fetch(`/api/admin/classes/${classData.id}/resources`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              credentials: "include",
+              body: JSON.stringify({
+                resources: selectedResources,
+              }),
+            });
+          } catch (error) {
+            console.error("Error saving resource requirements:", error);
+            // Don't fail the whole operation if resource saving fails
+          }
+        }
+        
         await fetchPatterns();
       }
     } catch (error) {
@@ -646,6 +687,16 @@ export default function SchedulePatternManager({
     if (pattern.classStepId) {
       setSelectedSteps([pattern.classStepId]);
     }
+
+    // Load existing resource requirements
+    if (classData.resourceRequirements && classData.resourceRequirements.length > 0) {
+      setSelectedResources(
+        classData.resourceRequirements.map((req: any) => ({
+          resourceId: req.resourceId,
+          quantityPerStudent: req.quantityPerStudent,
+        }))
+      );
+    }
   };
 
   const previewSessionsForPattern = async (patternId: number) => {
@@ -752,6 +803,7 @@ export default function SchedulePatternManager({
                     );
                     setDefaultInstructorId(null);
                     setDefaultAssistantId(null);
+                    setSelectedResources([]);
                   }}
                   className="btn btn-primary"
                 >
@@ -1106,6 +1158,102 @@ export default function SchedulePatternManager({
                     </div>
                   )}
                 </div>
+              </div>
+
+              {/* Studio Resources Section */}
+              <div className="form-section">
+                <h3>Studio Resources (Optional)</h3>
+                <p className="text-muted" style={{ marginBottom: "1rem" }}>
+                  Specify which studio resources are required for this class
+                  (e.g., pottery wheels, painting stations). This helps track
+                  resource availability.
+                </p>
+                {loadingResources ? (
+                  <p>Loading resources...</p>
+                ) : resources.length === 0 ? (
+                  <p className="text-muted">
+                    No studio resources defined.{" "}
+                    <a href="/admin" style={{ textDecoration: "underline" }}>
+                      Add resources in Studio Resources section.
+                    </a>
+                  </p>
+                ) : (
+                  <div className="resources-list">
+                    {resources.map((resource) => {
+                      const selected = selectedResources.find(
+                        (r) => r.resourceId === resource.id
+                      );
+                      return (
+                        <div key={resource.id} className="resource-item">
+                          <label className="checkbox-label">
+                            <input
+                              type="checkbox"
+                              checked={!!selected}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedResources([
+                                    ...selectedResources,
+                                    {
+                                      resourceId: resource.id,
+                                      quantityPerStudent: 1,
+                                    },
+                                  ]);
+                                } else {
+                                  setSelectedResources(
+                                    selectedResources.filter(
+                                      (r) => r.resourceId !== resource.id
+                                    )
+                                  );
+                                }
+                              }}
+                            />
+                            <span>
+                              {resource.name}
+                              {resource.description && (
+                                <small className="text-muted">
+                                  {" "}
+                                  - {resource.description}
+                                </small>
+                              )}
+                              <small className="text-muted">
+                                {" "}
+                                (Available: {resource.quantity})
+                              </small>
+                            </span>
+                          </label>
+                          {selected && (
+                            <div
+                              className="form-group"
+                              style={{ marginLeft: "2rem", marginTop: "0.5rem" }}
+                            >
+                              <label>Quantity per student</label>
+                              <input
+                                type="number"
+                                min="1"
+                                value={selected.quantityPerStudent}
+                                onChange={(e) => {
+                                  setSelectedResources(
+                                    selectedResources.map((r) =>
+                                      r.resourceId === resource.id
+                                        ? {
+                                            ...r,
+                                            quantityPerStudent: parseInt(
+                                              e.target.value
+                                            ),
+                                          }
+                                        : r
+                                    )
+                                  );
+                                }}
+                                style={{ width: "100px" }}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               {/* Staff Assignment Section */}
@@ -1663,6 +1811,34 @@ export default function SchedulePatternManager({
 
         .session-time {
           color: #666;
+        }
+
+        .resources-list {
+          display: flex;
+          flex-direction: column;
+          gap: 0.75rem;
+        }
+
+        .resource-item {
+          padding: 0.5rem;
+          border: 1px solid #e0e0e0;
+          border-radius: 4px;
+          background: #f9f9f9;
+        }
+
+        .resource-item .checkbox-label {
+          display: flex;
+          align-items: start;
+          gap: 0.5rem;
+        }
+
+        .resource-item .checkbox-label input[type="checkbox"] {
+          margin-top: 0.25rem;
+          flex-shrink: 0;
+        }
+
+        .resource-item .checkbox-label span {
+          flex: 1;
         }
       `}</style>
 

@@ -352,4 +352,49 @@ router.delete("/:id", async (req: Request, res: Response) => {
   }
 });
 
+// PUT /api/admin/classes/:id/resources - Update class resource requirements
+router.put("/:id/resources", async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { resources } = req.body;
+
+    if (!Array.isArray(resources)) {
+      return res.status(400).json({ error: "Resources must be an array" });
+    }
+
+    // Delete existing resource requirements
+    await prisma.classResourceRequirement.deleteMany({
+      where: { classId: id },
+    });
+
+    // Create new resource requirements
+    if (resources.length > 0) {
+      await prisma.classResourceRequirement.createMany({
+        data: resources.map((r: { resourceId: number; quantityPerStudent: number }) => ({
+          classId: id,
+          resourceId: r.resourceId,
+          quantityPerStudent: r.quantityPerStudent,
+        })),
+      });
+    }
+
+    // Fetch updated class with resources
+    const updatedClass = await prisma.class.findUnique({
+      where: { id },
+      include: {
+        resourceRequirements: {
+          include: {
+            resource: true,
+          },
+        },
+      },
+    });
+
+    res.json(updatedClass);
+  } catch (error) {
+    console.error("Error updating class resources:", error);
+    res.status(500).json({ error: "Failed to update class resources" });
+  }
+});
+
 export default router;
