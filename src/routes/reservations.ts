@@ -507,6 +507,7 @@ router.get('/my', isAuthenticated, async (req: Request, res: Response) => {
 /**
  * GET /api/reservations/my-reservations
  * Get all reservations across all registrations for the current customer
+ * Includes both flexible reservations (SessionReservation) and initial bookings (RegistrationSession)
  */
 router.get('/my-reservations', isAuthenticated, async (req: Request, res: Response) => {
   const authReq = req as AuthenticatedRequest;
@@ -530,13 +531,19 @@ router.get('/my-reservations', isAuthenticated, async (req: Request, res: Respon
     // Get all registrations for the customer
     const registrations = await prisma.classRegistration.findMany({
       where: { customerId },
-      include: {
+      select: {
+        id: true,
+        validFrom: true,
+        passType: true,
+        maxAdvanceReservations: true,
+        sessionsRemaining: true,
         class: {
           select: {
             id: true,
             name: true
           }
         },
+        // Get flexible reservations (SessionReservation)
         reservations: {
           where: {
             reservationStatus: {
@@ -576,6 +583,32 @@ router.get('/my-reservations', isAuthenticated, async (req: Request, res: Respon
               }
             }
           ]
+        },
+        // Get initial bookings (RegistrationSession)
+        sessions: {
+          where: {
+            session: {
+              sessionDate: {
+                gte: todayUTC
+              }
+            }
+          },
+          include: {
+            session: {
+              select: {
+                id: true,
+                sessionDate: true,
+                startTime: true,
+                endTime: true,
+                topic: true,
+                class: {
+                  select: {
+                    name: true
+                  }
+                }
+              }
+            }
+          }
         }
       }
     });
@@ -583,7 +616,8 @@ router.get('/my-reservations', isAuthenticated, async (req: Request, res: Respon
     // Count current reservations for each registration
     const registrationsWithCounts = await Promise.all(
       registrations.map(async (reg) => {
-        const currentReservations = await prisma.sessionReservation.count({
+        // Count flexible reservations
+        const flexibleReservationCount = await prisma.sessionReservation.count({
           where: {
             registrationId: reg.id,
             reservationStatus: {
@@ -592,9 +626,63 @@ router.get('/my-reservations', isAuthenticated, async (req: Request, res: Respon
           }
         });
 
-        console.log(`[DEBUG] Registration ${reg.id}: ${reg.reservations.length} reservations included from query`);
-        reg.reservations.forEach(r => {
-          console.log(`  - ${r.reservationStatus} on ${r.session.sessionDate.toISOString().split('T')[0]} at ${r.session.startTime}`);
+        // Count initial bookings
+        const initialBookingCount = await prisma.registrationSession.count({
+          where: {
+            registrationId: reg.id
+          }
+        });
+
+        const currentReservations = flexibleReservationCount + initialBookingCount;
+
+        console.log(`[DEBUG] Registration ${reg.id}: ${reg.reservations.length} flexible + ${reg.sessions.length} initial bookings`);
+        
+        // Combine both types of reservations into a unified format
+        const allReservations = [
+          // Flexible reservations
+          ...reg.reservations.map(r => ({
+            id: r.id,
+            status: r.reservationStatus,
+            reservedAt: r.reservedAt,
+            session: {
+              id: r.session.id,
+              date: r.session.sessionDate,
+              startTime: r.session.startTime,
+              endTime: r.session.endTime,
+              topic: r.session.topic,
+              className: r.session.class.name
+            },
+            sessionDate: r.session.sessionDate,
+            startTime: r.session.startTime,
+            source: 'flexible' as const
+          })),
+          // Initial bookings
+          ...reg.sessions.map(ib => ({
+            id: ib.id,
+            status: 'PENDING' as const,
+            reservedAt: reg.validFrom || new Date(),
+            session: {
+              id: ib.session.id,
+              date: ib.session.sessionDate,
+              startTime: ib.session.startTime,
+              endTime: ib.session.endTime,
+              topic: ib.session.topic,
+              className: ib.session.class.name
+            },
+            sessionDate: ib.session.sessionDate,
+            startTime: ib.session.startTime,
+            source: 'initial' as const
+          }))
+        ].sort((a, b) => {
+          // Sort by date first, then by start time
+          const dateCompare = new Date(a.sessionDate).getTime() - new Date(b.sessionDate).getTime();
+          if (dateCompare !== 0) return dateCompare;
+          return a.startTime.localeCompare(b.startTime);
+        });
+
+        console.log(`  Total upcoming: ${allReservations.length} reservations`);
+        allReservations.forEach(r => {
+          console.log(`  - ${r.status} on ${r.session.date.toISOString().split('T')[0]} at ${r.session.startTime} (${r.source})`);
         });
 
         return {
@@ -604,26 +692,19 @@ router.get('/my-reservations', isAuthenticated, async (req: Request, res: Respon
           currentReservations,
           maxReservations: reg.maxAdvanceReservations,
           sessionsRemaining: reg.sessionsRemaining,
-          upcomingReservations: reg.reservations.map(r => {
+          upcomingReservations: allReservations.map(r => {
             // Calculate check-in window for each reservation
             const checkInWindow = checkInService.getCheckInWindow(
-              r.session.sessionDate,
+              r.session.date,
               r.session.startTime,
               false // customer check-in
             );
 
             return {
               id: r.id,
-              status: r.reservationStatus,
+              status: r.status,
               reservedAt: r.reservedAt,
-              session: {
-                id: r.session.id,
-                date: r.session.sessionDate,
-                startTime: r.session.startTime,
-                endTime: r.session.endTime,
-                topic: r.session.topic,
-                className: r.session.class.name
-              },
+              session: r.session,
               checkInWindow: {
                 start: checkInWindow.windowStart.toISOString(),
                 end: checkInWindow.windowEnd.toISOString(),
