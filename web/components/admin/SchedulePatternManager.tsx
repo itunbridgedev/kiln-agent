@@ -17,6 +17,10 @@ interface Class {
   durationHours: string | null;
   maxStudents?: number;
   steps?: ClassStep[];
+  resourceRequirements?: Array<{
+    resourceId: number;
+    quantityPerStudent: number;
+  }>;
 }
 
 interface SchedulePattern {
