@@ -75,7 +75,7 @@ router.post('/', isAuthenticated, async (req: Request, res: Response) => {
         status: reservation.reservationStatus,
         reservedAt: reservation.reservedAt,
         session: {
-          date: reservation.session.sessionDate,
+          date: reservation.session.sessionDate.toISOString().split('T')[0],
           startTime: reservation.session.startTime,
           endTime: reservation.session.endTime,
           topic: reservation.session.topic,
@@ -163,7 +163,7 @@ router.get('/available', isAuthenticated, async (req: Request, res: Response) =>
 
       return {
         id: session.id,
-        date: session.sessionDate,
+        date: session.sessionDate.toISOString().split('T')[0],
         startTime: session.startTime,
         endTime: session.endTime,
         topic: session.topic,
@@ -236,7 +236,7 @@ router.delete('/:id', isAuthenticated, async (req: Request, res: Response) => {
         status: cancelled.reservationStatus,
         cancelledAt: cancelled.cancelledAt,
         session: {
-          date: cancelled.session.sessionDate,
+          date: cancelled.session.sessionDate.toISOString().split('T')[0],
           startTime: cancelled.session.startTime
         }
       }
@@ -309,7 +309,7 @@ router.delete('/initial/:id', isAuthenticated, async (req: Request, res: Respons
         status: 'CANCELLED',
         cancelledAt: new Date(),
         session: {
-          date: booking.session.sessionDate,
+          date: booking.session.sessionDate.toISOString().split('T')[0],
           startTime: booking.session.startTime
         }
       }
@@ -371,7 +371,7 @@ router.post('/:id/check-in', isAuthenticated, async (req: Request, res: Response
         checkedInAt: checkedIn.checkedInAt,
         punchUsed: checkedIn.punchUsed,
         session: {
-          date: checkedIn.session.sessionDate,
+          date: checkedIn.session.sessionDate.toISOString().split('T')[0],
           startTime: checkedIn.session.startTime,
           endTime: checkedIn.session.endTime,
           topic: checkedIn.session.topic,
@@ -457,7 +457,7 @@ router.post('/:id/undo-check-in', isAuthenticated, async (req: Request, res: Res
         id: updated.id,
         status: updated.reservationStatus,
         session: {
-          date: updated.session.sessionDate,
+          date: updated.session.sessionDate.toISOString().split('T')[0],
           startTime: updated.session.startTime,
           endTime: updated.session.endTime,
           className: updated.session.class.name
@@ -732,7 +732,7 @@ router.get('/my-reservations', isAuthenticated, async (req: Request, res: Respon
             reservedAt: r.reservedAt,
             session: {
               id: r.session.id,
-              date: r.session.sessionDate,
+              date: r.session.sessionDate.toISOString().split('T')[0],
               startTime: r.session.startTime,
               endTime: r.session.endTime,
               topic: r.session.topic,
@@ -749,7 +749,7 @@ router.get('/my-reservations', isAuthenticated, async (req: Request, res: Respon
             reservedAt: reg.validFrom || new Date(),
             session: {
               id: ib.session.id,
-              date: ib.session.sessionDate,
+              date: ib.session.sessionDate.toISOString().split('T')[0],
               startTime: ib.session.startTime,
               endTime: ib.session.endTime,
               topic: ib.session.topic,

@@ -1089,7 +1089,7 @@ router.get("/:id/calendar", isAuthenticated, async (req: Request, res: Response)
         customerNotes: r.customerNotes,
         session: {
           id: r.session.id,
-          date: r.session.sessionDate,
+          date: r.session.sessionDate.toISOString().split('T')[0],
           startTime: r.session.startTime,
           endTime: r.session.endTime,
           topic: r.session.topic,
