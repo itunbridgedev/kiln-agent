@@ -15,9 +15,9 @@ ALTER TABLE "ClassRegistration" ADD COLUMN "absenceGracePeriodHours" INTEGER DEF
 ALTER TABLE "ClassRegistration" ADD COLUMN "validFrom" TIMESTAMP(3);
 ALTER TABLE "ClassRegistration" ADD COLUMN "validUntil" TIMESTAMP(3);
 
--- AlterTable: Add sequence requirement to ClassStep
-ALTER TABLE "ClassStep" ADD COLUMN "requiresSequence" BOOLEAN DEFAULT false;
-ALTER TABLE "ClassStep" ADD COLUMN "allowMakeup" BOOLEAN DEFAULT false;
+-- AlterTable: Add sequence requirement to ClassStep (IF NOT EXISTS since previous migration may have added these)
+ALTER TABLE "ClassStep" ADD COLUMN IF NOT EXISTS "requiresSequence" BOOLEAN DEFAULT false;
+ALTER TABLE "ClassStep" ADD COLUMN IF NOT EXISTS "allowMakeup" BOOLEAN DEFAULT false;
 
 -- CreateTable: SessionReservation (replaces RegistrationSession for more granular control)
 CREATE TABLE "SessionReservation" (
