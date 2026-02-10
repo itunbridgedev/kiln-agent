@@ -125,7 +125,10 @@ export default function MyClassesPage() {
     setError(null);
 
     try {
-      const [reservationsResponse, waitlistResponse] = await Promise.all([
+      const [registrationsResponse, reservationsResponse, waitlistResponse] = await Promise.all([
+        fetch(`${API_BASE_URL}/api/registrations/my-registrations`, {
+          credentials: "include",
+        }),
         fetch(`${API_BASE_URL}/api/reservations/my-reservations`, {
           credentials: "include",
         }),
@@ -133,6 +136,10 @@ export default function MyClassesPage() {
           credentials: "include",
         }),
       ]);
+
+      if (!registrationsResponse.ok) {
+        throw new Error("Failed to fetch registrations");
+      }
 
       if (!reservationsResponse.ok) {
         throw new Error("Failed to fetch reservations");
@@ -145,10 +152,22 @@ export default function MyClassesPage() {
         );
       }
 
+      const registrationsData = await registrationsResponse.json();
       const reservationsData = await reservationsResponse.json();
       const waitlistData = await waitlistResponse.json();
 
-      setRegistrations(reservationsData.registrations);
+      // Merge upcomingReservations from reservations endpoint into full registration data
+      const reservationsMap = new Map<number, any>();
+      for (const reg of reservationsData.registrations || []) {
+        reservationsMap.set(reg.id, reg);
+      }
+
+      const mergedRegistrations = registrationsData.map((reg: any) => ({
+        ...reg,
+        upcomingReservations: reservationsMap.get(reg.id)?.upcomingReservations || [],
+      }));
+
+      setRegistrations(mergedRegistrations);
       setWaitlistEntries(waitlistData);
     } catch (err: any) {
       setError(err.message);
