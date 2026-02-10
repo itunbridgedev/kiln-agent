@@ -103,6 +103,142 @@ router.post("/register", async (req, res) => {
   }
 });
 
+// Register guest (from booking confirmation)
+router.post("/register-guest", async (req, res) => {
+  try {
+    const { email, password, registrationId } = req.body;
+
+    // Validate input
+    if (!email || !password || !registrationId) {
+      return res
+        .status(400)
+        .json({ error: "Email, password, and registrationId are required" });
+    }
+
+    // Get the studio from tenant middleware (if available)
+    const studioId = (req as any).studioId;
+
+    // Verify the registration exists and email matches
+    const registration = await prisma.classRegistration.findUnique({
+      where: { id: parseInt(registrationId) },
+      include: {
+        class: true,
+      },
+    });
+
+    if (!registration) {
+      return res.status(404).json({ error: "Registration not found" });
+    }
+
+    // Verify the email matches the guest email
+    if (registration.guestEmail?.toLowerCase() !== email.toLowerCase()) {
+      return res
+        .status(400)
+        .json({ error: "Email does not match registration" });
+    }
+
+    // Check if user already exists
+    const existingUser = await prisma.customer.findFirst({
+      where: { email: email.toLowerCase() },
+    });
+
+    if (existingUser) {
+      return res
+        .status(409)
+        .json({ error: "User with this email already exists" });
+    }
+
+    // Validate password
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
+      return res
+        .status(400)
+        .json({ error: passwordValidation.errors.join(", ") });
+    }
+
+    // Hash password
+    const passwordHash = await hashPassword(password);
+
+    // Create user account with guest info from registration
+    const user = await prisma.customer.create({
+      data: {
+        name: registration.guestName || email.split("@")[0],
+        email: email.toLowerCase(),
+        passwordHash,
+        phone: registration.guestPhone || null,
+        agreedToTerms: true, // Guest implicitly agreed by booking
+        agreedToSms: false,
+      } as any,
+      include: {
+        roles: {
+          include: {
+            role: true,
+          },
+        },
+      },
+    });
+
+    // Link the registration to the new customer account
+    await prisma.classRegistration.update({
+      where: { id: registration.id },
+      data: {
+        customerId: user.id,
+      },
+    });
+
+    // Log the user in
+    req.login(user, (err) => {
+      if (err) {
+        console.error("Login after guest registration failed:", err);
+        return res.status(500).json({
+          error: "Account created but login failed",
+        });
+      }
+
+      // Save session before responding
+      req.session.save((saveErr) => {
+        if (saveErr) {
+          console.error("Session save error:", saveErr);
+          return res.status(500).json({ error: "Session save failed" });
+        }
+
+        // Manually set the Set-Cookie header
+        const sessionSecret =
+          process.env.SESSION_SECRET || "your-secret-key-change-in-production";
+        const signedSessionId = `s:${signature.sign(req.sessionID, sessionSecret)}`;
+
+        const cookieOptions = [
+          `connect.sid=${signedSessionId}`,
+          `Domain=.kilnagent.com`,
+          `Path=/`,
+          `Expires=${new Date(Date.now() + 24 * 60 * 60 * 1000).toUTCString()}`,
+          `HttpOnly`,
+          `Secure`,
+          `SameSite=None`,
+        ].join("; ");
+
+        res.setHeader("Set-Cookie", cookieOptions);
+
+        res.status(201).json({
+          message: "Account created successfully",
+          user: {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            picture: user.picture,
+            roles: user.roles?.map((r: any) => r.role?.name) || [],
+          },
+        });
+      });
+    });
+  } catch (error) {
+    console.error("Guest registration error:", error);
+    res
+      .status(500)
+      .json({ error: "Internal server error during registration" });
+  }
+});
+
 // Login with email/password
 router.post("/login", (req, res, next) => {
   console.log("[Login] Received login request for:", req.body.email);

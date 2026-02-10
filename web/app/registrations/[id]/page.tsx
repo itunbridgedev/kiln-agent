@@ -1,5 +1,6 @@
 "use client";
 
+import GuestAccountCreation from "@/components/auth/GuestAccountCreation";
 import Footer from "@/components/home/Footer";
 import Header from "@/components/home/Header";
 import { useAuth } from "@/context/AuthContext";
@@ -58,6 +59,7 @@ export default function RegistrationConfirmationPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [studioName, setStudioName] = useState<string>("");
+  const [showAccountCreation, setShowAccountCreation] = useState(false);
 
   useEffect(() => {
     fetchStudioInfo();
@@ -286,6 +288,41 @@ export default function RegistrationConfirmationPage() {
                     </div>
                   )}
                 </div>
+              </div>
+            )}
+
+            {/* Account Creation Section for Guest Bookings */}
+            {registration.guestEmail && !user && (
+              <div className="border-t border-gray-200 pt-6">
+                {!showAccountCreation ? (
+                  <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <h4 className="text-sm font-bold text-blue-900 mb-1">
+                          🎉 Create Your Account
+                        </h4>
+                        <p className="text-sm text-blue-700 mb-3">
+                          Create a free account to manage your reservation and see upcoming classes.
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setShowAccountCreation(true)}
+                        className="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors whitespace-nowrap ml-4"
+                      >
+                        Get Started
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <GuestAccountCreation
+                    email={registration.guestEmail}
+                    registrationId={parseInt(registrationId)}
+                    onSuccess={() => {
+                      setShowAccountCreation(false);
+                    }}
+                    onCancel={() => setShowAccountCreation(false)}
+                  />
+                )}
               </div>
             )}
 
