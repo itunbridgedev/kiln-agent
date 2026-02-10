@@ -4,6 +4,7 @@ import passport from "../config/passport";
 import { isAuthenticated } from "../middleware/auth";
 import prisma from "../prisma";
 import { hashPassword, validateEmail, validatePassword } from "../utils/auth";
+import crypto from "crypto";
 
 const router = Router();
 
@@ -640,6 +641,147 @@ router.get("/clear-session", (req, res) => {
     const clientUrl = process.env.CLIENT_URL || "http://localhost:3000";
     res.redirect(`${clientUrl}/login?cleared=true`);
   });
+});
+
+// ========== Password Recovery ==========
+
+// Request password reset
+router.post("/request-password-reset", async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: "Email is required" });
+    }
+
+    // Find user by email (case-insensitive)
+    const user = await prisma.customer.findFirst({
+      where: { email: email.toLowerCase() },
+    });
+
+    if (!user) {
+      // For security, don't reveal whether email exists
+      // Return success either way
+      return res.status(200).json({
+        message: "If an account exists with that email, a reset link has been sent",
+      });
+    }
+
+    // Generate reset token (valid for 1 hour)
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    const resetTokenHash = crypto
+      .createHash("sha256")
+      .update(resetToken)
+      .digest("hex");
+    const resetTokenExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    // Store token hash in database
+    await prisma.customer.update({
+      where: { id: user.id },
+      data: {
+        passwordResetToken: resetTokenHash,
+        passwordResetExpires: resetTokenExpires,
+      } as any,
+    });
+
+    // TODO: Send email with reset link
+    // For now, log the reset link for testing
+    const resetUrl = `${process.env.CLIENT_URL || "http://localhost:3000"}/auth/password-reset?token=${resetToken}`;
+    console.log(`[Password Reset] Reset link for ${email}: ${resetUrl}`);
+    console.log(
+      `[Password Reset] Token expires at: ${resetTokenExpires.toISOString()}`
+    );
+
+    // In production, send via email service (sendgrid, nodemailer, etc.)
+    // Example:
+    // await sendEmail({
+    //   to: user.email,
+    //   subject: 'Password Reset Request',
+    //   template: 'password-reset',
+    //   data: {
+    //     name: user.name,
+    //     resetUrl,
+    //     expiresIn: '1 hour'
+    //   }
+    // });
+
+    res.status(200).json({
+      message: "If an account exists with that email, a reset link has been sent",
+    });
+  } catch (error) {
+    console.error("Password reset request error:", error);
+    res.status(500).json({
+      error: "Internal server error during password reset request",
+    });
+  }
+});
+
+// Reset password with token
+router.post("/reset-password", async (req, res) => {
+  try {
+    const { token, password } = req.body;
+
+    if (!token || !password) {
+      return res
+        .status(400)
+        .json({ error: "Token and password are required" });
+    }
+
+    // Validate new password
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
+      return res
+        .status(400)
+        .json({ error: passwordValidation.errors.join(", ") });
+    }
+
+    // Hash the token to match what's stored in database
+    const resetTokenHash = crypto
+      .createHash("sha256")
+      .update(token)
+      .digest("hex");
+
+    // Find user with matching reset token
+    const user = await prisma.customer.findFirst({
+      where: {
+        passwordResetToken: resetTokenHash,
+        passwordResetExpires: {
+          gt: new Date(), // Token must not be expired
+        },
+      } as any,
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        error: "Password reset token is invalid or has expired",
+      });
+    }
+
+    // Hash new password
+    const passwordHash = await hashPassword(password);
+
+    // Update password and clear reset token
+    await prisma.customer.update({
+      where: { id: user.id },
+      data: {
+        passwordHash,
+        passwordResetToken: null,
+        passwordResetExpires: null,
+      } as any,
+    });
+
+    // TODO: Send confirmation email
+    console.log(`[Password Reset] Password reset successful for ${user.email}`);
+
+    res.status(200).json({
+      message: "Password has been reset successfully",
+    });
+  } catch (error) {
+    console.error("Password reset error:", error);
+    res.status(500).json({
+      error: "Internal server error during password reset",
+    });
+  }
 });
 
 // Check auth status
