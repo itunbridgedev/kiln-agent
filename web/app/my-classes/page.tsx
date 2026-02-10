@@ -23,12 +23,20 @@ interface Class {
   category: Category;
 }
 
+interface ClassStep {
+  id: number;
+  stepNumber: number;
+  name: string;
+  description: string | null;
+}
+
 interface ClassSession {
   id: number;
   sessionNumber: number | null;
   sessionDate: string;
   startTime: string;
   endTime: string;
+  classStep: ClassStep | null;
 }
 
 interface ClassSchedule {
