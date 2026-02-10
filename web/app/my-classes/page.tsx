@@ -74,7 +74,7 @@ export default function MyClassesPage() {
   const [activeTab, setActiveTab] = useState<"registrations" | "waitlist">(
     "registrations"
   );
-  const [registrations, setRegistrations] = useState<Registration[]>([]);
+  const [registrations, setRegistrations] = useState<any[]>([]);
   const [waitlistEntries, setWaitlistEntries] = useState<WaitlistEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -90,7 +90,7 @@ export default function MyClassesPage() {
   useEffect(() => {
     if (user) {
       fetchStudioInfo();
-      fetchData();
+      fetchReservations();
     }
   }, [user]);
 
@@ -109,12 +109,16 @@ export default function MyClassesPage() {
   };
 
   const fetchData = async () => {
+    // ...existing code...
+  };
+
+  const fetchReservations = async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const [regsResponse, waitlistResponse] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/registrations/my-registrations`, {
+      const [reservationsResponse, waitlistResponse] = await Promise.all([
+        fetch(`${API_BASE_URL}/api/reservations/my-reservations`, {
           credentials: "include",
         }),
         fetch(`${API_BASE_URL}/api/registrations/my-waitlist`, {
@@ -122,11 +126,8 @@ export default function MyClassesPage() {
         }),
       ]);
 
-      if (!regsResponse.ok) {
-        const errorData = await regsResponse.json();
-        throw new Error(
-          `Failed to fetch registrations: ${errorData.error || regsResponse.statusText}`
-        );
+      if (!reservationsResponse.ok) {
+        throw new Error("Failed to fetch reservations");
       }
 
       if (!waitlistResponse.ok) {
@@ -136,10 +137,10 @@ export default function MyClassesPage() {
         );
       }
 
-      const regsData = await regsResponse.json();
+      const reservationsData = await reservationsResponse.json();
       const waitlistData = await waitlistResponse.json();
 
-      setRegistrations(regsData);
+      setRegistrations(reservationsData.registrations);
       setWaitlistEntries(waitlistData);
     } catch (err: any) {
       setError(err.message);
@@ -418,39 +419,27 @@ export default function MyClassesPage() {
 
                       {/* Registered Sessions */}
                       {registration.sessions &&
-                      Array.isArray(registration.sessions) &&
-                      registration.sessions.length > 0 ? (
+                      Array.isArray(registration.upcomingReservations) && registration.upcomingReservations.length > 0 ? (
                         <div className="mb-4 p-4 bg-blue-50 rounded-lg">
                           <h4 className="font-medium text-gray-900 mb-2">
-                            Your Sessions ({registration.sessions.length}):
+                            Your Sessions ({registration.upcomingReservations.length}):
                           </h4>
                           <div className="space-y-1">
-                            {registration.sessions
-                              .slice(0, 3)
-                              .map((regSession) => (
-                                <div
-                                  key={regSession.id}
-                                  className="text-sm text-gray-700"
-                                >
-                                  <span className="font-medium">
-                                    {format(
-                                      new Date(regSession.session.sessionDate),
-                                      "EEE, MMM d, yyyy"
-                                    )}
-                                  </span>
-                                  {" at "}
-                                  {regSession.session.startTime}
-                                  {regSession.attended && (
-                                    <span className="ml-2 text-green-600">
-                                      ✓ Attended
-                                    </span>
-                                  )}
-                                </div>
-                              ))}
-                            {registration.sessions.length > 3 && (
+                            {registration.upcomingReservations.slice(0, 3).map((reservation: any) => (
+                              <div key={reservation.id} className="text-sm text-gray-700">
+                                <span className="font-medium">
+                                  {format(new Date(reservation.session.date), "EEE, MMM d, yyyy")}
+                                </span>
+                                {" at "}
+                                {reservation.session.startTime}
+                                {reservation.status === "CHECKED_IN" && (
+                                  <span className="ml-2 text-blue-600">✓ Checked In</span>
+                                )}
+                              </div>
+                            ))}
+                            {registration.upcomingReservations.length > 3 && (
                               <p className="text-sm text-gray-500 italic">
-                                ...and {registration.sessions.length - 3} more
-                                session(s)
+                                ...and {registration.upcomingReservations.length - 3} more session(s)
                               </p>
                             )}
                           </div>
@@ -458,8 +447,7 @@ export default function MyClassesPage() {
                       ) : (
                         <div className="mb-4 p-4 bg-gray-50 rounded-lg">
                           <p className="text-sm text-gray-600">
-                            Session information not available for this
-                            registration.
+                            Session information not available for this registration.
                           </p>
                         </div>
                       )}
