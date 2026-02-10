@@ -768,7 +768,7 @@ router.get('/my-reservations', isAuthenticated, async (req: Request, res: Respon
 
         console.log(`  Total upcoming: ${allReservations.length} reservations`);
         allReservations.forEach(r => {
-          console.log(`  - ${r.status} on ${r.session.date.toISOString().split('T')[0]} at ${r.session.startTime} (${r.source})`);
+          console.log(`  - ${r.status} on ${r.session.date} at ${r.session.startTime} (${r.source})`);
         });
 
         return {
@@ -781,7 +781,7 @@ router.get('/my-reservations', isAuthenticated, async (req: Request, res: Respon
           upcomingReservations: allReservations.map(r => {
             // Calculate check-in window for each reservation
             const checkInWindow = checkInService.getCheckInWindow(
-              r.session.date,
+              new Date(r.session.date),
               r.session.startTime,
               false // customer check-in
             );
