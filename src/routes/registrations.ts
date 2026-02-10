@@ -634,23 +634,79 @@ router.get(
               },
             },
           },
+          reservations: {
+            where: {
+              reservationStatus: {
+                in: ["PENDING", "CHECKED_IN"],
+              },
+            },
+            include: {
+              session: {
+                include: {
+                  classStep: true,
+                },
+              },
+            },
+            orderBy: {
+              session: { sessionDate: "asc" },
+            },
+          },
         },
         orderBy: {
           registeredAt: "desc",
         },
       });
 
-      // Normalize session dates to YYYY-MM-DD to prevent timezone shift on frontend
-      const normalized = registrations.map(reg => ({
-        ...reg,
-        sessions: reg.sessions.map(s => ({
-          ...s,
-          session: {
-            ...s.session,
+      // Combine initial bookings + flexible reservations into a unified allSessions list
+      // Deduplicate by sessionId (a session can appear in both RegistrationSession and SessionReservation)
+      const normalized = registrations.map(reg => {
+        const sessionMap = new Map<number, any>();
+
+        // Add initial bookings
+        for (const s of reg.sessions) {
+          sessionMap.set(s.session.id, {
+            sessionId: s.session.id,
             sessionDate: s.session.sessionDate.toISOString().split('T')[0],
-          },
-        })),
-      }));
+            startTime: s.session.startTime,
+            endTime: s.session.endTime,
+            classStep: s.session.classStep,
+            attended: s.attended,
+            source: 'initial' as const,
+          });
+        }
+
+        // Add flexible reservations (overwrite initial if same session, since flexible has richer status)
+        for (const r of reg.reservations) {
+          sessionMap.set(r.session.id, {
+            sessionId: r.session.id,
+            sessionDate: r.session.sessionDate.toISOString().split('T')[0],
+            startTime: r.session.startTime,
+            endTime: r.session.endTime,
+            classStep: r.session.classStep,
+            status: r.reservationStatus,
+            source: 'flexible' as const,
+          });
+        }
+
+        // Sort by date, then time
+        const allSessions = Array.from(sessionMap.values()).sort((a, b) => {
+          const dateCompare = a.sessionDate.localeCompare(b.sessionDate);
+          if (dateCompare !== 0) return dateCompare;
+          return a.startTime.localeCompare(b.startTime);
+        });
+
+        return {
+          ...reg,
+          sessions: reg.sessions.map(s => ({
+            ...s,
+            session: {
+              ...s.session,
+              sessionDate: s.session.sessionDate.toISOString().split('T')[0],
+            },
+          })),
+          allSessions,
+        };
+      });
 
       res.json(normalized);
     } catch (error: any) {

@@ -445,32 +445,35 @@ export default function MyClassesPage() {
                       )}
 
                       {/* Registered Sessions */}
-                      {registration.sessions && registration.sessions.length > 0 ? (
+                      {registration.allSessions && registration.allSessions.length > 0 ? (
                         <div className="mb-4 p-4 bg-blue-50 rounded-lg">
                           <h4 className="font-medium text-gray-900 mb-2">
-                            Your Booked Sessions ({registration.sessions.length}):
+                            Your Booked Sessions ({registration.allSessions.length}):
                           </h4>
                           <div className="space-y-1">
-                            {registration.sessions.slice(0, 3).map((regSession: any) => (
-                              <div key={regSession.id} className="text-sm text-gray-700">
+                            {registration.allSessions.slice(0, 3).map((session: any) => (
+                              <div key={session.sessionId} className="text-sm text-gray-700">
                                 <span className="font-medium">
-                                  {format(new Date(regSession.session.sessionDate), "EEE, MMM d, yyyy")}
+                                  {format(new Date(session.sessionDate), "EEE, MMM d, yyyy")}
                                 </span>
                                 {" at "}
-                                {regSession.session.startTime}
-                                {regSession.attended && (
+                                {session.startTime}
+                                {session.status === "CHECKED_IN" && (
+                                  <span className="ml-2 text-blue-600">Checked In</span>
+                                )}
+                                {session.attended && (
                                   <span className="ml-2 text-green-600">Attended</span>
                                 )}
-                                {regSession.session.classStep && (
+                                {session.classStep && (
                                   <span className="ml-2 text-gray-500">
-                                    - {regSession.session.classStep.name}
+                                    - {session.classStep.name}
                                   </span>
                                 )}
                               </div>
                             ))}
-                            {registration.sessions.length > 3 && (
+                            {registration.allSessions.length > 3 && (
                               <p className="text-sm text-gray-500 italic">
-                                ...and {registration.sessions.length - 3} more session(s)
+                                ...and {registration.allSessions.length - 3} more session(s)
                               </p>
                             )}
                           </div>
