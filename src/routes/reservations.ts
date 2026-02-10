@@ -218,8 +218,8 @@ router.delete('/:id', isAuthenticated, async (req: Request, res: Response) => {
     });
 
     if (!reservation || reservation.registration.customerId !== customerId) {
-      return res.status(403).json({ 
-        error: 'You can only cancel your own reservations' 
+      return res.status(403).json({
+        error: 'You can only cancel your own reservations'
       });
     }
 
@@ -243,6 +243,79 @@ router.delete('/:id', isAuthenticated, async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Error cancelling reservation:', error);
+    const message = error instanceof Error ? error.message : 'Failed to cancel reservation';
+    res.status(400).json({ error: message });
+  }
+});
+
+/**
+ * DELETE /api/reservations/initial/:id
+ * Cancel an initial booking (RegistrationSession)
+ */
+router.delete('/initial/:id', isAuthenticated, async (req: Request, res: Response) => {
+  const authReq = req as AuthenticatedRequest;
+  try {
+    const bookingId = parseInt(req.params.id);
+    const customerId = authReq.user?.id;
+
+    if (!customerId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // Verify initial booking exists and belongs to customer
+    const booking = await prisma.registrationSession.findUnique({
+      where: { id: bookingId },
+      include: {
+        registration: {
+          select: { customerId: true }
+        },
+        session: {
+          select: {
+            id: true,
+            sessionDate: true,
+            startTime: true,
+            currentEnrollment: true
+          }
+        }
+      }
+    });
+
+    if (!booking || booking.registration.customerId !== customerId) {
+      return res.status(403).json({
+        error: 'You can only cancel your own reservations'
+      });
+    }
+
+    // Delete the initial booking and decrement enrollment
+    await prisma.$transaction(async (tx) => {
+      await tx.registrationSession.delete({
+        where: { id: bookingId }
+      });
+
+      if (booking.session.currentEnrollment > 0) {
+        await tx.classSession.update({
+          where: { id: booking.session.id },
+          data: {
+            currentEnrollment: { decrement: 1 }
+          }
+        });
+      }
+    });
+
+    res.json({
+      message: 'Reservation cancelled successfully',
+      reservation: {
+        id: bookingId,
+        status: 'CANCELLED',
+        cancelledAt: new Date(),
+        session: {
+          date: booking.session.sessionDate,
+          startTime: booking.session.startTime
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error cancelling initial booking:', error);
     const message = error instanceof Error ? error.message : 'Failed to cancel reservation';
     res.status(400).json({ error: message });
   }

@@ -61,6 +61,7 @@ interface AvailableSession {
 
 interface Reservation {
   id: number;
+  source?: "flexible" | "initial";
   status: string;
   reservedAt: string;
   checkedInAt: string | null;
@@ -211,16 +212,18 @@ export default function ReservationsPage() {
     }
   };
 
-  const handleCancel = async (reservationId: number) => {
+  const handleCancel = async (reservationId: number, source?: "flexible" | "initial") => {
     if (!confirm("Are you sure you want to cancel this reservation?")) {
       return;
     }
 
     setCancelling(reservationId);
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/reservations/${reservationId}`,
-        {
+      const url = source === "initial"
+        ? `${API_BASE_URL}/api/reservations/initial/${reservationId}`
+        : `${API_BASE_URL}/api/reservations/${reservationId}`;
+
+      const response = await fetch(url, {
           method: "DELETE",
           headers: {
             "Content-Type": "application/json",
@@ -1015,7 +1018,7 @@ export default function ReservationsPage() {
 
                         {reservation.status === "PENDING" && (
                           <button
-                            onClick={() => handleCancel(reservation.id)}
+                            onClick={() => handleCancel(reservation.id, reservation.source)}
                             disabled={cancelling === reservation.id}
                             className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium disabled:bg-gray-400 disabled:cursor-not-allowed text-sm"
                           >

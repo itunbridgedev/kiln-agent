@@ -1077,6 +1077,7 @@ router.get("/:id/calendar", isAuthenticated, async (req: Request, res: Response)
 
       return {
         id: r.id,
+        source: r.source,
         status: r.reservationStatus,
         reservedAt: r.reservedAt,
         checkedInAt: r.checkedInAt,
