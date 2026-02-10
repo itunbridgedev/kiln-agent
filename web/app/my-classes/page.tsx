@@ -445,28 +445,32 @@ export default function MyClassesPage() {
                       )}
 
                       {/* Registered Sessions */}
-                      {registration.sessions &&
-                      Array.isArray(registration.upcomingReservations) && registration.upcomingReservations.length > 0 ? (
+                      {registration.sessions && registration.sessions.length > 0 ? (
                         <div className="mb-4 p-4 bg-blue-50 rounded-lg">
                           <h4 className="font-medium text-gray-900 mb-2">
-                            Your Sessions ({registration.upcomingReservations.length}):
+                            Your Booked Sessions ({registration.sessions.length}):
                           </h4>
                           <div className="space-y-1">
-                            {registration.upcomingReservations.slice(0, 3).map((reservation: any) => (
-                              <div key={reservation.id} className="text-sm text-gray-700">
+                            {registration.sessions.slice(0, 3).map((regSession: any) => (
+                              <div key={regSession.id} className="text-sm text-gray-700">
                                 <span className="font-medium">
-                                  {format(new Date(reservation.session.date), "EEE, MMM d, yyyy")}
+                                  {format(new Date(regSession.session.sessionDate), "EEE, MMM d, yyyy")}
                                 </span>
                                 {" at "}
-                                {reservation.session.startTime}
-                                {reservation.status === "CHECKED_IN" && (
-                                  <span className="ml-2 text-blue-600">✓ Checked In</span>
+                                {regSession.session.startTime}
+                                {regSession.attended && (
+                                  <span className="ml-2 text-green-600">Attended</span>
+                                )}
+                                {regSession.session.classStep && (
+                                  <span className="ml-2 text-gray-500">
+                                    - {regSession.session.classStep.name}
+                                  </span>
                                 )}
                               </div>
                             ))}
-                            {registration.upcomingReservations.length > 3 && (
+                            {registration.sessions.length > 3 && (
                               <p className="text-sm text-gray-500 italic">
-                                ...and {registration.upcomingReservations.length - 3} more session(s)
+                                ...and {registration.sessions.length - 3} more session(s)
                               </p>
                             )}
                           </div>
@@ -474,7 +478,7 @@ export default function MyClassesPage() {
                       ) : (
                         <div className="mb-4 p-4 bg-gray-50 rounded-lg">
                           <p className="text-sm text-gray-600">
-                            Session information not available for this registration.
+                            No sessions booked for this registration.
                           </p>
                         </div>
                       )}

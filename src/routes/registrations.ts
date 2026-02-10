@@ -640,7 +640,19 @@ router.get(
         },
       });
 
-      res.json(registrations);
+      // Normalize session dates to YYYY-MM-DD to prevent timezone shift on frontend
+      const normalized = registrations.map(reg => ({
+        ...reg,
+        sessions: reg.sessions.map(s => ({
+          ...s,
+          session: {
+            ...s.session,
+            sessionDate: s.session.sessionDate.toISOString().split('T')[0],
+          },
+        })),
+      }));
+
+      res.json(normalized);
     } catch (error: any) {
       console.error("Error fetching registrations:", error);
       res.status(500).json({ error: error.message });
