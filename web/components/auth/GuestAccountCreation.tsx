@@ -114,22 +114,24 @@ export default function GuestAccountCreation({
   const handleAppleSignIn = () => {
     setLoading(true);
     setError(null);
-    // Store the registration ID and redirect URL for callback
+    // Store registration info for OAuth callback to use
     sessionStorage.setItem("guestRegistrationId", registrationId.toString());
-    sessionStorage.setItem("guestAccountEmail", email);
-    // Redirect to Apple OAuth flow
-    window.location.href = `${API_BASE_URL}/api/auth/apple`;
+    sessionStorage.setItem("guestEmail", email);
+    // Redirect to Apple OAuth flow with return URL
+    const returnUrl = `/auth/link-oauth-account?registrationId=${registrationId}&guestEmail=${encodeURIComponent(email)}`;
+    window.location.href = `${API_BASE_URL}/api/auth/apple?returnUrl=${encodeURIComponent(returnUrl)}`;
   };
 
   // Handle Google OAuth
   const handleGoogleSignIn = () => {
     setLoading(true);
     setError(null);
-    // Store the registration ID and redirect URL for callback
+    // Store registration info for OAuth callback to use
     sessionStorage.setItem("guestRegistrationId", registrationId.toString());
-    sessionStorage.setItem("guestAccountEmail", email);
-    // Redirect to Google OAuth flow
-    window.location.href = `${API_BASE_URL}/api/auth/google`;
+    sessionStorage.setItem("guestEmail", email);
+    // Redirect to Google OAuth flow with return URL
+    const returnUrl = `/auth/link-oauth-account?registrationId=${registrationId}&guestEmail=${encodeURIComponent(email)}`;
+    window.location.href = `${API_BASE_URL}/api/auth/google?returnUrl=${encodeURIComponent(returnUrl)}`;
   };
 
   if (success) {

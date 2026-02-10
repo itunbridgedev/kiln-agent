@@ -349,7 +349,6 @@ router.get(
         `[Google Callback] Session cookie: ${JSON.stringify(req.session.cookie)}`
       );
 
-      // Check if user needs to complete registration
       const user = req.user as any;
       const needsCompletion = !user.agreedToTerms;
 
@@ -357,9 +356,22 @@ router.get(
       const returnUrl = (req.session as any).returnUrl;
       delete (req.session as any).returnUrl; // Clean up
 
-      const redirectUrl = needsCompletion
+      // If returning from guest linking flow, include OAuth data
+      let redirectUrl = returnUrl 
+        ? `${returnUrl}&provider=google&data=${encodeURIComponent(JSON.stringify({
+            email: user.email,
+            name: user.name,
+            picture: user.picture,
+            providerAccountId: user.id,
+            accessToken: (req.user as any)._json?.access_token || '',
+            refreshToken: (req.user as any)._json?.refresh_token || null,
+            idToken: (req.user as any)._json?.id_token || null,
+            expiresAt: null,
+            scope: 'profile email'
+          }))}`
+        : needsCompletion
         ? `${process.env.CLIENT_URL || "http://localhost:3000"}/complete-registration`
-        : returnUrl || `${process.env.CLIENT_URL || "http://localhost:3000"}/`;
+        : `${process.env.CLIENT_URL || "http://localhost:3000"}/`;
 
       // Manually set signed cookie header with correct domain
       const sessionSecret =
@@ -476,10 +488,22 @@ router.post("/apple/callback", (req, res, next) => {
           const returnUrl = (req.session as any).returnUrl;
           delete (req.session as any).returnUrl; // Clean up
 
-          const redirectUrl = needsCompletion
+          // If returning from guest linking flow, include OAuth data
+          let redirectUrl = returnUrl
+            ? `${returnUrl}&provider=apple&data=${encodeURIComponent(JSON.stringify({
+                email: user.email,
+                name: user.name,
+                picture: user.picture,
+                providerAccountId: user.id,
+                accessToken: (user as any).accessToken || '',
+                refreshToken: (user as any).refreshToken || null,
+                idToken: (req.body.id_token) || null,
+                expiresAt: null,
+                scope: 'name email'
+              }))}`
+            : needsCompletion
             ? `${process.env.CLIENT_URL || "http://localhost:3000"}/complete-registration`
-            : returnUrl ||
-              `${process.env.CLIENT_URL || "http://localhost:3000"}/`;
+            : `${process.env.CLIENT_URL || "http://localhost:3000"}/`;
 
           console.log(
             `[Apple Callback] Session saved, redirecting to: ${redirectUrl}`
@@ -641,6 +665,165 @@ router.get("/clear-session", (req, res) => {
     const clientUrl = process.env.CLIENT_URL || "http://localhost:3000";
     res.redirect(`${clientUrl}/login?cleared=true`);
   });
+});
+
+// ========== Password Recovery ==========
+
+// Link OAuth account to guest registration
+router.post("/link-oauth-to-guest", async (req, res) => {
+  try {
+    const { registrationId, provider, oauthData, linkExistingEmail } = req.body;
+
+    if (!registrationId || !provider || !oauthData) {
+      return res.status(400).json({
+        error: "registrationId, provider, and oauthData are required",
+      });
+    }
+
+    // Verify the registration exists
+    const registration = await prisma.classRegistration.findUnique({
+      where: { id: parseInt(registrationId) },
+      include: { class: true },
+    });
+
+    if (!registration) {
+      return res.status(404).json({ error: "Registration not found" });
+    }
+
+    const oauthEmail = oauthData.email?.toLowerCase();
+    const guestEmail = registration.guestEmail?.toLowerCase();
+
+    if (!oauthEmail) {
+      return res.status(400).json({
+        error: `${provider === "apple" ? "Apple" : "Google"} account must have an email`,
+      });
+    }
+
+    // Determine which email to use for the account
+    const accountEmail = linkExistingEmail ? guestEmail : oauthEmail;
+
+    if (!accountEmail) {
+      return res.status(400).json({
+        error: "No valid email found for account creation",
+      });
+    }
+
+    // Check if user already exists
+    let user = await prisma.customer.findFirst({
+      where: { email: accountEmail },
+      include: { accounts: true },
+    });
+
+    // If user doesn't exist, create account
+    if (!user) {
+      user = await prisma.customer.create({
+        data: {
+          name: oauthData.name || registration.guestName || accountEmail.split("@")[0],
+          email: accountEmail,
+          phone: registration.guestPhone || null,
+          picture: oauthData.picture || null,
+          agreedToTerms: true, // Guest implicitly agreed by booking
+          agreedToSms: false,
+          accounts: {
+            create: {
+              provider,
+              providerAccountId: oauthData.providerAccountId,
+              accessToken: oauthData.accessToken,
+              refreshToken: oauthData.refreshToken || null,
+              idToken: oauthData.idToken || null,
+              expiresAt: oauthData.expiresAt || null,
+              tokenType: "Bearer",
+              scope: oauthData.scope || null,
+            },
+          },
+        } as any,
+        include: { accounts: true },
+      });
+    } else {
+      // User exists, check if this OAuth provider is already linked
+      const existingAccount = user.accounts.find(
+        (acc: any) =>
+          acc.provider === provider &&
+          acc.providerAccountId === oauthData.providerAccountId
+      );
+
+      if (!existingAccount) {
+        // Add new OAuth account to existing user
+        await prisma.account.create({
+          data: {
+            customerId: user.id,
+            provider,
+            providerAccountId: oauthData.providerAccountId,
+            accessToken: oauthData.accessToken,
+            refreshToken: oauthData.refreshToken || null,
+            idToken: oauthData.idToken || null,
+            expiresAt: oauthData.expiresAt || null,
+            tokenType: "Bearer",
+            scope: oauthData.scope || null,
+          },
+        });
+      }
+    }
+
+    // Link registration to customer account (if not already linked)
+    if (registration.customerId !== user.id) {
+      await prisma.classRegistration.update({
+        where: { id: registration.id },
+        data: { customerId: user.id },
+      });
+    }
+
+    // Log the user in
+    req.login(user, (err) => {
+      if (err) {
+        console.error("Login after OAuth linking failed:", err);
+        return res.status(500).json({
+          error: "Account linked but login failed",
+        });
+      }
+
+      // Save session before responding
+      req.session.save((saveErr) => {
+        if (saveErr) {
+          console.error("Session save error:", saveErr);
+          return res.status(500).json({ error: "Session save failed" });
+        }
+
+        // Manually set the Set-Cookie header
+        const sessionSecret =
+          process.env.SESSION_SECRET || "your-secret-key-change-in-production";
+        const signedSessionId = `s:${signature.sign(req.sessionID, sessionSecret)}`;
+
+        const cookieOptions = [
+          `connect.sid=${signedSessionId}`,
+          `Domain=.kilnagent.com`,
+          `Path=/`,
+          `Expires=${new Date(Date.now() + 24 * 60 * 60 * 1000).toUTCString()}`,
+          `HttpOnly`,
+          `Secure`,
+          `SameSite=None`,
+        ].join("; ");
+
+        res.setHeader("Set-Cookie", cookieOptions);
+
+        res.status(200).json({
+          message: "OAuth account linked successfully",
+          user: {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            picture: user.picture,
+            roles: [],
+          },
+        });
+      });
+    });
+  } catch (error) {
+    console.error("OAuth linking error:", error);
+    res.status(500).json({
+      error: "Internal server error during account linking",
+    });
+  }
 });
 
 // ========== Password Recovery ==========
