@@ -172,25 +172,38 @@ export default function GuestAccountCreation({
 
 When guest clicks "Sign in with Apple/Google":
 
-1. Redirect to OAuth provider
-2. User completes OAuth flow
-3. Callback includes:
-   - OAuth email
-   - OAuth user info (name, picture, etc.)
-4. Check if account exists for that email
-5. If new:
-   - Create Customer account with OAuth provider
-   - Link classRegistration to new customerId
-6. If existing:
-   - Add OAuth provider to existing account
-   - (Already linked to registration if same email)
-7. Create JWT session
-8. Redirect to `/my-classes`
+1. **Redirect to OAuth Provider**
+   - Include return URL with registration ID and guest email
+   - Store guest registration info in sessionStorage
+
+2. **OAuth Provider Callback**
+   - Return to `/api/auth/apple/callback` or `/api/auth/google/callback`
+   - Extract OAuth user data (email, name, picture, tokens)
+   - Encode OAuth data in callback redirect to linking page
+
+3. **Smart Email Linking** ✅ **COMPLETED**
+   - **If emails match** (OAuth email = guest email):
+     - Auto-link silently, no user prompt needed
+     - Redirect to `/my-classes` with success message
+   
+   - **If emails differ**:
+     - Show `/auth/link-oauth-account` choice page
+     - Two options:
+       1. Link to guest booking (use guest email)
+       2. Create new account (use OAuth email)
+     - User chooses, endpoint links registration and logs in
+
+4. **Account Creation & Registration Linking**
+   - Create or find OAuth account
+   - Link ClassRegistration to customer account
+   - Auto-login user
+   - Redirect to `/my-classes`
 
 **Key Configuration:**
-- Apple OAuth callback should include email in ID token
-- Google OAuth should request email scope
-- Verify guest email matches OAuth email (or allow override for OAuth non-email accounts)
+- Apple OAuth must include email in ID token
+- Google OAuth must request email scope
+- Return URL preserves registration context
+- OAuth data passed via URL params (safely encoded)
 
 ### Phase 5: Post-Creation Flow
 
@@ -245,6 +258,78 @@ await sendEmail({
   data: { name: user.name, resetUrl, expiresIn: '1 hour' }
 });
 ```
+
+---
+
+## Smart OAuth Email Linking - ✅ COMPLETED
+
+A critical feature for converting guests to registered users when their OAuth email may differ from their guest booking email.
+
+### The Problem
+- Guest books as `guest@example.com` without account
+- Guest later tries to create account via Apple/Google
+- Apple/Google account might use `different@example.com`
+- System needs to decide: Link to guest booking or create separate account?
+
+### The Solution: Smart Linking
+
+```
+Guest Checkout Flow:
+│
+├─ Book as Guest: guest@example.com
+│  └─ Registration created with guestEmail
+│
+├─ Try OAuth (Apple/Google)
+│  └─ Reddit to OAuth provider
+│     └─ OAuth callback with oauthEmail
+│
+├─ Email Comparison
+│  │
+│  ├─ IF oauthEmail = guestEmail
+│  │  └─ Auto-link silently → /my-classes ✓
+│  │
+│  └─ IF oauthEmail ≠ guestEmail
+│     └─ Show choice page → Decide action
+│        ├─ Link to guest booking (use guestEmail)
+│        │  └─ Keep original booking, add OAuth auth method
+│        │
+│        └─ Create new account (use oauthEmail)
+│           └─ Create separate account, original booking stays guest
+```
+
+### Implementation Details
+
+**Frontend Page**: `/auth/link-oauth-account`
+- Auto-link scenario: Show success + redirect (1.5s)
+- Choice scenario: Present two buttons with clear descriptions
+- Email mismatch display: Show both emails side-by-side
+- Error handling: Display any issues with suggestions
+
+**Backend Endpoint**: `POST /api/auth/link-oauth-to-guest`
+- Accept: `registrationId`, `provider`, `oauthData`, `linkExistingEmail`
+- Verify registration exists and guest email is valid
+- Create/find OAuth account
+- Link registration to account
+- Auto-login and return authenticated user
+- Support both Apple and Google OAuth
+
+**Security Measures**
+- Email ownership already verified by OAuth provider
+- Registration verified against ID
+- Time-limited session tokens
+- Secure session cookie handling
+
+### User Experience
+- **Happy path** (emails match): Invisible, seamless conversion
+- **Alternative path** (emails differ): Clear choice, no confusion
+- **Edge case** (multiple addresses): User can link to guest or create new
+
+### Benefits
+✅ Maximum flexibility for users  
+✅ No forced email changes  
+✅ Transparent about linking decisions  
+✅ Can support multiple accounts per user later  
+✅ Respects user privacy and preference  
 
 ---
 
@@ -353,22 +438,23 @@ await sendEmail({
 
 ## Implementation Sequence
 
-### Sprint 1: Foundation
-1. Create `GuestAccountCreation.tsx` component
-2. Add to confirmation page
-3. Implement password-based account creation
-4. Backend endpoint for guest registration
-5. Testing with password flow
+### Sprint 1: Foundation ✅ COMPLETED
+1. ✅ Create `GuestAccountCreation.tsx` component
+2. ✅ Add to confirmation page
+3. ✅ Implement password-based account creation
+4. ✅ Backend endpoint for guest registration
+5. ✅ Testing with password flow
 
-### Sprint 2: OAuth Integration + Account Recovery
-1. Wire up Apple OAuth callback for account creation
-2. Wire up Google OAuth callback for account creation
-3. Handle account linking for existing users
-4. Test full OAuth flows
-5. Auto-login after OAuth account creation
-6. **NEW**: Create password reset flow
-7. **NEW**: Add reset endpoints & token management
-8. **NEW**: Test account recovery
+### Sprint 2: OAuth Integration + Account Recovery ✅ COMPLETED
+1. ✅ Wire up Apple OAuth callback for account creation
+2. ✅ Wire up Google OAuth callback for account creation
+3. ✅ Handle account linking for existing users
+4. ✅ Test full OAuth flows
+5. ✅ Auto-login after OAuth account creation
+6. ✅ **NEW**: Smart email linking (auto-link or choose)
+7. ✅ Create password reset flow
+8. ✅ Add reset endpoints & token management
+9. ✅ Test account recovery
 
 ### Sprint 3: Polish & Testing
 1. Success/error messaging
@@ -397,7 +483,9 @@ await sendEmail({
 4. **Social Proof**: Show how many guests have created accounts
 5. **Account Invitations**: Send account setup email with special link
 6. ✅ **Login Recovery**: If guest loses login, can recover via email - **COMPLETED**
-7. **Multi-Registration Link**: If same email books multiple classes, consolidate
+7. ✅ **Smart OAuth Linking**: Seamless email matching & choice flow - **COMPLETED**
+8. **Multi-Account Management**: Let users manage multiple email accounts
+9. **Multi-Registration Link**: If same email books multiple classes, consolidate
 
 ---
 
