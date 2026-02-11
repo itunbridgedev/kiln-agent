@@ -1,5 +1,6 @@
 "use client";
 
+import GuestAccountCreation from "@/components/auth/GuestAccountCreation";
 import Footer from "@/components/home/Footer";
 import Header from "@/components/home/Header";
 import { useAuth } from "@/context/AuthContext";

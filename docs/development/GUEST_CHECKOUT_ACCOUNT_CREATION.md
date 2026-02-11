@@ -456,12 +456,24 @@ Guest Checkout Flow:
 8. ✅ Add reset endpoints & token management
 9. ✅ Test account recovery
 
-### Sprint 3: Polish & Testing
-1. Success/error messaging
-2. Email confirmation on account creation
-3. Redirect flow to `/my-classes`
-4. E2E testing
-5. Mobile responsiveness
+### Sprint 3: Polish & Testing — IN PROGRESS
+1. ✅ Success/error messaging (inline in GuestAccountCreation component)
+2. ⬜ Email service integration (nodemailer/sendgrid) — needed for:
+   - Account creation confirmation emails
+   - Password reset emails (endpoint exists, just logs token to console)
+3. ✅ Redirect flow to `/my-classes` after account creation
+4. 🟡 E2E testing — `tests/e2e/guest-registration.spec.ts` created but **currently failing**
+   - Test hardcodes `registrationId = 10` (brittle, needs seed data or dynamic setup)
+   - `.last-run.json` shows `"status": "failed"`
+   - Test artifacts (playwright-report/, test-results/) were committed — should be gitignored
+5. ⬜ Mobile responsiveness — needs manual verification
+6. ⬜ Clean up committed test artifacts (playwright-report/, test-results/) and add to `.gitignore`
+
+### Known Issues & Tech Debt
+- **API URL inconsistency**: Confirmation page (`registrations/[id]/page.tsx`) uses `NEXT_PUBLIC_API_URL` (absolute), while `GuestAccountCreation.tsx` uses relative paths (empty string). Should standardize on relative paths via Next.js rewrites.
+- **Test artifacts committed**: `playwright-report/` and `test-results/` directories were committed in `60072cf` — need to be removed from tracking and gitignored.
+- **Password reset email not wired**: `POST /api/auth/request-password-reset` generates a token but only logs it. Needs actual email delivery once email service is configured.
+- **E2E test fragility**: Test relies on `registrationId = 10` existing in local DB as a guest booking.
 
 ---
 
@@ -477,7 +489,7 @@ Guest Checkout Flow:
 
 ## Future Enhancements
 
-1. **Email Verification**: Optional step for account verification
+1. **Email Service Integration**: Wire up nodemailer/sendgrid for transactional emails (password reset, account creation confirmation)
 2. **Account Name**: Pre-fill with `guestName` from registration
 3. **Referral Program**: Offer discount/rewards for creating account
 4. **Social Proof**: Show how many guests have created accounts
@@ -489,11 +501,20 @@ Guest Checkout Flow:
 
 ---
 
-## Related Files to Update
+## Implemented Files
 
-- `web/app/registrations/[id]/page.tsx` - Confirmation page
-- `src/routes/auth.ts` - Backend auth routes
-- `src/config/passport.ts` - OAuth strategy configurations
-- Prisma schema - May need to enhance Customer model
-- API error handling - For validation during account creation
+### Frontend
+- `web/components/auth/GuestAccountCreation.tsx` — Main account creation component (password + OAuth)
+- `web/app/registrations/[id]/page.tsx` — Confirmation page with account creation CTA
+- `web/app/auth/link-oauth-account/page.tsx` — Smart OAuth email linking page
+- `web/app/auth/password-reset/page.tsx` — Password reset flow (request + reset)
+- `web/components/auth/LoginForm.tsx` — Added "Forgot password?" link
+
+### Backend
+- `src/routes/auth.ts` — Added endpoints: register-guest, link-oauth-to-guest, request-password-reset, reset-password; updated Apple/Google OAuth callbacks
+- `src/utils/auth.ts` — Auth utility helpers extracted for reuse
+- `prisma/schema.prisma` — Added passwordResetToken + passwordResetExpires to Customer
+
+### Tests
+- `tests/e2e/guest-registration.spec.ts` — E2E test for guest account creation (needs fixing)
 

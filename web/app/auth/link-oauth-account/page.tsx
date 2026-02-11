@@ -1,13 +1,13 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
 type LinkAction = "link-to-guest" | "create-new";
 
-export default function LinkOAuthAccountPage() {
+function LinkOAuthAccountContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -232,5 +232,19 @@ export default function LinkOAuthAccountPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LinkOAuthAccountPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        </div>
+      }
+    >
+      <LinkOAuthAccountContent />
+    </Suspense>
   );
 }
