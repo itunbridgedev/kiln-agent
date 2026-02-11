@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useAuth } from "@/context/AuthContext";
 
 interface GuestAccountCreationProps {
   email: string;
@@ -29,6 +30,7 @@ export default function GuestAccountCreation({
   onCancel,
 }: GuestAccountCreationProps) {
   const router = useRouter();
+  const auth = useAuth();
   const [authMethod, setAuthMethod] = useState<AuthMethod>(null);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -36,7 +38,9 @@ export default function GuestAccountCreation({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+  // Use relative API paths so Next.js rewrites proxy requests to the backend.
+  // This avoids cross-origin cookie/SameSite issues in development.
+  const API_BASE_URL = "";
 
   // Validate password strength
   const validatePassword = (pwd: string): PasswordStrength => {
@@ -79,7 +83,7 @@ export default function GuestAccountCreation({
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/register-guest`, {
+      const response = await fetch(`/api/auth/register-guest`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -98,11 +102,18 @@ export default function GuestAccountCreation({
         throw new Error(data.error || "Failed to create account");
       }
 
+      // Refresh auth context so the app recognizes the newly-logged-in user
+      try {
+        await auth.checkAuth();
+      } catch (e) {
+        console.warn("Auth refresh failed after registration", e);
+      }
+
       setSuccess(true);
       setTimeout(() => {
         onSuccess?.();
         router.push("/my-classes");
-      }, 1500);
+      }, 500);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -119,7 +130,7 @@ export default function GuestAccountCreation({
     sessionStorage.setItem("guestEmail", email);
     // Redirect to Apple OAuth flow with return URL
     const returnUrl = `/auth/link-oauth-account?registrationId=${registrationId}&guestEmail=${encodeURIComponent(email)}`;
-    window.location.href = `${API_BASE_URL}/api/auth/apple?returnUrl=${encodeURIComponent(returnUrl)}`;
+    window.location.href = `/api/auth/apple?returnUrl=${encodeURIComponent(returnUrl)}`;
   };
 
   // Handle Google OAuth
@@ -131,7 +142,7 @@ export default function GuestAccountCreation({
     sessionStorage.setItem("guestEmail", email);
     // Redirect to Google OAuth flow with return URL
     const returnUrl = `/auth/link-oauth-account?registrationId=${registrationId}&guestEmail=${encodeURIComponent(email)}`;
-    window.location.href = `${API_BASE_URL}/api/auth/google?returnUrl=${encodeURIComponent(returnUrl)}`;
+    window.location.href = `/api/auth/google?returnUrl=${encodeURIComponent(returnUrl)}`;
   };
 
   if (success) {
