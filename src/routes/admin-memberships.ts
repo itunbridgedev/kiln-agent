@@ -95,6 +95,27 @@ router.put("/:id", async (req: Request, res: Response) => {
   }
 });
 
+// POST /api/admin/memberships/:id/sync-stripe - Create Stripe product/price for a membership that's missing one
+router.post("/:id/sync-stripe", async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+
+    // Trigger update with no changes - this will create Stripe product/price if missing
+    const membership = await MembershipService.updateMembership(id, {});
+
+    if (!membership.stripePriceId) {
+      return res.status(400).json({
+        error: "Studio has no Stripe account connected. Connect Stripe first.",
+      });
+    }
+
+    res.json(membership);
+  } catch (error: any) {
+    console.error("Error syncing membership to Stripe:", error);
+    res.status(500).json({ error: "Failed to sync membership to Stripe" });
+  }
+});
+
 // GET /api/admin/memberships/subscribers - List all subscribers
 router.get("/subscribers", async (req: Request, res: Response) => {
   try {

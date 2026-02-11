@@ -20,6 +20,7 @@ export default function MembershipsPage() {
   const [memberships, setMemberships] = useState<Membership[]>([]);
   const [loading, setLoading] = useState(true);
   const [subscribing, setSubscribing] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchMemberships();
@@ -44,6 +45,7 @@ export default function MembershipsPage() {
     }
 
     setSubscribing(membershipId);
+    setError(null);
     try {
       const response = await fetch("/api/memberships/subscribe", {
         method: "POST",
@@ -64,7 +66,7 @@ export default function MembershipsPage() {
       const { url } = await response.json();
       window.location.href = url;
     } catch (err: any) {
-      alert(err.message);
+      setError(err.message);
     } finally {
       setSubscribing(null);
     }
@@ -90,6 +92,9 @@ export default function MembershipsPage() {
       </header>
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {error && (
+          <div className="mb-6 p-4 bg-red-100 text-red-700 rounded-lg text-center">{error}</div>
+        )}
         <div className="grid md:grid-cols-3 gap-6">
           {memberships.map((m) => (
             <div key={m.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col">

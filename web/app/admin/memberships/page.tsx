@@ -163,6 +163,23 @@ export default function AdminMembershipsPage() {
     }
   };
 
+  const handleSyncStripe = async (membershipId: number) => {
+    setError(null);
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/admin/memberships/${membershipId}/sync-stripe`,
+        { method: "POST", credentials: "include" }
+      );
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to sync to Stripe");
+      }
+      fetchMemberships();
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
   const resetForm = () => {
     setFormData({
       name: "",
@@ -264,6 +281,14 @@ export default function AdminMembershipsPage() {
                     </p>
                   </div>
                   <div className="flex gap-2">
+                    {!m.stripePriceId && (
+                      <button
+                        onClick={() => handleSyncStripe(m.id)}
+                        className="px-3 py-1 text-sm border border-yellow-300 bg-yellow-50 text-yellow-700 rounded hover:bg-yellow-100"
+                      >
+                        Sync to Stripe
+                      </button>
+                    )}
                     <button onClick={() => handleEdit(m)} className="px-3 py-1 text-sm border rounded hover:bg-gray-50">
                       Edit
                     </button>

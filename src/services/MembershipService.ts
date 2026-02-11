@@ -208,10 +208,35 @@ export async function updateMembership(
     displayOrder?: number;
   }
 ) {
+  const existing = await prisma.membership.findUniqueOrThrow({
+    where: { id: membershipId },
+    include: { studio: { select: { stripeAccountId: true } } },
+  });
+
+  // If membership has no Stripe price yet and studio has Stripe connected, create one
+  let stripeUpdate: { stripeProductId?: string; stripePriceId?: string } = {};
+  if (!existing.stripePriceId && existing.studio.stripeAccountId) {
+    const price = data.price ?? Number(existing.price);
+    const priceInCents = Math.round(price * 100);
+    const result = await createStripeProductAndPrice(
+      membershipId,
+      data.name || existing.name,
+      data.description ?? existing.description,
+      priceInCents,
+      data.billingPeriod || existing.billingPeriod,
+      existing.studio.stripeAccountId
+    );
+    stripeUpdate = {
+      stripeProductId: result.productId,
+      stripePriceId: result.priceId,
+    };
+  }
+
   const membership = await prisma.membership.update({
     where: { id: membershipId },
     data: {
       ...data,
+      ...stripeUpdate,
       benefits: data.benefits ? (data.benefits as any) : undefined,
     },
   });
