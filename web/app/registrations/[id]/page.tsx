@@ -559,12 +559,34 @@ export default function RegistrationConfirmationPage() {
         {/* Action Buttons */}
         <div className="mt-8 flex flex-col sm:flex-row gap-4">
           {registration.registrationType !== "SINGLE_SESSION" && (
-            <button
-              onClick={() => router.push(`/registrations/${registration.id}/reservations`)}
-              className="flex-1 px-6 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition-colors"
-            >
-              Manage Session Reservations
-            </button>
+            <div className="flex-1">
+              {!user && registration.guestEmail ? (
+                <div>
+                  <button
+                    disabled
+                    className="w-full px-6 py-3 bg-green-600 text-white font-semibold rounded-lg opacity-60 cursor-not-allowed"
+                  >
+                    Manage Session Reservations
+                  </button>
+                  <div className="mt-2 flex items-center justify-between">
+                    <p className="text-sm text-gray-600">Create an account to manage your reservations.</p>
+                    <button
+                      onClick={() => setShowAccountCreation(true)}
+                      className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                    >
+                      Create Account
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => router.push(`/registrations/${registration.id}/reservations`)}
+                  className="flex-1 px-6 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  Manage Session Reservations
+                </button>
+              )}
+            </div>
           )}
           <button
             onClick={() => router.push("/my-classes")}

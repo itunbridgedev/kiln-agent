@@ -1,0 +1,84 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e5]:
+          - heading "Kiln Agent Studio" [level=1] [ref=e6]
+          - paragraph [ref=e7]: powered by Kiln Agent
+        - navigation [ref=e8]:
+          - button "Login" [ref=e9] [cursor=pointer]
+    - generic [ref=e10]:
+      - generic [ref=e12]:
+        - img [ref=e13]
+        - generic [ref=e15]:
+          - heading "Booking Confirmed!" [level=1] [ref=e16]
+          - paragraph [ref=e17]: "Confirmation #10"
+      - generic [ref=e18]:
+        - heading "Registration Details" [level=2] [ref=e20]
+        - generic [ref=e21]:
+          - generic [ref=e22]:
+            - heading "Beginner Wheel Throwing" [level=3] [ref=e23]
+            - paragraph [ref=e24]: Learn the basics of wheel throwing in this 6-week course. Perfect for students with little to no experience.
+            - generic [ref=e25]: Classes
+          - generic [ref=e26]:
+            - heading "Contact Information" [level=4] [ref=e27]
+            - generic [ref=e28]:
+              - generic [ref=e29]:
+                - generic [ref=e30]: "Name:"
+                - generic [ref=e31]: Test User
+              - generic [ref=e32]:
+                - generic [ref=e33]: "Email:"
+                - generic [ref=e34]: testuser@example.com
+              - generic [ref=e35]:
+                - generic [ref=e36]: "Phone:"
+                - generic [ref=e37]: 555-123-4567
+          - generic [ref=e40]:
+            - generic [ref=e41]:
+              - heading "🎉 Create Your Account" [level=4] [ref=e42]
+              - paragraph [ref=e43]: Create a free account to manage your reservation and see upcoming classes.
+            - button "Get Started" [ref=e44]
+          - generic [ref=e45]:
+            - heading "Session Details" [level=4] [ref=e46]
+            - generic [ref=e47]:
+              - generic [ref=e48]:
+                - generic [ref=e49]: "Date:"
+                - generic [ref=e50]: Tuesday, February 10, 2026
+              - generic [ref=e51]:
+                - generic [ref=e52]: "Time:"
+                - generic [ref=e53]: 10:00 AM - 12:00 PM
+          - generic [ref=e54]:
+            - heading "Payment Information" [level=4] [ref=e55]
+            - generic [ref=e56]:
+              - generic [ref=e57]:
+                - generic [ref=e58]: "Amount Paid:"
+                - generic [ref=e59]: $250.00
+              - generic [ref=e60]:
+                - generic [ref=e61]: "Payment Status:"
+                - generic [ref=e62]: COMPLETED
+              - generic [ref=e63]:
+                - generic [ref=e64]: "Registration Status:"
+                - generic [ref=e65]: CONFIRMED
+          - generic [ref=e66]:
+            - heading "What's Next?" [level=4] [ref=e67]
+            - list [ref=e68]:
+              - listitem [ref=e69]:
+                - img [ref=e70]
+                - generic [ref=e72]: A confirmation email has been sent to your email address
+              - listitem [ref=e73]:
+                - img [ref=e74]
+                - generic [ref=e76]: Arrive 10-15 minutes early on your session date
+              - listitem [ref=e77]:
+                - img [ref=e78]
+                - generic [ref=e80]: Contact the studio if you have any questions
+      - generic [ref=e81]:
+        - button "View My Classes" [ref=e82]
+        - button "Browse More Classes" [ref=e83]
+    - contentinfo [ref=e84]:
+      - paragraph [ref=e85]: © 2026 Kiln Agent. All rights reserved.
+  - button "Open Next.js Dev Tools" [ref=e91] [cursor=pointer]:
+    - img [ref=e92]
+  - alert [ref=e95]
+```
