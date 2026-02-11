@@ -31,6 +31,9 @@ model Studio {
   resources     StudioResource[]
   noShowPolicies NoShowPolicy[]
   customerSuspensions CustomerSuspension[]
+  memberships            Membership[]
+  membershipSubscriptions MembershipSubscription[]
+  openStudioBookings     OpenStudioBooking[]
 }
 
 model Customer {
@@ -72,6 +75,7 @@ model Customer {
   reservationHistory  ReservationHistory[]
   suspensions         CustomerSuspension[]
   suspensionsLifted   CustomerSuspension[] @relation("LiftedBy")
+  membershipSubscriptions MembershipSubscription[]
 
   @@unique([studioId, email])
   @@index([studioId])
@@ -308,6 +312,10 @@ model ClassSession {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Resource hold settings for capacity reservation
+  reserveFullCapacity  Boolean @default(false)
+  resourceReleaseHours Int?
+
   attendances          ClassAttendance[]
   instructors          ClassSessionInstructor[]
   assistants           ClassSessionAssistant[]
@@ -315,6 +323,7 @@ model ClassSession {
   reservations         SessionReservation[]
   waitlistEntries      ClassWaitlist[]
   resourceAllocations  SessionResourceAllocation[]
+  openStudioBookings   OpenStudioBooking[]
 
   @@index([studioId])
   @@index([scheduleId])
@@ -774,6 +783,7 @@ model StudioResource {
 
   classResourceRequirements  ClassResourceRequirement[]
   sessionResourceAllocations SessionResourceAllocation[]
+  openStudioBookings         OpenStudioBooking[]
   studio                     Studio                      @relation(fields: [studioId], references: [id])
 
   @@unique([studioId, name])
@@ -813,4 +823,110 @@ model SessionResourceAllocation {
   @@index([sessionId])
   @@index([resourceId])
   @@index([sessionId, resourceId]) // For availability checks
+}
+
+// =============================================
+// Membership System
+// =============================================
+
+enum BillingPeriod {
+  MONTHLY
+  QUARTERLY
+  ANNUAL
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAUSED
+  CANCELLED
+  PAST_DUE
+  EXPIRED
+}
+
+enum OpenStudioBookingStatus {
+  RESERVED
+  CHECKED_IN
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+// Membership tier definition (e.g., Basic, Premium, Unlimited)
+model Membership {
+  id              Int       @id @default(autoincrement())
+  studioId        Int
+  studio          Studio    @relation(fields: [studioId], references: [id])
+  name            String
+  description     String?
+  price           Decimal   @db.Decimal(10, 2)
+  billingPeriod   BillingPeriod
+  benefits        Json      // Structured benefits JSON
+  isActive        Boolean   @default(true)
+  displayOrder    Int       @default(0)
+  stripeProductId String?
+  stripePriceId   String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  subscriptions   MembershipSubscription[]
+
+  @@unique([studioId, name])
+  @@index([studioId])
+}
+
+// Customer's active membership subscription
+model MembershipSubscription {
+  id                    Int                @id @default(autoincrement())
+  studioId              Int
+  studio                Studio             @relation(fields: [studioId], references: [id])
+  customerId            Int
+  customer              Customer           @relation(fields: [customerId], references: [id])
+  membershipId          Int
+  membership            Membership         @relation(fields: [membershipId], references: [id])
+
+  status                SubscriptionStatus
+  stripeSubscriptionId  String?            @unique
+  stripeCustomerId      String?
+
+  startDate             DateTime
+  currentPeriodStart    DateTime
+  currentPeriodEnd      DateTime
+  cancelledAt           DateTime?
+  cancellationReason    String?
+  pausedAt              DateTime?
+
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+
+  openStudioBookings    OpenStudioBooking[]
+
+  @@unique([studioId, customerId, membershipId])
+  @@index([studioId, status])
+}
+
+// Open Studio time-block booking on a specific resource
+model OpenStudioBooking {
+  id               Int                    @id @default(autoincrement())
+  studioId         Int
+  studio           Studio                 @relation(fields: [studioId], references: [id])
+  subscriptionId   Int
+  subscription     MembershipSubscription @relation(fields: [subscriptionId], references: [id])
+  sessionId        Int
+  session          ClassSession           @relation(fields: [sessionId], references: [id])
+  resourceId       Int
+  resource         StudioResource         @relation(fields: [resourceId], references: [id])
+
+  startTime        String                 // "14:00" — within the session window
+  endTime          String                 // "16:00"
+
+  status           OpenStudioBookingStatus
+  isWalkIn         Boolean                @default(false)
+
+  reservedAt       DateTime               @default(now())
+  checkedInAt      DateTime?
+  completedAt      DateTime?
+  cancelledAt      DateTime?
+
+  @@unique([sessionId, resourceId, startTime])
+  @@index([studioId, sessionId])
 }

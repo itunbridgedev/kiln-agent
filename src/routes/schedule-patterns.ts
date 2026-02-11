@@ -342,6 +342,8 @@ router.put("/sessions/:id", isAuthenticated, isAdmin, async (req, res) => {
       location,
       notes,
       isCancelled,
+      reserveFullCapacity,
+      resourceReleaseHours,
     } = req.body;
 
     const session = await scheduleService.updateSingleSession(sessionId, {
@@ -352,6 +354,10 @@ router.put("/sessions/:id", isAuthenticated, isAdmin, async (req, res) => {
       location,
       notes,
       isCancelled,
+      reserveFullCapacity,
+      resourceReleaseHours: resourceReleaseHours !== undefined
+        ? resourceReleaseHours !== null ? parseInt(resourceReleaseHours) : null
+        : undefined,
     });
 
     res.json(session);

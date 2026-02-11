@@ -10,9 +10,12 @@ import passport from "./config/passport";
 import { tenantMiddleware } from "./middleware/tenantMiddleware";
 import adminRoutes from "./routes/admin";
 import adminCalendarRoutes from "./routes/admin-calendar";
+import adminMembershipsRoutes from "./routes/admin-memberships";
 import authRoutes from "./routes/auth";
 import calendarRoutes from "./routes/calendar";
 import classesRoutes from "./routes/classes";
+import membershipsRoutes from "./routes/memberships";
+import openStudioRoutes from "./routes/open-studio";
 import productsRoutes from "./routes/products";
 import registrationsRoutes from "./routes/registrations";
 import reservationsRoutes from "./routes/reservations";
@@ -238,10 +241,13 @@ app.use("/api/stripe/payment", stripePaymentRoutes); // Stripe payment processin
 app.use("/api/admin", adminRoutes);
 app.use("/api/admin/calendar", adminCalendarRoutes);
 app.use("/api/admin/classes", classesRoutes);
+app.use("/api/admin/memberships", adminMembershipsRoutes);
 app.use("/api/admin/resources", resourcesRoutes);
 app.use("/api/admin/schedule-patterns", schedulePatternRoutes);
 app.use("/api/admin/teaching-roles", teachingRolesRoutes);
 app.use("/api/admin/users", usersRoutes);
+app.use("/api/memberships", membershipsRoutes);
+app.use("/api/open-studio", openStudioRoutes);
 app.use("/api/staff", staffRoutes);
 app.use("/api/staff", staffReservationsRoutes); // Staff reservation management
 app.use("/api/studio", studioRoutes);

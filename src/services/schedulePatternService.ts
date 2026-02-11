@@ -628,6 +628,8 @@ export async function updateSingleSession(
     location?: string;
     notes?: string;
     isCancelled?: boolean;
+    reserveFullCapacity?: boolean;
+    resourceReleaseHours?: number | null;
   }
 ) {
   const session = await prisma.classSession.update({

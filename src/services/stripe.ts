@@ -1,5 +1,6 @@
 import Stripe from "stripe";
 import prisma from "../prisma";
+import * as MembershipService from "./MembershipService";
 
 // Initialize Stripe with your secret key
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
@@ -391,6 +392,37 @@ export async function handleWebhookEvent(event: Stripe.Event): Promise<void> {
         } else {
           console.log(`[Webhook] No registration found with stripeChargeId: ${charge.id}`);
         }
+        break;
+      }
+
+      case "customer.subscription.created": {
+        const subscription = event.data.object as Stripe.Subscription;
+        const accountId = event.account;
+        console.log(`[Webhook] Subscription created: ${subscription.id}`);
+        if (accountId) {
+          await MembershipService.handleSubscriptionCreated(subscription, accountId);
+        }
+        break;
+      }
+
+      case "customer.subscription.updated": {
+        const subscription = event.data.object as Stripe.Subscription;
+        console.log(`[Webhook] Subscription updated: ${subscription.id}, status: ${subscription.status}`);
+        await MembershipService.handleSubscriptionUpdated(subscription);
+        break;
+      }
+
+      case "customer.subscription.deleted": {
+        const subscription = event.data.object as Stripe.Subscription;
+        console.log(`[Webhook] Subscription deleted: ${subscription.id}`);
+        await MembershipService.handleSubscriptionDeleted(subscription);
+        break;
+      }
+
+      case "invoice.payment_failed": {
+        const invoice = event.data.object as Stripe.Invoice;
+        console.log(`[Webhook] Invoice payment failed: ${invoice.id}`);
+        await MembershipService.handleInvoicePaymentFailed(invoice);
         break;
       }
 
