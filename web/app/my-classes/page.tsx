@@ -5,6 +5,7 @@ import Header from "@/components/home/Header";
 import { useAuth } from "@/context/AuthContext";
 import "@/styles/Home.css";
 import { format } from "date-fns";
+import { parseLocalDate } from "@/lib/dates";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -405,7 +406,7 @@ export default function MyClassesPage() {
                               </span>
                               <p className="text-gray-600">
                                 {format(
-                                  new Date(registration.schedule.startDate),
+                                  parseLocalDate(registration.schedule.startDate),
                                   "MMM d, yyyy"
                                 )}
                               </p>
@@ -417,7 +418,7 @@ export default function MyClassesPage() {
                                 </span>
                                 <p className="text-gray-600">
                                   {format(
-                                    new Date(registration.schedule.endDate),
+                                    parseLocalDate(registration.schedule.endDate),
                                     "MMM d, yyyy"
                                   )}
                                 </p>
@@ -454,7 +455,7 @@ export default function MyClassesPage() {
                             {registration.allSessions.slice(0, 3).map((session: any) => (
                               <div key={session.sessionId} className="text-sm text-gray-700">
                                 <span className="font-medium">
-                                  {format(new Date(session.sessionDate), "EEE, MMM d, yyyy")}
+                                  {format(parseLocalDate(session.sessionDate), "EEE, MMM d, yyyy")}
                                 </span>
                                 {" at "}
                                 {session.startTime}
@@ -563,7 +564,7 @@ export default function MyClassesPage() {
                               <p>
                                 Starts:{" "}
                                 {format(
-                                  new Date(entry.schedule.startDate),
+                                  parseLocalDate(entry.schedule.startDate),
                                   "MMM d, yyyy"
                                 )}
                               </p>

@@ -1,5 +1,6 @@
 "use client";
 
+import { parseLocalDate } from "@/lib/dates";
 import { useEffect, useState } from "react";
 
 interface ClassStep {
@@ -882,9 +883,9 @@ export default function SchedulePatternManager({
                               </ul>
                             </div>
                             <p className="pattern-dates">
-                              {new Date(pattern.startDate).toLocaleDateString()}
+                              {parseLocalDate(pattern.startDate).toLocaleDateString()}
                               {pattern.endDate
-                                ? ` - ${new Date(pattern.endDate).toLocaleDateString()}`
+                                ? ` - ${parseLocalDate(pattern.endDate).toLocaleDateString()}`
                                 : " - Ongoing"}
                             </p>
                           </div>
@@ -933,7 +934,7 @@ export default function SchedulePatternManager({
                   .slice(0, 20)
                   .map((session: any, index: number) => {
                     // Combine sessionDate with startTime and endTime
-                    const sessionDate = new Date(session.sessionDate);
+                    const sessionDate = parseLocalDate(session.sessionDate);
                     const [startHour, startMin] = session.startTime.split(":");
                     const [endHour, endMin] = session.endTime.split(":");
 
@@ -1879,7 +1880,7 @@ export default function SchedulePatternManager({
                     <div>
                       <div className="session-date">
                         Session {session.sessionNumber}: {session.dayOfWeek},{" "}
-                        {new Date(session.sessionDate).toLocaleDateString()}
+                        {parseLocalDate(session.sessionDate).toLocaleDateString()}
                       </div>
                     </div>
                     <div className="session-time">

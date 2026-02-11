@@ -6,6 +6,7 @@ import Header from "@/components/home/Header";
 import { useAuth } from "@/context/AuthContext";
 import "@/styles/Home.css";
 import { format, parseISO, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, addMonths, subMonths, startOfDay } from "date-fns";
+import { parseLocalDate } from "@/lib/dates";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -325,7 +326,7 @@ export default function ReservationsPage() {
 
   const getSessionsForDay = (day: Date) => {
     return availableSessions.filter(session => {
-      const sessionDate = parseISO(session.date);
+      const sessionDate = parseLocalDate(session.date);
       return isSameDay(sessionDate, day);
     });
   };
@@ -864,7 +865,7 @@ export default function ReservationsPage() {
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                            {format(parseISO(session.date), 'EEEE, MMMM d, yyyy')} at {formatTime(session.startTime)} - {formatTime(session.endTime)}
+                            {format(parseLocalDate(session.date), 'EEEE, MMMM d, yyyy')} at {formatTime(session.startTime)} - {formatTime(session.endTime)}
                           </h3>
                           {session.topic && (
                             <p className="text-gray-600 mb-2">{session.topic}</p>

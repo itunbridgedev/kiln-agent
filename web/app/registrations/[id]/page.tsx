@@ -6,6 +6,7 @@ import Header from "@/components/home/Header";
 import { useAuth } from "@/context/AuthContext";
 import "@/styles/Home.css";
 import { format } from "date-fns";
+import { parseLocalDate } from "@/lib/dates";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -337,7 +338,7 @@ export default function RegistrationConfirmationPage() {
                     <span className="text-gray-600">Date:</span>
                     <span className="font-medium text-gray-900">
                       {format(
-                        new Date(session.sessionDate),
+                        parseLocalDate(session.sessionDate),
                         "EEEE, MMMM d, yyyy"
                       )}
                     </span>

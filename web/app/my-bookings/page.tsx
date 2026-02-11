@@ -4,6 +4,7 @@ import Footer from "@/components/home/Footer";
 import Header from "@/components/home/Header";
 import { useAuth } from "@/context/AuthContext";
 import "@/styles/Home.css";
+import { parseLocalDate } from "@/lib/dates";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -163,7 +164,7 @@ export default function MyBookingsPage() {
                         </p>
                         <p className="text-sm text-gray-500 mt-1">
                           Booked on{" "}
-                          {new Date(booking.date).toLocaleDateString()}
+                          {parseLocalDate(booking.date).toLocaleDateString()}
                         </p>
                       </div>
                       <div className="flex items-center text-blue-600">

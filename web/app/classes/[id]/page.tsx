@@ -8,6 +8,7 @@ import "@/styles/Home.css";
 import { Elements } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js";
 import { format, parseISO, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, addMonths, subMonths, startOfDay } from "date-fns";
+import { parseLocalDate } from "@/lib/dates";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -434,7 +435,7 @@ export default function ClassDetailPage() {
   const getSessionsForDay = (day: Date) => {
     if (!classDetails) return [];
     return classDetails.sessions.filter(session => {
-      const sessionDate = parseISO(session.sessionDate);
+      const sessionDate = parseLocalDate(session.sessionDate);
       return isSameDay(sessionDate, day);
     });
   };
@@ -936,7 +937,7 @@ export default function ClassDetailPage() {
                 <div className="space-y-4">
                   {classDetails.sessions.map((session) => {
                     const isFull = session.availableSpots <= 0;
-                    const sessionDate = new Date(session.sessionDate);
+                    const sessionDate = parseLocalDate(session.sessionDate);
 
                     return (
                       <div
@@ -1049,7 +1050,7 @@ export default function ClassDetailPage() {
                 <p className="text-sm text-gray-500">Date & Time</p>
                 <p className="text-gray-900">
                   {format(
-                    new Date(selectedSession.sessionDate),
+                    parseLocalDate(selectedSession.sessionDate),
                     "EEEE, MMMM d, yyyy"
                   )}
                 </p>
