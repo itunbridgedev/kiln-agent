@@ -3,7 +3,7 @@ import { Router } from "express";
 import passport from "../config/passport";
 import { isAuthenticated } from "../middleware/auth";
 import prisma from "../prisma";
-import { hashPassword, validateEmail, validatePassword } from "../utils/auth";
+import { hashPassword, validateEmail, validatePassword, buildCookieOptions } from "../utils/auth";
 import crypto from "crypto";
 
 const router = Router();
@@ -203,21 +203,9 @@ router.post("/register-guest", async (req, res) => {
           return res.status(500).json({ error: "Session save failed" });
         }
 
-        // Manually set the Set-Cookie header
-        const sessionSecret =
-          process.env.SESSION_SECRET || "your-secret-key-change-in-production";
-        const signedSessionId = `s:${signature.sign(req.sessionID, sessionSecret)}`;
-
-        const cookieOptions = [
-          `connect.sid=${signedSessionId}`,
-          `Domain=.kilnagent.com`,
-          `Path=/`,
-          `Expires=${new Date(Date.now() + 24 * 60 * 60 * 1000).toUTCString()}`,
-          `HttpOnly`,
-          `Secure`,
-          `SameSite=None`,
-        ].join("; ");
-
+        // Build proper cookie options based on the request host
+        const host = req.get("host") || "localhost";
+        const cookieOptions = buildCookieOptions(req.sessionID, host);
         res.setHeader("Set-Cookie", cookieOptions);
 
         res.status(201).json({
@@ -276,22 +264,9 @@ router.post("/login", (req, res, next) => {
         console.log("[Login] Session ID:", req.sessionID);
         console.log("[Login] Session data:", JSON.stringify(req.session));
 
-        // Manually set the Set-Cookie header since express-session isn't doing it
-        const signature = require("cookie-signature");
-        const secret =
-          process.env.SESSION_SECRET || "your-secret-key-change-in-production";
-        const signedSessionId = `s:${signature.sign(req.sessionID, secret)}`;
-
-        const cookieOptions = [
-          `connect.sid=${signedSessionId}`,
-          `Domain=.kilnagent.com`,
-          `Path=/`,
-          `Expires=${new Date(Date.now() + 24 * 60 * 60 * 1000).toUTCString()}`,
-          `HttpOnly`,
-          `Secure`,
-          `SameSite=None`,
-        ].join("; ");
-
+        // Build proper cookie options based on the request host
+        const host = req.get("host") || "localhost";
+        const cookieOptions = buildCookieOptions(req.sessionID, host);
         res.setHeader("Set-Cookie", cookieOptions);
         console.log("[Login] Manually set cookie:", cookieOptions);
 
@@ -649,11 +624,14 @@ router.get("/clear-session", (req, res) => {
 
     // Manually set both Set-Cookie headers to clear both cookies
     // Express's res.clearCookie() can only be called once per cookie name
+    const host = req.get("host") || "localhost";
+    const isLocalhost = host.includes("localhost") || host.includes("127.0.0.1");
+    
     const clearCookies = [
-      // Clear the www.kilnagent.com specific cookie
-      "connect.sid=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; Secure; SameSite=Lax",
-      // Clear the legacy .kilnagent.com domain cookie
-      "connect.sid=; Path=/; Domain=.kilnagent.com; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; Secure; SameSite=Lax",
+      // Clear the default cookie (no domain for localhost)
+      isLocalhost
+        ? "connect.sid=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Lax"
+        : "connect.sid=; Path=/; Domain=.kilnagent.com; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; Secure; SameSite=Lax",
     ];
 
     console.log("[Clear Session] Setting clear-cookie headers:", clearCookies);
@@ -789,21 +767,9 @@ router.post("/link-oauth-to-guest", async (req, res) => {
           return res.status(500).json({ error: "Session save failed" });
         }
 
-        // Manually set the Set-Cookie header
-        const sessionSecret =
-          process.env.SESSION_SECRET || "your-secret-key-change-in-production";
-        const signedSessionId = `s:${signature.sign(req.sessionID, sessionSecret)}`;
-
-        const cookieOptions = [
-          `connect.sid=${signedSessionId}`,
-          `Domain=.kilnagent.com`,
-          `Path=/`,
-          `Expires=${new Date(Date.now() + 24 * 60 * 60 * 1000).toUTCString()}`,
-          `HttpOnly`,
-          `Secure`,
-          `SameSite=None`,
-        ].join("; ");
-
+        // Build proper cookie options based on the request host
+        const host = req.get("host") || "localhost";
+        const cookieOptions = buildCookieOptions(req.sessionID, host);
         res.setHeader("Set-Cookie", cookieOptions);
 
         res.status(200).json({

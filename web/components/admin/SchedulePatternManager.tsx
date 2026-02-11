@@ -689,7 +689,11 @@ export default function SchedulePatternManager({
     setEndTime(pattern.endTime || "");
 
     if (pattern.classStepId) {
-      setSelectedSteps([pattern.classStepId]);
+      // Find the step number for this step ID
+      const step = classData.steps?.find((s: any) => s.id === pattern.classStepId);
+      if (step) {
+        setSelectedSteps([step.stepNumber]);
+      }
     }
 
     // Load existing resource requirements
