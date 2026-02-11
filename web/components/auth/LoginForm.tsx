@@ -1,4 +1,5 @@
 import React from "react";
+import Link from "next/link";
 
 interface LoginFormProps {
   isRegistering: boolean;
@@ -66,6 +67,16 @@ export default function LoginForm({
           required
           placeholder="Enter your password"
         />
+        {!isRegistering && (
+          <div className="mt-2">
+            <Link
+              href="/auth/password-reset"
+              className="text-sm text-blue-600 hover:text-blue-800"
+            >
+              Forgot password?
+            </Link>
+          </div>
+        )}
       </div>
 
       {isRegistering && (

@@ -3,7 +3,8 @@ import { Router } from "express";
 import passport from "../config/passport";
 import { isAuthenticated } from "../middleware/auth";
 import prisma from "../prisma";
-import { hashPassword, validateEmail, validatePassword } from "../utils/auth";
+import { hashPassword, validateEmail, validatePassword, buildCookieOptions } from "../utils/auth";
+import crypto from "crypto";
 
 const router = Router();
 
@@ -103,6 +104,130 @@ router.post("/register", async (req, res) => {
   }
 });
 
+// Register guest (from booking confirmation)
+router.post("/register-guest", async (req, res) => {
+  try {
+    const { email, password, registrationId } = req.body;
+
+    // Validate input
+    if (!email || !password || !registrationId) {
+      return res
+        .status(400)
+        .json({ error: "Email, password, and registrationId are required" });
+    }
+
+    // Get the studio from tenant middleware (if available)
+    const studioId = (req as any).studioId;
+
+    // Verify the registration exists and email matches
+    const registration = await prisma.classRegistration.findUnique({
+      where: { id: parseInt(registrationId) },
+      include: {
+        class: true,
+      },
+    });
+
+    if (!registration) {
+      return res.status(404).json({ error: "Registration not found" });
+    }
+
+    // Verify the email matches the guest email
+    if (registration.guestEmail?.toLowerCase() !== email.toLowerCase()) {
+      return res
+        .status(400)
+        .json({ error: "Email does not match registration" });
+    }
+
+    // Check if user already exists
+    const existingUser = await prisma.customer.findFirst({
+      where: { email: email.toLowerCase() },
+    });
+
+    if (existingUser) {
+      return res
+        .status(409)
+        .json({ error: "User with this email already exists" });
+    }
+
+    // Validate password
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
+      return res
+        .status(400)
+        .json({ error: passwordValidation.errors.join(", ") });
+    }
+
+    // Hash password
+    const passwordHash = await hashPassword(password);
+
+    // Create user account with guest info from registration
+    const user = await prisma.customer.create({
+      data: {
+        name: registration.guestName || email.split("@")[0],
+        email: email.toLowerCase(),
+        passwordHash,
+        phone: registration.guestPhone || null,
+        agreedToTerms: true, // Guest implicitly agreed by booking
+        agreedToSms: false,
+      } as any,
+      include: {
+        roles: {
+          include: {
+            role: true,
+          },
+        },
+      },
+    });
+
+    // Link the registration to the new customer account
+    await prisma.classRegistration.update({
+      where: { id: registration.id },
+      data: {
+        customerId: user.id,
+      },
+    });
+
+    // Log the user in
+    req.login(user, (err) => {
+      if (err) {
+        console.error("Login after guest registration failed:", err);
+        return res.status(500).json({
+          error: "Account created but login failed",
+        });
+      }
+
+      // Save session before responding
+      req.session.save((saveErr) => {
+        if (saveErr) {
+          console.error("Session save error:", saveErr);
+          return res.status(500).json({ error: "Session save failed" });
+        }
+
+        // Build proper cookie options based on the request host
+        const host = req.get("host") || "localhost";
+        const cookieOptions = buildCookieOptions(req.sessionID, host);
+        res.setHeader("Set-Cookie", cookieOptions);
+
+        res.status(201).json({
+          message: "Account created successfully",
+          user: {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            picture: user.picture,
+            roles: user.roles?.map((r: any) => r.role?.name) || [],
+          },
+        });
+      });
+    });
+  } catch (error) {
+    console.error("Guest registration error:", error);
+    res
+      .status(500)
+      .json({ error: "Internal server error during registration" });
+  }
+});
+
 // Login with email/password
 router.post("/login", (req, res, next) => {
   console.log("[Login] Received login request for:", req.body.email);
@@ -139,22 +264,9 @@ router.post("/login", (req, res, next) => {
         console.log("[Login] Session ID:", req.sessionID);
         console.log("[Login] Session data:", JSON.stringify(req.session));
 
-        // Manually set the Set-Cookie header since express-session isn't doing it
-        const signature = require("cookie-signature");
-        const secret =
-          process.env.SESSION_SECRET || "your-secret-key-change-in-production";
-        const signedSessionId = `s:${signature.sign(req.sessionID, secret)}`;
-
-        const cookieOptions = [
-          `connect.sid=${signedSessionId}`,
-          `Domain=.kilnagent.com`,
-          `Path=/`,
-          `Expires=${new Date(Date.now() + 24 * 60 * 60 * 1000).toUTCString()}`,
-          `HttpOnly`,
-          `Secure`,
-          `SameSite=None`,
-        ].join("; ");
-
+        // Build proper cookie options based on the request host
+        const host = req.get("host") || "localhost";
+        const cookieOptions = buildCookieOptions(req.sessionID, host);
         res.setHeader("Set-Cookie", cookieOptions);
         console.log("[Login] Manually set cookie:", cookieOptions);
 
@@ -212,7 +324,6 @@ router.get(
         `[Google Callback] Session cookie: ${JSON.stringify(req.session.cookie)}`
       );
 
-      // Check if user needs to complete registration
       const user = req.user as any;
       const needsCompletion = !user.agreedToTerms;
 
@@ -220,9 +331,22 @@ router.get(
       const returnUrl = (req.session as any).returnUrl;
       delete (req.session as any).returnUrl; // Clean up
 
-      const redirectUrl = needsCompletion
+      // If returning from guest linking flow, include OAuth data
+      let redirectUrl = returnUrl 
+        ? `${returnUrl}&provider=google&data=${encodeURIComponent(JSON.stringify({
+            email: user.email,
+            name: user.name,
+            picture: user.picture,
+            providerAccountId: user.id,
+            accessToken: (req.user as any)._json?.access_token || '',
+            refreshToken: (req.user as any)._json?.refresh_token || null,
+            idToken: (req.user as any)._json?.id_token || null,
+            expiresAt: null,
+            scope: 'profile email'
+          }))}`
+        : needsCompletion
         ? `${process.env.CLIENT_URL || "http://localhost:3000"}/complete-registration`
-        : returnUrl || `${process.env.CLIENT_URL || "http://localhost:3000"}/`;
+        : `${process.env.CLIENT_URL || "http://localhost:3000"}/`;
 
       // Manually set signed cookie header with correct domain
       const sessionSecret =
@@ -339,10 +463,22 @@ router.post("/apple/callback", (req, res, next) => {
           const returnUrl = (req.session as any).returnUrl;
           delete (req.session as any).returnUrl; // Clean up
 
-          const redirectUrl = needsCompletion
+          // If returning from guest linking flow, include OAuth data
+          let redirectUrl = returnUrl
+            ? `${returnUrl}&provider=apple&data=${encodeURIComponent(JSON.stringify({
+                email: user.email,
+                name: user.name,
+                picture: user.picture,
+                providerAccountId: user.id,
+                accessToken: (user as any).accessToken || '',
+                refreshToken: (user as any).refreshToken || null,
+                idToken: (req.body.id_token) || null,
+                expiresAt: null,
+                scope: 'name email'
+              }))}`
+            : needsCompletion
             ? `${process.env.CLIENT_URL || "http://localhost:3000"}/complete-registration`
-            : returnUrl ||
-              `${process.env.CLIENT_URL || "http://localhost:3000"}/`;
+            : `${process.env.CLIENT_URL || "http://localhost:3000"}/`;
 
           console.log(
             `[Apple Callback] Session saved, redirecting to: ${redirectUrl}`
@@ -488,11 +624,14 @@ router.get("/clear-session", (req, res) => {
 
     // Manually set both Set-Cookie headers to clear both cookies
     // Express's res.clearCookie() can only be called once per cookie name
+    const host = req.get("host") || "localhost";
+    const isLocalhost = host.includes("localhost") || host.includes("127.0.0.1");
+    
     const clearCookies = [
-      // Clear the www.kilnagent.com specific cookie
-      "connect.sid=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; Secure; SameSite=Lax",
-      // Clear the legacy .kilnagent.com domain cookie
-      "connect.sid=; Path=/; Domain=.kilnagent.com; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; Secure; SameSite=Lax",
+      // Clear the default cookie (no domain for localhost)
+      isLocalhost
+        ? "connect.sid=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Lax"
+        : "connect.sid=; Path=/; Domain=.kilnagent.com; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; Secure; SameSite=Lax",
     ];
 
     console.log("[Clear Session] Setting clear-cookie headers:", clearCookies);
@@ -504,6 +643,294 @@ router.get("/clear-session", (req, res) => {
     const clientUrl = process.env.CLIENT_URL || "http://localhost:3000";
     res.redirect(`${clientUrl}/login?cleared=true`);
   });
+});
+
+// ========== Password Recovery ==========
+
+// Link OAuth account to guest registration
+router.post("/link-oauth-to-guest", async (req, res) => {
+  try {
+    const { registrationId, provider, oauthData, linkExistingEmail } = req.body;
+
+    if (!registrationId || !provider || !oauthData) {
+      return res.status(400).json({
+        error: "registrationId, provider, and oauthData are required",
+      });
+    }
+
+    // Verify the registration exists
+    const registration = await prisma.classRegistration.findUnique({
+      where: { id: parseInt(registrationId) },
+      include: { class: true },
+    });
+
+    if (!registration) {
+      return res.status(404).json({ error: "Registration not found" });
+    }
+
+    const oauthEmail = oauthData.email?.toLowerCase();
+    const guestEmail = registration.guestEmail?.toLowerCase();
+
+    if (!oauthEmail) {
+      return res.status(400).json({
+        error: `${provider === "apple" ? "Apple" : "Google"} account must have an email`,
+      });
+    }
+
+    // Determine which email to use for the account
+    const accountEmail = linkExistingEmail ? guestEmail : oauthEmail;
+
+    if (!accountEmail) {
+      return res.status(400).json({
+        error: "No valid email found for account creation",
+      });
+    }
+
+    // Check if user already exists
+    let user = await prisma.customer.findFirst({
+      where: { email: accountEmail },
+      include: { accounts: true },
+    });
+
+    // If user doesn't exist, create account
+    if (!user) {
+      user = await prisma.customer.create({
+        data: {
+          name: oauthData.name || registration.guestName || accountEmail.split("@")[0],
+          email: accountEmail,
+          phone: registration.guestPhone || null,
+          picture: oauthData.picture || null,
+          agreedToTerms: true, // Guest implicitly agreed by booking
+          agreedToSms: false,
+          accounts: {
+            create: {
+              provider,
+              providerAccountId: oauthData.providerAccountId,
+              accessToken: oauthData.accessToken,
+              refreshToken: oauthData.refreshToken || null,
+              idToken: oauthData.idToken || null,
+              expiresAt: oauthData.expiresAt || null,
+              tokenType: "Bearer",
+              scope: oauthData.scope || null,
+            },
+          },
+        } as any,
+        include: { accounts: true },
+      });
+    } else {
+      // User exists, check if this OAuth provider is already linked
+      const existingAccount = user.accounts.find(
+        (acc: any) =>
+          acc.provider === provider &&
+          acc.providerAccountId === oauthData.providerAccountId
+      );
+
+      if (!existingAccount) {
+        // Add new OAuth account to existing user
+        await prisma.account.create({
+          data: {
+            customerId: user.id,
+            provider,
+            providerAccountId: oauthData.providerAccountId,
+            accessToken: oauthData.accessToken,
+            refreshToken: oauthData.refreshToken || null,
+            idToken: oauthData.idToken || null,
+            expiresAt: oauthData.expiresAt || null,
+            tokenType: "Bearer",
+            scope: oauthData.scope || null,
+          },
+        });
+      }
+    }
+
+    // Link registration to customer account (if not already linked)
+    if (registration.customerId !== user.id) {
+      await prisma.classRegistration.update({
+        where: { id: registration.id },
+        data: { customerId: user.id },
+      });
+    }
+
+    // Log the user in
+    req.login(user, (err) => {
+      if (err) {
+        console.error("Login after OAuth linking failed:", err);
+        return res.status(500).json({
+          error: "Account linked but login failed",
+        });
+      }
+
+      // Save session before responding
+      req.session.save((saveErr) => {
+        if (saveErr) {
+          console.error("Session save error:", saveErr);
+          return res.status(500).json({ error: "Session save failed" });
+        }
+
+        // Build proper cookie options based on the request host
+        const host = req.get("host") || "localhost";
+        const cookieOptions = buildCookieOptions(req.sessionID, host);
+        res.setHeader("Set-Cookie", cookieOptions);
+
+        res.status(200).json({
+          message: "OAuth account linked successfully",
+          user: {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            picture: user.picture,
+            roles: [],
+          },
+        });
+      });
+    });
+  } catch (error) {
+    console.error("OAuth linking error:", error);
+    res.status(500).json({
+      error: "Internal server error during account linking",
+    });
+  }
+});
+
+// ========== Password Recovery ==========
+
+// Request password reset
+router.post("/request-password-reset", async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: "Email is required" });
+    }
+
+    // Find user by email (case-insensitive)
+    const user = await prisma.customer.findFirst({
+      where: { email: email.toLowerCase() },
+    });
+
+    if (!user) {
+      // For security, don't reveal whether email exists
+      // Return success either way
+      return res.status(200).json({
+        message: "If an account exists with that email, a reset link has been sent",
+      });
+    }
+
+    // Generate reset token (valid for 1 hour)
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    const resetTokenHash = crypto
+      .createHash("sha256")
+      .update(resetToken)
+      .digest("hex");
+    const resetTokenExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    // Store token hash in database
+    await prisma.customer.update({
+      where: { id: user.id },
+      data: {
+        passwordResetToken: resetTokenHash,
+        passwordResetExpires: resetTokenExpires,
+      } as any,
+    });
+
+    // TODO: Send email with reset link
+    // For now, log the reset link for testing
+    const resetUrl = `${process.env.CLIENT_URL || "http://localhost:3000"}/auth/password-reset?token=${resetToken}`;
+    console.log(`[Password Reset] Reset link for ${email}: ${resetUrl}`);
+    console.log(
+      `[Password Reset] Token expires at: ${resetTokenExpires.toISOString()}`
+    );
+
+    // In production, send via email service (sendgrid, nodemailer, etc.)
+    // Example:
+    // await sendEmail({
+    //   to: user.email,
+    //   subject: 'Password Reset Request',
+    //   template: 'password-reset',
+    //   data: {
+    //     name: user.name,
+    //     resetUrl,
+    //     expiresIn: '1 hour'
+    //   }
+    // });
+
+    res.status(200).json({
+      message: "If an account exists with that email, a reset link has been sent",
+    });
+  } catch (error) {
+    console.error("Password reset request error:", error);
+    res.status(500).json({
+      error: "Internal server error during password reset request",
+    });
+  }
+});
+
+// Reset password with token
+router.post("/reset-password", async (req, res) => {
+  try {
+    const { token, password } = req.body;
+
+    if (!token || !password) {
+      return res
+        .status(400)
+        .json({ error: "Token and password are required" });
+    }
+
+    // Validate new password
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
+      return res
+        .status(400)
+        .json({ error: passwordValidation.errors.join(", ") });
+    }
+
+    // Hash the token to match what's stored in database
+    const resetTokenHash = crypto
+      .createHash("sha256")
+      .update(token)
+      .digest("hex");
+
+    // Find user with matching reset token
+    const user = await prisma.customer.findFirst({
+      where: {
+        passwordResetToken: resetTokenHash,
+        passwordResetExpires: {
+          gt: new Date(), // Token must not be expired
+        },
+      } as any,
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        error: "Password reset token is invalid or has expired",
+      });
+    }
+
+    // Hash new password
+    const passwordHash = await hashPassword(password);
+
+    // Update password and clear reset token
+    await prisma.customer.update({
+      where: { id: user.id },
+      data: {
+        passwordHash,
+        passwordResetToken: null,
+        passwordResetExpires: null,
+      } as any,
+    });
+
+    // TODO: Send confirmation email
+    console.log(`[Password Reset] Password reset successful for ${user.email}`);
+
+    res.status(200).json({
+      message: "Password has been reset successfully",
+    });
+  } catch (error) {
+    console.error("Password reset error:", error);
+    res.status(500).json({
+      error: "Internal server error during password reset",
+    });
+  }
 });
 
 // Check auth status

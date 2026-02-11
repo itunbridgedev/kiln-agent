@@ -42,6 +42,8 @@ model Customer {
   phone         String?
   picture       String?
   passwordHash  String? // For email/password auth
+  passwordResetToken String? // Token for password reset requests
+  passwordResetExpires DateTime? // Expiration time for reset token
   agreedToTerms Boolean        @default(false)
   agreedToSms   Boolean        @default(false)
   createdAt     DateTime       @default(now())

@@ -93,6 +93,7 @@ export default function ReservationsPage() {
   const registrationId = params?.id as string;
 
   const [registration, setRegistration] = useState<Registration | null>(null);
+  const [registrationBasic, setRegistrationBasic] = useState<any | null>(null);
   const [availableSessions, setAvailableSessions] = useState<
     AvailableSession[]
   >([]);
@@ -113,6 +114,20 @@ export default function ReservationsPage() {
     fetchStudioInfo();
     if (registrationId && user) {
       fetchData();
+    }
+    // Fetch basic registration info for guests (to allow account creation)
+    if (registrationId) {
+      (async () => {
+        try {
+          const resp = await fetch(`${API_BASE_URL}/api/registrations/${registrationId}`, { credentials: 'include' });
+          if (resp.ok) {
+            const data = await resp.json();
+            setRegistrationBasic({ guestEmail: data.guestEmail, className: data.class?.name });
+          }
+        } catch (e) {
+          // ignore
+        }
+      })();
     }
   }, [registrationId, user]);
 
@@ -361,17 +376,28 @@ export default function ReservationsPage() {
           onNavigateAdmin={() => router.push("/admin")}
           onNavigateLogin={() => router.push("/login")}
         />
-        <div className="flex items-center justify-center py-12">
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 max-w-md">
-            <p className="text-yellow-800">
-              Please log in to manage reservations
-            </p>
-            <button
-              onClick={() => router.push("/login")}
-              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-            >
-              Log In
-            </button>
+        <div className="flex items-center justify-center py-12 px-4">
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 max-w-md w-full">
+            <p className="text-yellow-800 mb-4">Please log in to manage reservations</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => router.push("/login")}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Log In
+              </button>
+              {registrationBasic?.guestEmail && (
+                <div className="flex-1">
+                  <p className="text-sm text-gray-700 mb-2">Or create an account for {registrationBasic.guestEmail} to manage this reservation.</p>
+                  <GuestAccountCreation
+                    email={registrationBasic.guestEmail}
+                    registrationId={parseInt(registrationId)}
+                    onSuccess={() => router.push(`/registrations/${registrationId}/reservations`)}
+                    onCancel={() => { /* noop */ }}
+                  />
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
