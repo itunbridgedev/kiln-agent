@@ -14,7 +14,7 @@ const stripe = new Stripe(stripeSecretKey, {
 
 // Platform application fee percentage (e.g., 5% = 0.05)
 const PLATFORM_FEE_PERCENTAGE = parseFloat(
-  process.env.STRIPE_PLATFORM_FEE_PERCENTAGE || "0.05"
+  process.env.STRIPE_PLATFORM_FEE_PERCENTAGE || "0.03"
 );
 
 /**

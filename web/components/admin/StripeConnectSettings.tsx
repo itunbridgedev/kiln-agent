@@ -19,7 +19,8 @@ export default function StripeConnectSettings() {
             <ul className="list-disc list-inside space-y-1">
               <li>Customers pay for classes directly through your booking pages</li>
               <li>Payments are processed securely through Stripe</li>
-              <li>A 5% platform fee is automatically deducted</li>
+              <li>Stripe processing fees (2.9% + 30¢) are deducted by Stripe</li>
+              <li>A 3% platform fee is automatically deducted</li>
               <li>Remaining funds are deposited to your bank account</li>
               <li>Payouts occur according to your Stripe payout schedule</li>
             </ul>
@@ -35,13 +36,17 @@ export default function StripeConnectSettings() {
                 <span>$100.00</span>
               </div>
               <div className="flex justify-between mb-1 text-red-600">
-                <span>Platform Fee (5%):</span>
-                <span>- $5.00</span>
+                <span>Stripe Fee (2.9% + 30¢):</span>
+                <span>- $3.20</span>
+              </div>
+              <div className="flex justify-between mb-1 text-red-600">
+                <span>Platform Fee (3%):</span>
+                <span>- $3.00</span>
               </div>
               <div className="border-t border-gray-300 my-2"></div>
               <div className="flex justify-between font-bold">
                 <span>Your Payout:</span>
-                <span className="text-green-600">$95.00</span>
+                <span className="text-green-600">$93.80</span>
               </div>
             </div>
           </div>
