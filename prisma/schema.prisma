@@ -162,7 +162,7 @@ model Class {
   teachingRole     TeachingRole?   @relation(fields: [teachingRoleId], references: [id], onDelete: SetNull)
   name             String
   description      String?
-  classType        String          @default("multi-session") // "multi-session", "single-session", "series", "multi-step"
+  classType        String          @default("multi-session") // "multi-session", "single-session", "series", "multi-step", "open-studio"
   durationWeeks    Int? // Number of weeks for multi-session classes (null for single-session)
   durationHours    Decimal?        @db.Decimal(4, 2) // Duration in hours for single-session classes (null for multi-session)
   isRecurring      Boolean         @default(false) // True for series classes that renew weekly

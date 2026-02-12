@@ -6,7 +6,7 @@ export interface ClassFormData {
   teachingRoleId?: number | null;
   name: string;
   description: string;
-  classType: "single-session" | "multi-session" | "series" | "multi-step";
+  classType: "single-session" | "multi-session" | "series" | "multi-step" | "open-studio";
   durationWeeks: number | null;
   durationHours: number | null;
   isRecurring: boolean;
@@ -138,7 +138,7 @@ export default function ClassForm({
       classType,
       durationWeeks: classType === "multi-session" ? 8 : null,
       durationHours: classType === "single-session" ? 2 : null,
-      isRecurring: classType === "series",
+      isRecurring: classType === "series" || classType === "open-studio",
       requiresSequence: classType === "multi-step",
     }));
   };
@@ -262,6 +262,7 @@ export default function ClassForm({
           <option value="multi-session">Multi-Session (Fixed weeks)</option>
           <option value="series">Series (Recurring weekly)</option>
           <option value="multi-step">Multi-Step (Sequential parts)</option>
+          <option value="open-studio">Open Studio (Member booking)</option>
         </select>
         <p className="mt-1 text-xs text-gray-500">
           {formData.classType === "single-session" &&
@@ -272,6 +273,8 @@ export default function ClassForm({
             "Ongoing class that renews weekly (e.g., Tuesday wheel throwing)"}
           {formData.classType === "multi-step" &&
             "Sequential lessons students must complete in order"}
+          {formData.classType === "open-studio" &&
+            "Drop-in studio time for members to book resources"}
         </p>
       </div>
 
