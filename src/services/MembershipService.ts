@@ -97,7 +97,9 @@ function billingPeriodToStripeInterval(
 }
 
 /**
- * Create a Stripe Product and Price for a membership tier
+ * Create a Stripe Product and Price for a membership tier.
+ * If stripeAccountId is provided, creates on the connected account (Stripe Connect).
+ * Otherwise, creates directly on the platform account.
  */
 export async function createStripeProductAndPrice(
   membershipId: number,
@@ -105,15 +107,17 @@ export async function createStripeProductAndPrice(
   description: string | null,
   priceInCents: number,
   billingPeriod: BillingPeriod,
-  stripeAccountId: string
+  stripeAccountId: string | null
 ): Promise<{ productId: string; priceId: string }> {
+  const connectOpts = stripeAccountId ? { stripeAccount: stripeAccountId } : undefined;
+
   const product = await stripe.products.create(
     {
       name,
       description: description || undefined,
       metadata: { membershipId: membershipId.toString() },
     },
-    { stripeAccount: stripeAccountId }
+    connectOpts
   );
 
   const { interval, interval_count } =
@@ -126,7 +130,7 @@ export async function createStripeProductAndPrice(
       currency: "usd",
       recurring: { interval, interval_count },
     },
-    { stripeAccount: stripeAccountId }
+    connectOpts
   );
 
   return { productId: product.id, priceId: price.id };
@@ -152,20 +156,18 @@ export async function createMembership(data: {
   let stripeProductId: string | null = null;
   let stripePriceId: string | null = null;
 
-  // Create Stripe product/price on the connected account if available
-  if (studio?.stripeAccountId) {
-    const priceInCents = Math.round(data.price * 100);
-    const result = await createStripeProductAndPrice(
-      0, // will update after creation
-      data.name,
-      data.description || null,
-      priceInCents,
-      data.billingPeriod,
-      studio.stripeAccountId
-    );
-    stripeProductId = result.productId;
-    stripePriceId = result.priceId;
-  }
+  // Create Stripe product/price (on connected account if available, otherwise direct)
+  const priceInCents = Math.round(data.price * 100);
+  const result = await createStripeProductAndPrice(
+    0, // will update after creation
+    data.name,
+    data.description || null,
+    priceInCents,
+    data.billingPeriod,
+    studio?.stripeAccountId || null
+  );
+  stripeProductId = result.productId;
+  stripePriceId = result.priceId;
 
   const membership = await prisma.membership.create({
     data: {
@@ -182,11 +184,12 @@ export async function createMembership(data: {
   });
 
   // Update Stripe product metadata with the actual membership ID
-  if (studio?.stripeAccountId && stripeProductId) {
+  if (stripeProductId) {
+    const connectOpts = studio?.stripeAccountId ? { stripeAccount: studio.stripeAccountId } : undefined;
     await stripe.products.update(
       stripeProductId,
       { metadata: { membershipId: membership.id.toString() } },
-      { stripeAccount: studio.stripeAccountId }
+      connectOpts
     );
   }
 
@@ -213,9 +216,9 @@ export async function updateMembership(
     include: { studio: { select: { stripeAccountId: true } } },
   });
 
-  // If membership has no Stripe price yet and studio has Stripe connected, create one
+  // If membership has no Stripe price yet, create one
   let stripeUpdate: { stripeProductId?: string; stripePriceId?: string } = {};
-  if (!existing.stripePriceId && existing.studio.stripeAccountId) {
+  if (!existing.stripePriceId) {
     const price = data.price ?? Number(existing.price);
     const priceInCents = Math.round(price * 100);
     const result = await createStripeProductAndPrice(
@@ -224,7 +227,7 @@ export async function updateMembership(
       data.description ?? existing.description,
       priceInCents,
       data.billingPeriod || existing.billingPeriod,
-      existing.studio.stripeAccountId
+      existing.studio.stripeAccountId || null
     );
     stripeUpdate = {
       stripeProductId: result.productId,
@@ -292,10 +295,6 @@ export async function createSubscriptionCheckout(
     throw new Error("Membership has no Stripe price configured");
   }
 
-  if (!membership.studio.stripeAccountId) {
-    throw new Error("Studio has no Stripe account configured");
-  }
-
   const customer = await prisma.customer.findUnique({
     where: { id: customerId },
     select: { email: true },
@@ -304,6 +303,10 @@ export async function createSubscriptionCheckout(
   if (!customer) {
     throw new Error("Customer not found");
   }
+
+  const connectOpts = membership.studio.stripeAccountId
+    ? { stripeAccount: membership.studio.stripeAccountId }
+    : undefined;
 
   const session = await stripe.checkout.sessions.create(
     {
@@ -325,7 +328,7 @@ export async function createSubscriptionCheckout(
         },
       },
     },
-    { stripeAccount: membership.studio.stripeAccountId }
+    connectOpts
   );
 
   if (!session.url) {
@@ -340,7 +343,7 @@ export async function createSubscriptionCheckout(
  */
 export async function handleSubscriptionCreated(
   stripeSubscription: Stripe.Subscription,
-  stripeAccountId: string
+  stripeAccountId: string | null
 ) {
   const metadata = stripeSubscription.metadata;
   const membershipId = parseInt(metadata.membershipId);
@@ -508,17 +511,15 @@ export async function cancelSubscription(
     throw new Error("Subscription not found");
   }
 
-  // Cancel on Stripe if connected
-  if (
-    subscription.stripeSubscriptionId &&
-    subscription.membership.studio.stripeAccountId
-  ) {
+  // Cancel on Stripe
+  if (subscription.stripeSubscriptionId) {
+    const connectOpts = subscription.membership.studio.stripeAccountId
+      ? { stripeAccount: subscription.membership.studio.stripeAccountId }
+      : undefined;
     await stripe.subscriptions.update(
       subscription.stripeSubscriptionId,
       { cancel_at_period_end: true },
-      {
-        stripeAccount: subscription.membership.studio.stripeAccountId,
-      }
+      connectOpts
     );
   }
 
@@ -586,21 +587,20 @@ export async function createCustomerPortalSession(
     throw new Error("Subscription not found");
   }
 
-  if (
-    !subscription.stripeCustomerId ||
-    !subscription.membership.studio.stripeAccountId
-  ) {
+  if (!subscription.stripeCustomerId) {
     throw new Error("Stripe not configured for this subscription");
   }
+
+  const connectOpts = subscription.membership.studio.stripeAccountId
+    ? { stripeAccount: subscription.membership.studio.stripeAccountId }
+    : undefined;
 
   const session = await stripe.billingPortal.sessions.create(
     {
       customer: subscription.stripeCustomerId,
       return_url: returnUrl,
     },
-    {
-      stripeAccount: subscription.membership.studio.stripeAccountId,
-    }
+    connectOpts
   );
 
   return session.url;

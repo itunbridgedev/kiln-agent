@@ -397,11 +397,9 @@ export async function handleWebhookEvent(event: Stripe.Event): Promise<void> {
 
       case "customer.subscription.created": {
         const subscription = event.data.object as Stripe.Subscription;
-        const accountId = event.account;
+        const accountId = event.account || null;
         console.log(`[Webhook] Subscription created: ${subscription.id}`);
-        if (accountId) {
-          await MembershipService.handleSubscriptionCreated(subscription, accountId);
-        }
+        await MembershipService.handleSubscriptionCreated(subscription, accountId);
         break;
       }
 
