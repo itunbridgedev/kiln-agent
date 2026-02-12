@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+
 interface ConnectStatus {
   connected: boolean;
   accountId?: string;
@@ -31,7 +33,7 @@ export default function StripeConnectOnboarding() {
 
   const fetchStatus = async () => {
     try {
-      const response = await fetch("/api/stripe/connect/status", {
+      const response = await fetch(`${API_BASE_URL}/api/stripe/connect/status`, {
         credentials: "include",
       });
       const data = await response.json();
@@ -53,7 +55,7 @@ export default function StripeConnectOnboarding() {
     setError(undefined);
 
     try {
-      const response = await fetch("/api/stripe/connect/onboard", {
+      const response = await fetch(`${API_BASE_URL}/api/stripe/connect/onboard`, {
         method: "POST",
         credentials: "include",
       });
@@ -78,7 +80,7 @@ export default function StripeConnectOnboarding() {
     setError(undefined);
 
     try {
-      const response = await fetch("/api/stripe/connect/refresh", {
+      const response = await fetch(`${API_BASE_URL}/api/stripe/connect/refresh`, {
         method: "POST",
         credentials: "include",
       });
@@ -99,7 +101,7 @@ export default function StripeConnectOnboarding() {
 
   const openDashboard = async () => {
     try {
-      const response = await fetch("/api/stripe/connect/dashboard", {
+      const response = await fetch(`${API_BASE_URL}/api/stripe/connect/dashboard`, {
         method: "POST",
         credentials: "include",
       });
