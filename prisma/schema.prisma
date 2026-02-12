@@ -24,6 +24,9 @@ model Studio {
   stripeChargesEnabled   Boolean @default(false) // Whether they can accept payments
   stripePayoutsEnabled   Boolean @default(false) // Whether they can receive payouts
 
+  // Platform fee configuration (null = use global default)
+  platformFeePercentage Decimal? @db.Decimal(5, 4)
+
   customers     Customer[]
   categories    ProductCategory[]
   classes       Class[]
@@ -47,9 +50,10 @@ model Customer {
   passwordHash  String? // For email/password auth
   passwordResetToken String? // Token for password reset requests
   passwordResetExpires DateTime? // Expiration time for reset token
-  agreedToTerms Boolean        @default(false)
-  agreedToSms   Boolean        @default(false)
-  createdAt     DateTime       @default(now())
+  agreedToTerms   Boolean        @default(false)
+  agreedToSms     Boolean        @default(false)
+  isPlatformAdmin Boolean        @default(false)
+  createdAt       DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   roles         CustomerRole[]
   accounts      Account[]

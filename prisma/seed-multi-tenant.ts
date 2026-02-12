@@ -14,6 +14,7 @@ async function main() {
       name: "Demo Pottery Studio",
       subdomain: "demo",
       isActive: true,
+      platformFeePercentage: 0.03,
     },
   });
 
@@ -194,6 +195,36 @@ async function main() {
   });
 
   console.log(`✓ Created customer user: ${customerUser.email} / Customer123!`);
+
+  // Create platform admin user
+  const platformPasswordHash = await hashPassword("Platform123!");
+  const platformUser = await prisma.customer.upsert({
+    where: {
+      studioId_email: {
+        studioId: studio.id,
+        email: "platform@kilnagent.com",
+      },
+    },
+    update: {
+      isPlatformAdmin: true,
+    },
+    create: {
+      studioId: studio.id,
+      name: "Platform Admin",
+      email: "platform@kilnagent.com",
+      passwordHash: platformPasswordHash,
+      agreedToTerms: true,
+      agreedToSms: false,
+      isPlatformAdmin: true,
+      roles: {
+        create: [{ roleId: adminRole.id }, { roleId: userRole.id }],
+      },
+    },
+  });
+
+  console.log(
+    `✓ Created platform admin user: ${platformUser.email} / Platform123!`
+  );
 
   // Create teaching role
   const teachingRole = await prisma.teachingRole.upsert({

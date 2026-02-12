@@ -158,7 +158,8 @@ export async function createPaymentIntent(
     classId: number;
     registrationId?: number;
     customerId?: number;
-  }
+  },
+  studioFeePercentage?: number | null
 ): Promise<Stripe.PaymentIntent> {
   try {
     // If no Connect account, create direct payment (for testing)
@@ -179,8 +180,10 @@ export async function createPaymentIntent(
       return paymentIntent;
     }
 
-    // Calculate platform fee for Connect payments
-    const platformFee = Math.round(amount * PLATFORM_FEE_PERCENTAGE);
+    // Calculate platform fee: use per-studio fee if provided, else global default
+    const feePercentage =
+      studioFeePercentage != null ? studioFeePercentage : PLATFORM_FEE_PERCENTAGE;
+    const platformFee = Math.round(amount * feePercentage);
 
     const paymentIntent = await stripe.paymentIntents.create({
       amount,

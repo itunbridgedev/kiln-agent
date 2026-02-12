@@ -21,8 +21,8 @@ const nonTenantModels = [
   "StaffCalendarFeed",
 ];
 
-// Create base Prisma client
-const basePrisma = new PrismaClient({
+// Create base Prisma client (exported for cross-tenant queries like platform admin)
+export const basePrisma = new PrismaClient({
   log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
 });
 

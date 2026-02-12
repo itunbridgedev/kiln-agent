@@ -1,8 +1,36 @@
 "use client";
 
 import StripeConnectOnboarding from "@/components/stripe/StripeConnectOnboarding";
+import { useEffect, useState } from "react";
 
 export default function StripeConnectSettings() {
+  const [feePercentage, setFeePercentage] = useState<number>(0.03);
+
+  useEffect(() => {
+    async function fetchFee() {
+      try {
+        const res = await fetch("/api/stripe/connect/status", {
+          credentials: "include",
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.platformFeePercentage != null) {
+            setFeePercentage(data.platformFeePercentage);
+          }
+        }
+      } catch {
+        // Use default
+      }
+    }
+    fetchFee();
+  }, []);
+
+  const feeDisplay = `${(feePercentage * 100).toFixed(1)}%`;
+  const examplePrice = 100;
+  const stripeFee = examplePrice * 0.029 + 0.3;
+  const platformFee = examplePrice * feePercentage;
+  const payout = examplePrice - stripeFee - platformFee;
+
   return (
     <div className="max-w-4xl space-y-8">
       <StripeConnectOnboarding />
@@ -20,7 +48,7 @@ export default function StripeConnectSettings() {
               <li>Customers pay for classes directly through your booking pages</li>
               <li>Payments are processed securely through Stripe</li>
               <li>Stripe processing fees (2.9% + 30¢) are deducted by Stripe</li>
-              <li>A 3% platform fee is automatically deducted</li>
+              <li>A {feeDisplay} platform fee is automatically deducted</li>
               <li>Remaining funds are deposited to your bank account</li>
               <li>Payouts occur according to your Stripe payout schedule</li>
             </ul>
@@ -33,20 +61,20 @@ export default function StripeConnectSettings() {
             <div className="bg-gray-50 rounded p-4 font-mono text-sm">
               <div className="flex justify-between mb-1">
                 <span>Class Price:</span>
-                <span>$100.00</span>
+                <span>${examplePrice.toFixed(2)}</span>
               </div>
               <div className="flex justify-between mb-1 text-red-600">
                 <span>Stripe Fee (2.9% + 30¢):</span>
-                <span>- $3.20</span>
+                <span>- ${stripeFee.toFixed(2)}</span>
               </div>
               <div className="flex justify-between mb-1 text-red-600">
-                <span>Platform Fee (3%):</span>
-                <span>- $3.00</span>
+                <span>Platform Fee ({feeDisplay}):</span>
+                <span>- ${platformFee.toFixed(2)}</span>
               </div>
               <div className="border-t border-gray-300 my-2"></div>
               <div className="flex justify-between font-bold">
                 <span>Your Payout:</span>
-                <span className="text-green-600">$93.80</span>
+                <span className="text-green-600">${payout.toFixed(2)}</span>
               </div>
             </div>
           </div>
@@ -56,7 +84,6 @@ export default function StripeConnectSettings() {
               Payment Methods Accepted
             </h3>
             <div className="flex gap-4 items-center">
-              <div className="text-2xl">💳</div>
               <span>Visa, Mastercard, American Express, Discover</span>
             </div>
           </div>

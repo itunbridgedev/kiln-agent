@@ -216,6 +216,7 @@ router.post("/register-guest", async (req, res) => {
             email: user.email,
             picture: user.picture,
             roles: user.roles?.map((r: any) => r.role?.name) || [],
+            isPlatformAdmin: user.isPlatformAdmin || false,
           },
         });
       });
@@ -278,6 +279,7 @@ router.post("/login", (req, res, next) => {
             email: user.email,
             picture: user.picture,
             roles: user.roles?.map((r: any) => r.role?.name) || [],
+            isPlatformAdmin: user.isPlatformAdmin || false,
           },
         });
       });
@@ -587,6 +589,7 @@ router.get("/me", isAuthenticated, (req, res) => {
     email: user.email,
     picture: user.picture,
     roles: user.roles?.map((r: any) => r.role?.name) || [],
+    isPlatformAdmin: user.isPlatformAdmin || false,
   });
 });
 

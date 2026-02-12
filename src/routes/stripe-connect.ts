@@ -80,6 +80,10 @@ router.get("/status", async (req: Request, res: Response) => {
       return res.status(401).json({ error: "Authentication required" });
     }
 
+    const defaultFee = parseFloat(
+      process.env.STRIPE_PLATFORM_FEE_PERCENTAGE || "0.03"
+    );
+
     // Get studio with Stripe details
     const studioRecord = await prisma.studio.findUnique({
       where: { id: studio.id },
@@ -90,6 +94,7 @@ router.get("/status", async (req: Request, res: Response) => {
         stripeDetailsSubmitted: true,
         stripeChargesEnabled: true,
         stripePayoutsEnabled: true,
+        platformFeePercentage: true,
       },
     });
 
@@ -101,6 +106,9 @@ router.get("/status", async (req: Request, res: Response) => {
       return res.json({
         connected: false,
         status: "not_started",
+        platformFeePercentage: studioRecord.platformFeePercentage
+          ? parseFloat(studioRecord.platformFeePercentage.toString())
+          : defaultFee,
       });
     }
 
@@ -117,6 +125,7 @@ router.get("/status", async (req: Request, res: Response) => {
         stripeDetailsSubmitted: true,
         stripeChargesEnabled: true,
         stripePayoutsEnabled: true,
+        platformFeePercentage: true,
       },
     });
 
@@ -128,6 +137,9 @@ router.get("/status", async (req: Request, res: Response) => {
       detailsSubmitted: updatedStudio?.stripeDetailsSubmitted,
       chargesEnabled: updatedStudio?.stripeChargesEnabled,
       payoutsEnabled: updatedStudio?.stripePayoutsEnabled,
+      platformFeePercentage: updatedStudio?.platformFeePercentage
+        ? parseFloat(updatedStudio.platformFeePercentage.toString())
+        : defaultFee,
     });
   } catch (error) {
     console.error("Error fetching Connect status:", error);

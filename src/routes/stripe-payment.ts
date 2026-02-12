@@ -50,12 +50,13 @@ router.post("/create-intent", async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Studio not found" });
     }
 
-    // Get studio's Stripe account
+    // Get studio's Stripe account and fee configuration
     const studio = await prisma.studio.findUnique({
       where: { id: studioId },
       select: {
         stripeAccountId: true,
         stripeChargesEnabled: true,
+        platformFeePercentage: true,
       },
     });
 
@@ -73,6 +74,9 @@ router.post("/create-intent", async (req: Request, res: Response) => {
     const amountInCents = Math.round(totalAmount * 100);
 
     // Create PaymentIntent (with or without Connect account)
+    const studioFee = studio.platformFeePercentage
+      ? parseFloat(studio.platformFeePercentage.toString())
+      : null;
     const paymentIntent = await stripeService.createPaymentIntent(
       amountInCents,
       useConnectAccount ? studio.stripeAccountId! : null,
@@ -80,7 +84,8 @@ router.post("/create-intent", async (req: Request, res: Response) => {
         studioId,
         classId,
         customerId: user?.id,
-      }
+      },
+      studioFee
     );
 
     res.json({

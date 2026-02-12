@@ -9,6 +9,7 @@ interface User {
   email: string;
   picture?: string;
   roles: string[];
+  isPlatformAdmin: boolean;
 }
 
 interface AuthContextType {

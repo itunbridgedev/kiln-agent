@@ -23,6 +23,7 @@ import resourcesRoutes from "./routes/resources";
 import schedulePatternRoutes from "./routes/schedule-patterns";
 import staffRoutes from "./routes/staff";
 import staffReservationsRoutes from "./routes/staff-reservations";
+import platformRoutes from "./routes/platform";
 import stripeConnectRoutes from "./routes/stripe-connect";
 import stripePaymentRoutes from "./routes/stripe-payment";
 import stripeWebhookRoutes from "./routes/stripe-webhook";
@@ -238,6 +239,7 @@ app.use("/api/registrations", registrationsRoutes); // Customer registration
 app.use("/api/reservations", reservationsRoutes); // Flexible reservation system
 app.use("/api/stripe/connect", stripeConnectRoutes); // Stripe Connect onboarding
 app.use("/api/stripe/payment", stripePaymentRoutes); // Stripe payment processing
+app.use("/api/platform", platformRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/admin/calendar", adminCalendarRoutes);
 app.use("/api/admin/classes", classesRoutes);
