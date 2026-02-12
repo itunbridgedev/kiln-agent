@@ -1,9 +1,12 @@
 import { Request, Response, Router } from "express";
-import { AuthenticatedRequest } from "../middleware/auth";
+import { AuthenticatedRequest, isAuthenticated, isAdmin } from "../middleware/auth";
 import prisma from "../prisma";
 import * as stripeService from "../services/stripe";
 
 const router = Router();
+
+// All stripe-connect routes require authenticated admin/staff access
+router.use(isAuthenticated, isAdmin);
 
 /**
  * POST /api/stripe/connect/onboard
