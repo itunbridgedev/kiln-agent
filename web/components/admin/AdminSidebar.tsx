@@ -1,16 +1,23 @@
 import { useState } from "react";
 
+export type AdminTab =
+  | "schedule"
+  | "studio-calendar"
+  | "categories"
+  | "classes"
+  | "teaching-roles"
+  | "resources"
+  | "users"
+  | "membership-tiers"
+  | "open-studio"
+  | "stripe-connect";
+
 interface AdminSidebarProps {
-  activeTab:
-    | "schedule"
-    | "studio-calendar"
-    | "categories"
-    | "classes"
-    | "teaching-roles"
-    | "resources"
-    | "users";
+  activeTab: AdminTab;
   classesExpanded: boolean;
   scheduleExpanded: boolean;
+  membershipsExpanded: boolean;
+  settingsExpanded: boolean;
   studioName?: string;
   user: {
     id: number;
@@ -19,18 +26,11 @@ interface AdminSidebarProps {
     roles: string[];
   };
   isOpen: boolean;
-  onTabChange: (
-    tab:
-      | "schedule"
-      | "studio-calendar"
-      | "categories"
-      | "classes"
-      | "teaching-roles"
-      | "resources"
-      | "users"
-  ) => void;
+  onTabChange: (tab: AdminTab) => void;
   onToggleClassesExpanded: () => void;
   onToggleScheduleExpanded: () => void;
+  onToggleMembershipsExpanded: () => void;
+  onToggleSettingsExpanded: () => void;
   onBackHome: () => void;
   onLogout: () => void;
   onClose: () => void;
@@ -40,28 +40,23 @@ export default function AdminSidebar({
   activeTab,
   classesExpanded,
   scheduleExpanded,
+  membershipsExpanded,
+  settingsExpanded,
   studioName,
   user,
   isOpen,
   onTabChange,
   onToggleClassesExpanded,
   onToggleScheduleExpanded,
+  onToggleMembershipsExpanded,
+  onToggleSettingsExpanded,
   onBackHome,
   onLogout,
   onClose,
 }: AdminSidebarProps) {
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
-  const handleTabChange = (
-    tab:
-      | "schedule"
-      | "studio-calendar"
-      | "categories"
-      | "classes"
-      | "teaching-roles"
-      | "resources"
-      | "users"
-  ) => {
+  const handleTabChange = (tab: AdminTab) => {
     onTabChange(tab);
     onClose(); // Close mobile menu after selection
   };
@@ -277,6 +272,74 @@ export default function AdminSidebar({
                 <span className="flex-1 text-left font-medium">Users</span>
               </button>
             </li>
+
+            {/* Memberships Section - Collapsible */}
+            <li>
+              <button
+                className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${membershipsExpanded ? "bg-white/20" : "hover:bg-white/10"}`}
+                onClick={onToggleMembershipsExpanded}
+              >
+                <span className="text-xl">🏷️</span>
+                <span className="flex-1 text-left font-medium">Memberships</span>
+                <span
+                  className={`transition-transform text-sm ${membershipsExpanded ? "rotate-90" : ""}`}
+                >
+                  ▶
+                </span>
+              </button>
+
+              <ul
+                className={`mt-1 ml-4 space-y-1 overflow-hidden transition-all ${membershipsExpanded ? "max-h-60" : "max-h-0"}`}
+              >
+                <li>
+                  <button
+                    className={`w-full text-left px-4 py-2 rounded-md text-sm transition-colors ${activeTab === "membership-tiers" ? "bg-white/30 font-semibold" : "hover:bg-white/10"}`}
+                    onClick={() => handleTabChange("membership-tiers")}
+                  >
+                    Membership Tiers
+                  </button>
+                </li>
+                <li>
+                  <button
+                    className={`w-full text-left px-4 py-2 rounded-md text-sm transition-colors ${activeTab === "open-studio" ? "bg-white/30 font-semibold" : "hover:bg-white/10"}`}
+                    onClick={() => handleTabChange("open-studio")}
+                  >
+                    Open Studio
+                  </button>
+                </li>
+              </ul>
+            </li>
+
+            {/* Settings Section - Admin only */}
+            {user.roles.includes("admin") && (
+              <li>
+                <button
+                  className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${settingsExpanded ? "bg-white/20" : "hover:bg-white/10"}`}
+                  onClick={onToggleSettingsExpanded}
+                >
+                  <span className="text-xl">⚙️</span>
+                  <span className="flex-1 text-left font-medium">Settings</span>
+                  <span
+                    className={`transition-transform text-sm ${settingsExpanded ? "rotate-90" : ""}`}
+                  >
+                    ▶
+                  </span>
+                </button>
+
+                <ul
+                  className={`mt-1 ml-4 space-y-1 overflow-hidden transition-all ${settingsExpanded ? "max-h-60" : "max-h-0"}`}
+                >
+                  <li>
+                    <button
+                      className={`w-full text-left px-4 py-2 rounded-md text-sm transition-colors ${activeTab === "stripe-connect" ? "bg-white/30 font-semibold" : "hover:bg-white/10"}`}
+                      onClick={() => handleTabChange("stripe-connect")}
+                    >
+                      Stripe Connect
+                    </button>
+                  </li>
+                </ul>
+              </li>
+            )}
           </ul>
         </nav>
       </aside>

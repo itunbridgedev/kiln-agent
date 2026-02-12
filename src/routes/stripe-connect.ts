@@ -50,8 +50,8 @@ router.post("/onboard", async (req: Request, res: Response) => {
 
     // Create onboarding link
     const clientUrl = process.env.CLIENT_URL || "http://localhost:3000";
-    const refreshUrl = `${clientUrl}/admin/settings/payments?refresh=true`;
-    const returnUrl = `${clientUrl}/admin/settings/payments?success=true`;
+    const refreshUrl = `${clientUrl}/admin?stripe-refresh=true`;
+    const returnUrl = `${clientUrl}/admin?stripe-success=true`;
 
     const onboardingUrl = await stripeService.createAccountLink(
       accountId,
@@ -226,8 +226,8 @@ router.post("/refresh", async (req: Request, res: Response) => {
 
     // Create new onboarding link
     const clientUrl = process.env.CLIENT_URL || "http://localhost:3000";
-    const refreshUrl = `${clientUrl}/admin/settings/payments?refresh=true`;
-    const returnUrl = `${clientUrl}/admin/settings/payments?success=true`;
+    const refreshUrl = `${clientUrl}/admin?stripe-refresh=true`;
+    const returnUrl = `${clientUrl}/admin?stripe-success=true`;
 
     const onboardingUrl = await stripeService.createAccountLink(
       studio.stripeAccountId,

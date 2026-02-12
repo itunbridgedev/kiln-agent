@@ -1,6 +1,9 @@
 "use client";
 
-import AdminSidebar from "@/components/admin/AdminSidebar";
+import AdminSidebar, { AdminTab } from "@/components/admin/AdminSidebar";
+import MembershipManager from "@/components/admin/MembershipManager";
+import OpenStudioManager from "@/components/admin/OpenStudioManager";
+import StripeConnectSettings from "@/components/admin/StripeConnectSettings";
 import CategoryForm, {
   CategoryFormData,
 } from "@/components/admin/CategoryForm";
@@ -52,44 +55,44 @@ export default function AdminPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
 
+  // Handle Stripe Connect return redirect — auto-switch to stripe-connect tab
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("stripe-success") === "true" || params.get("stripe-refresh") === "true") {
+      setActiveTab("stripe-connect");
+      setSettingsExpanded(true);
+      localStorage.setItem("adminActiveTab", "stripe-connect");
+      // Clean up URL params
+      router.replace("/admin");
+    }
+  }, [router]);
+
   // Initialize activeTab from localStorage or default to "schedule"
-  const [activeTab, setActiveTab] = useState<
-    | "schedule"
-    | "studio-calendar"
-    | "categories"
-    | "classes"
-    | "teaching-roles"
-    | "resources"
-    | "users"
-  >(() => {
+  const validTabs: AdminTab[] = [
+    "schedule",
+    "studio-calendar",
+    "categories",
+    "classes",
+    "teaching-roles",
+    "resources",
+    "users",
+    "membership-tiers",
+    "open-studio",
+    "stripe-connect",
+  ];
+  const [activeTab, setActiveTab] = useState<AdminTab>(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("adminActiveTab");
-      if (
-        saved &&
-        [
-          "schedule",
-          "studio-calendar",
-          "categories",
-          "classes",
-          "teaching-roles",
-          "resources",
-          "users",
-        ].includes(saved)
-      ) {
-        return saved as
-          | "schedule"
-          | "studio-calendar"
-          | "categories"
-          | "classes"
-          | "resources"
-          | "teaching-roles"
-          | "users";
+      if (saved && validTabs.includes(saved as AdminTab)) {
+        return saved as AdminTab;
       }
     }
     return "schedule";
   });
   const [classesExpanded, setClassesExpanded] = useState(false);
   const [scheduleExpanded, setScheduleExpanded] = useState(true);
+  const [membershipsExpanded, setMembershipsExpanded] = useState(false);
+  const [settingsExpanded, setSettingsExpanded] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [studioName, setStudioName] = useState<string>("");
   const [categories, setCategories] = useState<Category[]>([]);
@@ -940,6 +943,8 @@ export default function AdminPage() {
         activeTab={activeTab}
         classesExpanded={classesExpanded}
         scheduleExpanded={scheduleExpanded}
+        membershipsExpanded={membershipsExpanded}
+        settingsExpanded={settingsExpanded}
         studioName={studioName}
         user={user!}
         isOpen={mobileMenuOpen}
@@ -947,13 +952,13 @@ export default function AdminPage() {
           setActiveTab(tab);
           localStorage.setItem("adminActiveTab", tab);
           setError(""); // Clear any previous errors when switching tabs
-          // Expand Schedule module for schedule and studio-calendar tabs
+          // Expand the correct section based on tab
           if (tab === "schedule" || tab === "studio-calendar") {
             setScheduleExpanded(true);
             setClassesExpanded(false);
-          }
-          // Expand Classes module only for categories, classes, teaching-roles, and resources
-          else if (
+            setMembershipsExpanded(false);
+            setSettingsExpanded(false);
+          } else if (
             tab === "categories" ||
             tab === "classes" ||
             tab === "teaching-roles" ||
@@ -961,14 +966,29 @@ export default function AdminPage() {
           ) {
             setClassesExpanded(true);
             setScheduleExpanded(false);
+            setMembershipsExpanded(false);
+            setSettingsExpanded(false);
+          } else if (tab === "membership-tiers" || tab === "open-studio") {
+            setMembershipsExpanded(true);
+            setScheduleExpanded(false);
+            setClassesExpanded(false);
+            setSettingsExpanded(false);
+          } else if (tab === "stripe-connect") {
+            setSettingsExpanded(true);
+            setScheduleExpanded(false);
+            setClassesExpanded(false);
+            setMembershipsExpanded(false);
           } else {
-            // Collapse both for users tab
             setClassesExpanded(false);
             setScheduleExpanded(false);
+            setMembershipsExpanded(false);
+            setSettingsExpanded(false);
           }
         }}
         onToggleClassesExpanded={() => setClassesExpanded(!classesExpanded)}
         onToggleScheduleExpanded={() => setScheduleExpanded(!scheduleExpanded)}
+        onToggleMembershipsExpanded={() => setMembershipsExpanded(!membershipsExpanded)}
+        onToggleSettingsExpanded={() => setSettingsExpanded(!settingsExpanded)}
         onBackHome={() => router.push("/")}
         onLogout={async () => {
           await fetch("/api/auth/logout", {
@@ -985,28 +1005,28 @@ export default function AdminPage() {
         <div className="max-w-7xl mx-auto">
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              {activeTab === "schedule"
-                ? "My Schedule"
-                : activeTab === "categories"
-                  ? "Class Categories"
-                  : activeTab === "classes"
-                    ? "Classes"
-                    : activeTab === "teaching-roles"
-                      ? "Teaching Roles"
-                      : "User Management"}
+              {activeTab === "schedule" ? "My Schedule"
+                : activeTab === "categories" ? "Class Categories"
+                : activeTab === "classes" ? "Classes"
+                : activeTab === "teaching-roles" ? "Teaching Roles"
+                : activeTab === "resources" ? "Studio Resources"
+                : activeTab === "users" ? "User Management"
+                : activeTab === "membership-tiers" ? "Membership Tiers"
+                : activeTab === "open-studio" ? "Open Studio"
+                : activeTab === "stripe-connect" ? "Stripe Connect"
+                : "Admin"}
             </h1>
             <p className="text-gray-600 mb-4">
-              {activeTab === "schedule"
-                ? "View and manage your teaching sessions"
-                : activeTab === "categories"
-                  ? "Manage your class categories and subcategories"
-                  : activeTab === "classes"
-                    ? "Manage your class offerings"
-                    : activeTab === "teaching-roles"
-                      ? "Manage teaching roles and staff assignments"
-                      : activeTab === "resources"
-                        ? "Manage studio equipment and capacity"
-                        : "Search for users and manage their roles"}
+              {activeTab === "schedule" ? "View and manage your teaching sessions"
+                : activeTab === "categories" ? "Manage your class categories and subcategories"
+                : activeTab === "classes" ? "Manage your class offerings"
+                : activeTab === "teaching-roles" ? "Manage teaching roles and staff assignments"
+                : activeTab === "resources" ? "Manage studio equipment and capacity"
+                : activeTab === "users" ? "Search for users and manage their roles"
+                : activeTab === "membership-tiers" ? "Manage membership tiers and subscribers"
+                : activeTab === "open-studio" ? "Manage bookings and walk-ins"
+                : activeTab === "stripe-connect" ? "Manage your payment processing and Stripe integration"
+                : ""}
             </p>
             <div className="flex gap-3">
               <button
@@ -1475,6 +1495,19 @@ export default function AdminPage() {
               )}
             </div>
           )}
+
+          {activeTab === "membership-tiers" && (
+            <MembershipManager
+              onNavigateToStripe={() => {
+                setActiveTab("stripe-connect");
+                setSettingsExpanded(true);
+              }}
+            />
+          )}
+
+          {activeTab === "open-studio" && <OpenStudioManager />}
+
+          {activeTab === "stripe-connect" && <StripeConnectSettings />}
 
           {/* User Role Editor Modal */}
           {showUserRoleEditor && selectedUser && (

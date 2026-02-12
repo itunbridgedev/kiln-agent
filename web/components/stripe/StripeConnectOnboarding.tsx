@@ -23,7 +23,7 @@ export default function StripeConnectOnboarding() {
 
     // Check for return from Stripe onboarding
     const params = new URLSearchParams(window.location.search);
-    if (params.get("success") === "true") {
+    if (params.get("stripe-success") === "true") {
       // Refresh status after successful onboarding
       setTimeout(fetchStatus, 2000);
     }

@@ -397,8 +397,12 @@ export async function handleWebhookEvent(event: Stripe.Event): Promise<void> {
 
       case "customer.subscription.created": {
         const subscription = event.data.object as Stripe.Subscription;
-        const accountId = event.account || null;
-        console.log(`[Webhook] Subscription created: ${subscription.id}`);
+        const accountId = event.account;
+        if (!accountId) {
+          console.error("[Webhook] Subscription created without account ID, skipping:", subscription.id);
+          break;
+        }
+        console.log(`[Webhook] Subscription created: ${subscription.id} on account: ${accountId}`);
         await MembershipService.handleSubscriptionCreated(subscription, accountId);
         break;
       }
