@@ -101,10 +101,11 @@ export default function HomePage() {
         onNavigateAdmin={() => router.push("/admin")}
         onNavigateLogin={() => router.push("/login")}
         onNavigateReservations={() => router.push("/my-reservations")}
+        onNavigateMembership={() => router.push(user ? "/membership" : "/memberships")}
       />
 
       <main className="home-main">
-        <Hero />
+        <Hero user={user} onNavigateMembership={() => router.push(user ? "/membership" : "/memberships")} />
         <ProductCatalog categories={categories} loading={loadingProducts} />
       </main>
 

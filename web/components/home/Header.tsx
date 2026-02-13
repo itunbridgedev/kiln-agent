@@ -12,6 +12,7 @@ interface HeaderProps {
   onNavigateAdmin: () => void;
   onNavigateLogin: () => void;
   onNavigateReservations?: () => void;
+  onNavigateMembership?: () => void;
 }
 
 export default function Header({
@@ -21,6 +22,7 @@ export default function Header({
   onNavigateAdmin,
   onNavigateLogin,
   onNavigateReservations,
+  onNavigateMembership,
 }: HeaderProps) {
   const hasStaffAccess = user?.roles?.some((role) =>
     ["admin", "manager", "staff"].includes(role)
@@ -37,6 +39,11 @@ export default function Header({
           {user ? (
             <>
               <span className="user-greeting">Hi, {user.name}</span>
+              {onNavigateMembership && (
+                <button onClick={onNavigateMembership} className="nav-btn">
+                  Membership
+                </button>
+              )}
               {onNavigateReservations && (
                 <button onClick={onNavigateReservations} className="nav-btn">
                   My Reservations
@@ -52,9 +59,16 @@ export default function Header({
               </button>
             </>
           ) : (
-            <button onClick={onNavigateLogin} className="nav-btn">
-              Login
-            </button>
+            <>
+              <button onClick={onNavigateLogin} className="nav-btn">
+                Login
+              </button>
+              {onNavigateMembership && (
+                <button onClick={onNavigateMembership} className="nav-btn nav-btn-primary">
+                  View Memberships
+                </button>
+              )}
+            </>
           )}
         </nav>
       </div>

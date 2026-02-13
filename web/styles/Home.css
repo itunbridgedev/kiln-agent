@@ -65,6 +65,15 @@
   transform: translateY(-1px);
 }
 
+.nav-btn-primary {
+  background: #667eea;
+  color: white;
+}
+
+.nav-btn-primary:hover {
+  background: #5568d3;
+}
+
 /* Main Content */
 .home-main {
   flex: 1;
@@ -90,6 +99,49 @@
 .hero-section p {
   font-size: 1.1rem;
   color: #666;
+}
+
+.hero-cta-container {
+  margin-top: 2rem;
+}
+
+.hero-subtitle {
+  font-size: 0.95rem;
+  color: #888;
+  margin-top: 1rem;
+}
+
+.cta-button {
+  padding: 0.75rem 2rem;
+  font-size: 1rem;
+  font-weight: 600;
+  border-radius: 0.5rem;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  border: none;
+  cursor: pointer;
+  display: inline-block;
+}
+
+.cta-button.primary {
+  background: #667eea;
+  color: white;
+}
+
+.cta-button.primary:hover {
+  background: #5568d3;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.cta-button.secondary {
+  background: #f0f0f0;
+  color: #333;
+}
+
+.cta-button.secondary:hover {
+  background: #e0e0e0;
+  transform: translateY(-2px);
 }
 
 /* Products Section */
