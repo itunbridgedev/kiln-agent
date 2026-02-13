@@ -15,6 +15,13 @@ interface Props {
   onBookingCreated: () => void;
 }
 
+function formatHour(time: string): string {
+  const [h, m] = time.split(":").map(Number);
+  const period = h >= 12 ? "PM" : "AM";
+  const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return m === 0 ? `${hour12}:00 ${period}` : `${hour12}:${String(m).padStart(2, "0")} ${period}`;
+}
+
 export default function BookingModal({
   sessionId,
   resourceId,
@@ -111,7 +118,7 @@ export default function BookingModal({
               className="w-full border rounded-lg px-3 py-2"
             >
               {startOptions.map((t) => (
-                <option key={t} value={t}>{t}</option>
+                <option key={t} value={t}>{formatHour(t)}</option>
               ))}
             </select>
           </div>
@@ -133,7 +140,7 @@ export default function BookingModal({
 
           <div className="bg-blue-50 rounded-lg p-3">
             <p className="text-sm text-gray-500">Your booking</p>
-            <p className="font-medium">{startTime} - {endTime}</p>
+            <p className="font-medium">{formatHour(startTime)} - {formatHour(endTime)}</p>
             <p className="text-sm text-gray-500">{duration} minutes on {resourceName}</p>
           </div>
 

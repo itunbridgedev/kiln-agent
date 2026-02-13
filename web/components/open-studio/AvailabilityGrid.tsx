@@ -22,6 +22,13 @@ interface Props {
   onSlotClick: (resourceId: number, startTime: string) => void;
 }
 
+function formatHour(time: string): string {
+  const [h, m] = time.split(":").map(Number);
+  const period = h >= 12 ? "PM" : "AM";
+  const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return m === 0 ? `${hour12}:00 ${period}` : `${hour12}:${String(m).padStart(2, "0")} ${period}`;
+}
+
 export default function AvailabilityGrid({
   sessionStartTime,
   sessionEndTime,
@@ -56,7 +63,7 @@ export default function AvailabilityGrid({
             </th>
             {hours.map((hour) => (
               <th key={hour} className="border p-2 text-xs text-gray-500 min-w-[60px]">
-                {hour}
+                {formatHour(hour)}
               </th>
             ))}
           </tr>

@@ -3,8 +3,22 @@
 import AvailabilityGrid from "@/components/open-studio/AvailabilityGrid";
 import BookingModal from "@/components/open-studio/BookingModal";
 import { useAuth } from "@/context/AuthContext";
+import { format, getDay, parse, startOfWeek } from "date-fns";
+import { enUS } from "date-fns/locale";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Calendar, dateFnsLocalizer, View } from "react-big-calendar";
+import "react-big-calendar/lib/css/react-big-calendar.css";
+
+const locales = { "en-US": enUS };
+
+const localizer = dateFnsLocalizer({
+  format,
+  parse,
+  startOfWeek,
+  getDay,
+  locales,
+});
 
 interface Session {
   id: number;
@@ -13,6 +27,14 @@ interface Session {
   endTime: string;
   class: { id: number; name: string };
   _count: { openStudioBookings: number };
+}
+
+interface CalendarEvent {
+  id: number;
+  title: string;
+  start: Date;
+  end: Date;
+  session: Session;
 }
 
 interface ResourceAvailability {
@@ -51,6 +73,22 @@ interface Subscription {
   status: string;
 }
 
+function combineDateAndTime(dateStr: string, timeStr: string): Date {
+  // dateStr is like "2026-02-12", timeStr is like "10:00"
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const [h, min] = timeStr.split(":").map(Number);
+  return new Date(y, m - 1, d, h, min);
+}
+
+const calendarFormats = {
+  timeGutterFormat: "h:mm A",
+  eventTimeRangeFormat: ({ start, end }: { start: Date; end: Date }) =>
+    `${format(start, "h:mm A")} - ${format(end, "h:mm A")}`,
+  agendaTimeRangeFormat: ({ start, end }: { start: Date; end: Date }) =>
+    `${format(start, "h:mm A")} - ${format(end, "h:mm A")}`,
+  dayHeaderFormat: "EEEE, MMMM d",
+};
+
 export default function OpenStudioPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -59,6 +97,8 @@ export default function OpenStudioPage() {
   const [availability, setAvailability] = useState<AvailabilityData | null>(null);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [loading, setLoading] = useState(true);
+  const [view, setView] = useState<View>("week");
+  const [date, setDate] = useState(new Date());
   const [bookingModal, setBookingModal] = useState<{
     resourceId: number;
     resourceName: string;
@@ -80,7 +120,6 @@ export default function OpenStudioPage() {
       if (!response.ok) throw new Error("Failed to fetch sessions");
       const data = await response.json();
       setSessions(data);
-      if (data.length > 0) setSelectedSession(data[0].id);
     } catch (err) {
       console.error("Error:", err);
     } finally {
@@ -130,13 +169,56 @@ export default function OpenStudioPage() {
     });
   };
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString("en-US", {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-    });
+  const calendarEvents: CalendarEvent[] = useMemo(
+    () =>
+      sessions.map((s) => ({
+        id: s.id,
+        title: s.class.name,
+        start: combineDateAndTime(s.sessionDate, s.startTime),
+        end: combineDateAndTime(s.sessionDate, s.endTime),
+        session: s,
+      })),
+    [sessions]
+  );
+
+  const handleEventClick = useCallback((event: CalendarEvent) => {
+    setSelectedSession(event.id);
+  }, []);
+
+  const handleNavigate = useCallback((newDate: Date) => {
+    setDate(newDate);
+  }, []);
+
+  const handleViewChange = useCallback((newView: View) => {
+    setView(newView);
+  }, []);
+
+  const eventStyleGetter = useCallback(() => {
+    return {
+      style: {
+        backgroundColor: "#2563eb",
+        borderColor: "#1d4ed8",
+        borderRadius: "6px",
+        padding: "2px 6px",
+        cursor: "pointer",
+      },
+    };
+  }, []);
+
+  const EventComponent = ({ event }: { event: CalendarEvent }) => (
+    <div className="rbc-event-content">
+      <strong>{event.title}</strong>
+      <div className="text-xs opacity-80">
+        {format(event.start, "h:mm A")} - {format(event.end, "h:mm A")}
+      </div>
+    </div>
+  );
+
+  const formatHour = (time: string): string => {
+    const [h, m] = time.split(":").map(Number);
+    const period = h >= 12 ? "PM" : "AM";
+    const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+    return m === 0 ? `${hour12}:00 ${period}` : `${hour12}:${String(m).padStart(2, "0")} ${period}`;
   };
 
   if (loading) {
@@ -172,37 +254,44 @@ export default function OpenStudioPage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Session Selector */}
-        {sessions.length > 0 && (
-          <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
-            {sessions.map((s) => (
-              <button
-                key={s.id}
-                onClick={() => setSelectedSession(s.id)}
-                className={`flex-shrink-0 px-4 py-2 rounded-lg text-sm font-medium transition ${
-                  selectedSession === s.id
-                    ? "bg-blue-600 text-white"
-                    : "bg-white text-gray-700 border hover:bg-gray-50"
-                }`}
-              >
-                <div>{formatDate(s.sessionDate)}</div>
-                <div className="text-xs opacity-75">
-                  {s.startTime} - {s.endTime}
-                </div>
-              </button>
-            ))}
+        {sessions.length > 0 ? (
+          <div className="open-studio-calendar-container" style={{ height: "calc(100vh - 300px)", minHeight: "500px" }}>
+            <Calendar
+              localizer={localizer}
+              events={calendarEvents}
+              startAccessor="start"
+              endAccessor="end"
+              style={{ height: "100%" }}
+              view={view}
+              onView={handleViewChange}
+              date={date}
+              onNavigate={handleNavigate}
+              onSelectEvent={handleEventClick}
+              eventPropGetter={eventStyleGetter}
+              components={{ event: EventComponent }}
+              views={["month", "week", "day", "agenda"]}
+              step={30}
+              showMultiDayTimes
+              min={new Date(0, 0, 0, 7, 0, 0)}
+              max={new Date(0, 0, 0, 23, 59, 59)}
+              formats={calendarFormats}
+            />
+          </div>
+        ) : (
+          <div className="text-center text-gray-500 py-12">
+            No upcoming Open Studio sessions available.
           </div>
         )}
 
-        {/* Availability Grid */}
-        {availability && (
-          <div className="bg-white rounded-xl shadow-sm border p-4">
+        {/* Availability Grid - shown below calendar when a session is selected */}
+        {availability && selectedSession && (
+          <div className="bg-white rounded-xl shadow-sm border p-4 mt-6">
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h2 className="font-semibold text-lg">{availability.session.className}</h2>
                 <p className="text-sm text-gray-500">
-                  {formatDate(availability.session.sessionDate)} &middot;{" "}
-                  {availability.session.startTime} - {availability.session.endTime}
+                  {format(combineDateAndTime(availability.session.sessionDate, availability.session.startTime), "EEEE, MMMM d")} &middot;{" "}
+                  {formatHour(availability.session.startTime)} - {formatHour(availability.session.endTime)}
                 </p>
               </div>
               <div className="flex gap-3 text-xs">
@@ -223,12 +312,6 @@ export default function OpenStudioPage() {
               resources={availability.resources}
               onSlotClick={handleSlotClick}
             />
-          </div>
-        )}
-
-        {sessions.length === 0 && (
-          <div className="text-center text-gray-500 py-12">
-            No upcoming Open Studio sessions available.
           </div>
         )}
 
@@ -253,6 +336,87 @@ export default function OpenStudioPage() {
           />
         )}
       </main>
+
+      <style jsx global>{`
+        .open-studio-calendar-container {
+          padding: 20px;
+          background: white;
+          border-radius: 12px;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+          border: 1px solid #e5e7eb;
+        }
+
+        .open-studio-calendar-container .rbc-calendar {
+          font-family: inherit;
+        }
+
+        .open-studio-calendar-container .rbc-event {
+          padding: 2px 5px;
+          border-radius: 6px;
+          cursor: pointer;
+        }
+
+        .open-studio-calendar-container .rbc-event-content {
+          font-size: 0.85rem;
+          line-height: 1.3;
+        }
+
+        .open-studio-calendar-container .rbc-toolbar {
+          margin-bottom: 20px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 10px;
+        }
+
+        .open-studio-calendar-container .rbc-toolbar button {
+          padding: 8px 16px;
+          border: 1px solid #ddd;
+          background: white;
+          border-radius: 6px;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+
+        .open-studio-calendar-container .rbc-toolbar button:hover {
+          background: #f5f5f5;
+        }
+
+        .open-studio-calendar-container .rbc-toolbar button.rbc-active {
+          background: #2563eb;
+          color: white;
+          border-color: #2563eb;
+        }
+
+        .open-studio-calendar-container .rbc-today {
+          background-color: #eff6ff !important;
+        }
+
+        .open-studio-calendar-container .rbc-off-range-bg {
+          background: #fafafa;
+        }
+
+        @media (max-width: 768px) {
+          .open-studio-calendar-container {
+            padding: 10px;
+          }
+
+          .open-studio-calendar-container .rbc-toolbar {
+            flex-direction: column;
+            align-items: stretch;
+          }
+
+          .open-studio-calendar-container .rbc-toolbar-label {
+            text-align: center;
+            margin: 10px 0;
+          }
+
+          .open-studio-calendar-container .rbc-event-content {
+            font-size: 0.75rem;
+          }
+        }
+      `}</style>
     </div>
   );
 }
