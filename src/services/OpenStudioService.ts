@@ -96,6 +96,11 @@ export async function getAvailability(sessionId: number) {
     },
   });
 
+  // Helper: check if a booking overlaps with a time range
+  const timeOverlaps = (bookStart: string, bookEnd: string, slotStart: string, slotEnd: string): boolean => {
+    return bookStart < slotEnd && bookEnd > slotStart;
+  };
+
   // Calculate resource availability per time slot
   const availability = resources.map((resource) => {
     // Calculate how many of this resource are held by overlapping classes
@@ -143,11 +148,36 @@ export async function getAvailability(sessionId: number) {
       }
     }
 
-    // Count existing open studio bookings on this resource
-    // (across all time slots - for simplicity, count distinct bookings)
+    // Get existing open studio bookings on this resource
     const bookedOnResource = existingBookings.filter(
       (b) => b.resourceId === resource.id
     );
+
+    // For each hour in the session, check if slot is fully booked
+    // If so, add to heldSlots so users can see the waitlist option
+    const startHour = parseInt(session.startTime.split(":")[0]);
+    const endHour = parseInt(session.endTime.split(":")[0]);
+    for (let h = startHour; h < endHour; h++) {
+      const slotStart = `${String(h).padStart(2, "0")}:00`;
+      const slotEnd = `${String(h + 1).padStart(2, "0")}:00`;
+
+      // Check if this hour slot is already in heldSlots (from overlapping classes)
+      const alreadyHeld = heldSlots.some(
+        (hs) => hs.startTime <= slotStart && hs.endTime > slotStart
+      );
+
+      if (!alreadyHeld) {
+        // Count bookings that overlap with this hourly slot
+        const bookingsInSlot = bookedOnResource.filter((b) =>
+          timeOverlaps(b.startTime, b.endTime, slotStart, slotEnd)
+        );
+
+        // If all units are booked for this slot, mark it as held
+        if (bookingsInSlot.length >= resource.quantity) {
+          heldSlots.push({ startTime: slotStart, endTime: slotEnd });
+        }
+      }
+    }
 
     const totalAvailable = resource.quantity - heldByClasses;
     const currentlyBooked = bookedOnResource.length;
