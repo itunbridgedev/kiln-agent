@@ -39,10 +39,33 @@ interface Reservation {
   };
 }
 
+interface OpenStudioBooking {
+  id: number;
+  className: string;
+  resourceName: string;
+  status: string;
+  reservedAt: string;
+  session: {
+    id: number;
+    date: string;
+    startTime: string;
+    endTime: string;
+    className: string;
+  };
+  bookingStartTime: string;
+  bookingEndTime: string;
+  checkInWindow?: {
+    start: string;
+    end: string;
+    canCheckIn: boolean;
+  };
+}
+
 export default function MyReservationsPage() {
   const router = useRouter();
   const { user, logout } = useAuth();
   const [registrations, setRegistrations] = useState<ClassRegistration[]>([]);
+  const [openStudioBookings, setOpenStudioBookings] = useState<OpenStudioBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [studioName, setStudioName] = useState<string>("");
@@ -84,6 +107,7 @@ export default function MyReservationsPage() {
 
       const data = await response.json();
       setRegistrations(data.registrations);
+      setOpenStudioBookings(data.openStudioBookings || []);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -203,7 +227,7 @@ export default function MyReservationsPage() {
   const totalUpcomingReservations = registrations.reduce(
     (sum, reg) => sum + reg.upcomingReservations.length,
     0
-  );
+  ) + openStudioBookings.length;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -243,6 +267,63 @@ export default function MyReservationsPage() {
           </div>
         ) : (
           <div className="space-y-6">
+            {/* Open Studio Bookings Section */}
+            {openStudioBookings.length > 0 && (
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <h2 className="text-xl font-semibold text-gray-900 mb-4">Open Studio Bookings</h2>
+                <div className="space-y-3">
+                  {openStudioBookings.map((booking) => (
+                    <div key={booking.id} className="bg-gray-50 rounded-lg p-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-900">
+                            {formatDateTime(booking.session.date, booking.bookingStartTime)}
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            {booking.resourceName} • {booking.session.className}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {booking.status === "RESERVED" &&
+                            booking.checkInWindow?.canCheckIn && (
+                              <button
+                                onClick={() => handleCheckIn(booking.id)}
+                                disabled={checkingIn === booking.id}
+                                className="px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium text-xs disabled:bg-gray-400 disabled:cursor-not-allowed"
+                              >
+                                {checkingIn === booking.id
+                                  ? "Checking In..."
+                                  : "Check In"}
+                              </button>
+                            )}
+                          <span
+                            className={`px-3 py-1 rounded-full text-xs font-medium ${
+                              booking.status === "RESERVED"
+                                ? "bg-yellow-100 text-yellow-800"
+                                : booking.status === "CHECKED_IN"
+                                  ? "bg-blue-100 text-blue-800"
+                                  : "bg-gray-100 text-gray-800"
+                            }`}
+                          >
+                            {booking.status.replace(/_/g, " ")}
+                          </span>
+                        </div>
+                      </div>
+                      {booking.status === "RESERVED" &&
+                        booking.checkInWindow && (
+                          <div className="mt-2 text-xs text-gray-600">
+                            {booking.checkInWindow.canCheckIn
+                              ? "✓ Check-in window is open"
+                              : `Check-in opens: ${format(parseISO(booking.checkInWindow.start), "MMM d 'at' h:mm a")}`}
+                          </div>
+                        )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Class Reservations Section */}
             {registrations.map((registration) => (
               <div
                 key={registration.id}
