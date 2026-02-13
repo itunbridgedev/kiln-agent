@@ -110,7 +110,10 @@ export async function getAvailability(sessionId: number) {
       if (!resourceReq) continue;
 
       const now = new Date();
+      // Use the session's actual start time (not midnight) for release calculation
       const sessionDateTime = new Date(overlap.sessionDate);
+      const [startH, startM] = overlap.startTime.split(":").map(Number);
+      sessionDateTime.setUTCHours(startH, startM, 0, 0);
       const releaseHoursMs = (overlap.resourceReleaseHours || 0) * 60 * 60 * 1000;
       const releaseTime = new Date(sessionDateTime.getTime() - releaseHoursMs);
       const isBeforeCutoff = overlap.resourceReleaseHours
@@ -166,6 +169,61 @@ export async function getAvailability(sessionId: number) {
     };
   });
 
+  // Fetch waitlist counts grouped by (resourceId, startTime)
+  const waitlistCounts = await prisma.openStudioWaitlist.groupBy({
+    by: ["resourceId", "startTime"],
+    where: {
+      sessionId,
+      cancelledAt: null,
+      fulfilledAt: null,
+    },
+    _count: true,
+  });
+
+  // Fetch user's own waitlist entries for this session (keyed by subscription)
+  const myWaitlistEntries = await prisma.openStudioWaitlist.findMany({
+    where: {
+      sessionId,
+      cancelledAt: null,
+      fulfilledAt: null,
+    },
+    select: {
+      id: true,
+      resourceId: true,
+      startTime: true,
+      endTime: true,
+      position: true,
+      subscriptionId: true,
+    },
+  });
+
+  // Map waitlist counts onto resources
+  const resourcesWithWaitlist = availability.map((r) => {
+    const counts: Record<string, number> = {};
+    for (const wc of waitlistCounts) {
+      if (wc.resourceId === r.resourceId) {
+        counts[wc.startTime] = wc._count;
+      }
+    }
+    const entries = myWaitlistEntries.filter((e) => e.resourceId === r.resourceId);
+    return {
+      ...r,
+      waitlistCounts: counts,
+      waitlistEntries: entries,
+    };
+  });
+
+  // Opportunistic trigger: if any slot has availability AND waitlist entries, process
+  for (const wc of waitlistCounts) {
+    const resource = availability.find((r) => r.resourceId === wc.resourceId);
+    if (resource && resource.available > 0) {
+      // Fire and forget — don't block the response
+      processWaitlist(sessionId, wc.resourceId, wc.startTime).catch((err) =>
+        console.error("Opportunistic waitlist processing error:", err)
+      );
+    }
+  }
+
   return {
     session: {
       id: session.id,
@@ -174,7 +232,7 @@ export async function getAvailability(sessionId: number) {
       endTime: session.endTime,
       className: session.class.name,
     },
-    resources: availability,
+    resources: resourcesWithWaitlist,
   };
 }
 
@@ -377,7 +435,7 @@ export async function walkInCheckIn(
 }
 
 /**
- * Cancel a booking
+ * Cancel a booking, then trigger waitlist processing for the freed slot
  */
 export async function cancelBooking(bookingId: number) {
   const booking = await prisma.openStudioBooking.findUnique({
@@ -392,13 +450,22 @@ export async function cancelBooking(bookingId: number) {
     throw new Error("Only reserved bookings can be cancelled");
   }
 
-  return prisma.openStudioBooking.update({
+  const result = await prisma.openStudioBooking.update({
     where: { id: bookingId },
     data: {
       status: "CANCELLED",
       cancelledAt: new Date(),
     },
   });
+
+  // Trigger waitlist processing for the freed slot
+  try {
+    await processWaitlist(booking.sessionId, booking.resourceId, booking.startTime);
+  } catch (err) {
+    console.error("Error processing waitlist after cancellation:", err);
+  }
+
+  return result;
 }
 
 /**
@@ -448,6 +515,175 @@ export async function getMyBookings(customerId: number) {
     },
     orderBy: { reservedAt: "desc" },
   });
+}
+
+/**
+ * Join the waitlist for a held/unavailable time slot
+ */
+export async function joinWaitlist(
+  subscriptionId: number,
+  sessionId: number,
+  resourceId: number,
+  startTime: string,
+  endTime: string
+) {
+  const subscription = await prisma.membershipSubscription.findUnique({
+    where: { id: subscriptionId },
+  });
+
+  if (!subscription) {
+    throw new Error("Subscription not found");
+  }
+
+  if (subscription.status !== "ACTIVE") {
+    throw new Error("Subscription is not active");
+  }
+
+  // Verify the slot is actually unavailable — if open, user should book directly
+  const availability = await getAvailability(sessionId);
+  const resource = availability.resources.find((r) => r.resourceId === resourceId);
+  if (!resource) {
+    throw new Error("Resource not found for this session");
+  }
+
+  const slotIsHeld = (resource.heldSlots || []).some(
+    (s) => s.startTime <= startTime && s.endTime > startTime
+  );
+  const slotIsBooked = resource.bookings.some(
+    (b) => b.startTime <= startTime && b.endTime > startTime
+  );
+
+  if (!slotIsHeld && !slotIsBooked) {
+    throw new Error("This slot is currently available — book it directly instead");
+  }
+
+  // Calculate position as max + 1 for this (session, resource, startTime)
+  const maxPosition = await prisma.openStudioWaitlist.aggregate({
+    where: {
+      sessionId,
+      resourceId,
+      startTime,
+      cancelledAt: null,
+      fulfilledAt: null,
+    },
+    _max: { position: true },
+  });
+
+  const position = (maxPosition._max.position ?? 0) + 1;
+
+  return prisma.openStudioWaitlist.create({
+    data: {
+      studioId: subscription.studioId,
+      subscriptionId,
+      sessionId,
+      resourceId,
+      startTime,
+      endTime,
+      position,
+    },
+    include: {
+      resource: { select: { name: true } },
+      session: { select: { sessionDate: true, startTime: true, endTime: true } },
+    },
+  });
+}
+
+/**
+ * Leave the waitlist
+ */
+export async function leaveWaitlist(waitlistId: number, subscriptionId: number) {
+  const entry = await prisma.openStudioWaitlist.findUnique({
+    where: { id: waitlistId },
+  });
+
+  if (!entry) {
+    throw new Error("Waitlist entry not found");
+  }
+
+  if (entry.subscriptionId !== subscriptionId) {
+    throw new Error("Not authorized to cancel this waitlist entry");
+  }
+
+  if (entry.cancelledAt || entry.fulfilledAt) {
+    throw new Error("Waitlist entry is already resolved");
+  }
+
+  return prisma.openStudioWaitlist.update({
+    where: { id: waitlistId },
+    data: { cancelledAt: new Date() },
+  });
+}
+
+/**
+ * Get a customer's active waitlist entries
+ */
+export async function getMyWaitlistEntries(customerId: number) {
+  return prisma.openStudioWaitlist.findMany({
+    where: {
+      subscription: { customerId },
+      cancelledAt: null,
+      fulfilledAt: null,
+    },
+    include: {
+      resource: { select: { name: true } },
+      session: {
+        select: {
+          sessionDate: true,
+          startTime: true,
+          endTime: true,
+          class: { select: { name: true } },
+        },
+      },
+    },
+    orderBy: { joinedAt: "desc" },
+  });
+}
+
+/**
+ * Process the waitlist for a specific slot: auto-book for the next eligible member
+ */
+export async function processWaitlist(
+  sessionId: number,
+  resourceId: number,
+  startTime: string
+) {
+  const entries = await prisma.openStudioWaitlist.findMany({
+    where: {
+      sessionId,
+      resourceId,
+      startTime,
+      cancelledAt: null,
+      fulfilledAt: null,
+    },
+    orderBy: { position: "asc" },
+  });
+
+  for (const entry of entries) {
+    try {
+      const booking = await createBooking(
+        entry.subscriptionId,
+        entry.sessionId,
+        entry.resourceId,
+        entry.startTime,
+        entry.endTime
+      );
+
+      await prisma.openStudioWaitlist.update({
+        where: { id: entry.id },
+        data: { fulfilledAt: new Date(), bookingId: booking.id },
+      });
+
+      return booking; // Slot filled, stop processing
+    } catch (err) {
+      // Member not eligible (expired, limit reached, etc.) — skip them
+      await prisma.openStudioWaitlist.update({
+        where: { id: entry.id },
+        data: { cancelledAt: new Date() },
+      });
+    }
+  }
+
+  return null; // No one could be booked
 }
 
 function getStartOfWeek(): Date {

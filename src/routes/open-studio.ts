@@ -129,6 +129,92 @@ router.get(
   }
 );
 
+// POST /api/open-studio/waitlist - Join waitlist for a held slot
+router.post(
+  "/waitlist",
+  isAuthenticated,
+  async (req: Request, res: Response) => {
+    try {
+      const user = (req as AuthenticatedRequest).user;
+      if (!user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const { subscriptionId, sessionId, resourceId, startTime, endTime } = req.body;
+
+      if (!subscriptionId || !sessionId || !resourceId || !startTime || !endTime) {
+        return res.status(400).json({
+          error: "subscriptionId, sessionId, resourceId, startTime, and endTime are required",
+        });
+      }
+
+      const entry = await OpenStudioService.joinWaitlist(
+        parseInt(subscriptionId),
+        parseInt(sessionId),
+        parseInt(resourceId),
+        startTime,
+        endTime
+      );
+
+      res.status(201).json(entry);
+    } catch (error: any) {
+      console.error("Error joining waitlist:", error);
+      res.status(400).json({ error: error.message || "Failed to join waitlist" });
+    }
+  }
+);
+
+// DELETE /api/open-studio/waitlist/:id - Leave waitlist
+router.delete(
+  "/waitlist/:id",
+  isAuthenticated,
+  async (req: Request, res: Response) => {
+    try {
+      const user = (req as AuthenticatedRequest).user;
+      if (!user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const waitlistId = parseInt(req.params.id);
+      const { subscriptionId } = req.body;
+
+      if (!subscriptionId) {
+        return res.status(400).json({ error: "subscriptionId is required" });
+      }
+
+      const entry = await OpenStudioService.leaveWaitlist(
+        waitlistId,
+        parseInt(subscriptionId)
+      );
+
+      res.json(entry);
+    } catch (error: any) {
+      console.error("Error leaving waitlist:", error);
+      res.status(400).json({ error: error.message || "Failed to leave waitlist" });
+    }
+  }
+);
+
+// GET /api/open-studio/my-waitlist - Member's active waitlist entries
+router.get(
+  "/my-waitlist",
+  isAuthenticated,
+  async (req: Request, res: Response) => {
+    try {
+      const user = (req as AuthenticatedRequest).user;
+      if (!user) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const entries = await OpenStudioService.getMyWaitlistEntries(user.id);
+      res.json(entries);
+    } catch (error) {
+      console.error("Error fetching waitlist:", error);
+      res.status(500).json({ error: "Failed to fetch waitlist entries" });
+    }
+  }
+);
+
 // POST /api/open-studio/walk-in - Admin creates walk-in booking for a member
 router.post(
   "/walk-in",

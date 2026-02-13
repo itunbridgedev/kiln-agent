@@ -2,6 +2,7 @@
 
 import AvailabilityGrid from "@/components/open-studio/AvailabilityGrid";
 import BookingModal from "@/components/open-studio/BookingModal";
+import WaitlistModal from "@/components/open-studio/WaitlistModal";
 import { useAuth } from "@/context/AuthContext";
 import { format, getDay, parse, startOfWeek } from "date-fns";
 import { enUS } from "date-fns/locale";
@@ -51,6 +52,15 @@ interface ResourceAvailability {
     status: string;
   }>;
   heldSlots?: Array<{ startTime: string; endTime: string }>;
+  waitlistCounts?: Record<string, number>;
+  waitlistEntries?: Array<{
+    id: number;
+    resourceId: number;
+    startTime: string;
+    endTime: string;
+    position: number;
+    subscriptionId: number;
+  }>;
 }
 
 interface AvailabilityData {
@@ -105,6 +115,12 @@ export default function OpenStudioPage() {
     resourceId: number;
     resourceName: string;
     startTime: string;
+  } | null>(null);
+  const [waitlistModal, setWaitlistModal] = useState<{
+    resourceId: number;
+    resourceName: string;
+    startTime: string;
+    waitlistCount: number;
   } | null>(null);
 
   useEffect(() => {
@@ -171,6 +187,41 @@ export default function OpenStudioPage() {
       resourceName: resource?.resourceName || "",
       startTime,
     });
+  };
+
+  const handleHeldSlotClick = (resourceId: number, startTime: string) => {
+    if (!user) {
+      router.push("/login?returnTo=/open-studio");
+      return;
+    }
+    if (!subscription) {
+      router.push("/memberships");
+      return;
+    }
+
+    const resource = availability?.resources.find((r) => r.resourceId === resourceId);
+    const waitlistCount = resource?.waitlistCounts?.[startTime] || 0;
+    setWaitlistModal({
+      resourceId,
+      resourceName: resource?.resourceName || "",
+      startTime,
+      waitlistCount,
+    });
+  };
+
+  const handleWaitlistCancel = async (waitlistId: number) => {
+    if (!subscription) return;
+    try {
+      await fetch(`/api/open-studio/waitlist/${waitlistId}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ subscriptionId: subscription.id }),
+      });
+      if (selectedSession) fetchAvailability(selectedSession);
+    } catch (err) {
+      console.error("Error cancelling waitlist:", err);
+    }
   };
 
   const calendarEvents: CalendarEvent[] = useMemo(
@@ -282,7 +333,7 @@ export default function OpenStudioPage() {
                       {formatHour(availability.session.startTime)} - {formatHour(availability.session.endTime)}
                     </p>
                   </div>
-                  <div className="flex gap-3 text-xs">
+                  <div className="flex gap-3 text-xs flex-wrap">
                     <span className="flex items-center gap-1">
                       <span className="w-3 h-3 rounded bg-green-50 border border-green-200" /> Available
                     </span>
@@ -292,13 +343,19 @@ export default function OpenStudioPage() {
                     <span className="flex items-center gap-1">
                       <span className="w-3 h-3 rounded bg-gray-100 border border-gray-200" /> Unavailable
                     </span>
+                    <span className="flex items-center gap-1">
+                      <span className="w-3 h-3 rounded bg-amber-50 border border-amber-200" /> Waitlisted
+                    </span>
                   </div>
                 </div>
                 <AvailabilityGrid
                   sessionStartTime={availability.session.startTime}
                   sessionEndTime={availability.session.endTime}
                   resources={availability.resources}
+                  subscriptionId={subscription?.id}
                   onSlotClick={handleSlotClick}
+                  onHeldSlotClick={handleHeldSlotClick}
+                  onWaitlistCancel={handleWaitlistCancel}
                 />
               </div>
             )}
@@ -354,6 +411,25 @@ export default function OpenStudioPage() {
             onClose={() => setBookingModal(null)}
             onBookingCreated={() => {
               setBookingModal(null);
+              if (selectedSession) fetchAvailability(selectedSession);
+            }}
+          />
+        )}
+
+        {/* Waitlist Modal */}
+        {waitlistModal && subscription && availability && (
+          <WaitlistModal
+            sessionId={selectedSession!}
+            resourceId={waitlistModal.resourceId}
+            resourceName={waitlistModal.resourceName}
+            startTime={waitlistModal.startTime}
+            sessionDate={availability.session.sessionDate}
+            sessionEndTime={availability.session.endTime}
+            waitlistCount={waitlistModal.waitlistCount}
+            subscriptionId={subscription.id}
+            onClose={() => setWaitlistModal(null)}
+            onJoined={() => {
+              setWaitlistModal(null);
               if (selectedSession) fetchAvailability(selectedSession);
             }}
           />

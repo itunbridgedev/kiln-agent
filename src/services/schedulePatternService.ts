@@ -647,7 +647,54 @@ export async function updateSingleSession(
   const session = await prisma.classSession.update({
     where: { id: sessionId },
     data,
+    include: {
+      class: {
+        include: { resourceRequirements: true },
+      },
+    },
   });
+
+  // When a non-open-studio class is cancelled, its resource holds are released.
+  // Trigger waitlist processing on open studio sessions for that date.
+  if (data.isCancelled && session.class.classType !== "open-studio") {
+    try {
+      const { processWaitlist } = await import("./OpenStudioService");
+
+      // Find open studio sessions on the same date
+      const openStudioSessions = await prisma.classSession.findMany({
+        where: {
+          studioId: session.studioId,
+          sessionDate: session.sessionDate,
+          isCancelled: false,
+          class: { classType: "open-studio" },
+        },
+      });
+
+      // For each open studio session, process waitlist for affected resources
+      const affectedResourceIds = session.class.resourceRequirements.map(
+        (r) => r.resourceId
+      );
+
+      for (const osSession of openStudioSessions) {
+        // Find waitlist entries for this session + affected resources
+        const waitlistEntries = await prisma.openStudioWaitlist.findMany({
+          where: {
+            sessionId: osSession.id,
+            resourceId: { in: affectedResourceIds },
+            cancelledAt: null,
+            fulfilledAt: null,
+          },
+          distinct: ["resourceId", "startTime"],
+        });
+
+        for (const entry of waitlistEntries) {
+          await processWaitlist(osSession.id, entry.resourceId, entry.startTime);
+        }
+      }
+    } catch (err) {
+      console.error("Error processing waitlist after class cancellation:", err);
+    }
+  }
 
   return session;
 }

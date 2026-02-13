@@ -37,6 +37,7 @@ model Studio {
   memberships            Membership[]
   membershipSubscriptions MembershipSubscription[]
   openStudioBookings     OpenStudioBooking[]
+  openStudioWaitlist     OpenStudioWaitlist[]
 }
 
 model Customer {
@@ -332,6 +333,7 @@ model ClassSession {
   waitlistEntries      ClassWaitlist[]
   resourceAllocations  SessionResourceAllocation[]
   openStudioBookings   OpenStudioBooking[]
+  openStudioWaitlist   OpenStudioWaitlist[]
 
   @@index([studioId])
   @@index([scheduleId])
@@ -792,6 +794,7 @@ model StudioResource {
   classResourceRequirements  ClassResourceRequirement[]
   sessionResourceAllocations SessionResourceAllocation[]
   openStudioBookings         OpenStudioBooking[]
+  openStudioWaitlist         OpenStudioWaitlist[]
   studio                     Studio                      @relation(fields: [studioId], references: [id])
 
   @@unique([studioId, name])
@@ -907,6 +910,7 @@ model MembershipSubscription {
   updatedAt             DateTime           @updatedAt
 
   openStudioBookings    OpenStudioBooking[]
+  openStudioWaitlist    OpenStudioWaitlist[]
 
   @@unique([studioId, customerId, membershipId])
   @@index([studioId, status])
@@ -937,4 +941,28 @@ model OpenStudioBooking {
 
   @@unique([sessionId, resourceId, startTime])
   @@index([studioId, sessionId])
+}
+
+// Waitlist for held/unavailable open studio time slots
+model OpenStudioWaitlist {
+  id             Int                    @id @default(autoincrement())
+  studioId       Int
+  studio         Studio                 @relation(fields: [studioId], references: [id])
+  subscriptionId Int
+  subscription   MembershipSubscription @relation(fields: [subscriptionId], references: [id])
+  sessionId      Int
+  session        ClassSession           @relation(fields: [sessionId], references: [id])
+  resourceId     Int
+  resource       StudioResource         @relation(fields: [resourceId], references: [id])
+  startTime      String
+  endTime        String
+  position       Int
+  joinedAt       DateTime               @default(now())
+  fulfilledAt    DateTime?
+  cancelledAt    DateTime?
+  bookingId      Int?
+
+  @@unique([sessionId, resourceId, startTime, subscriptionId])
+  @@index([studioId])
+  @@index([sessionId, resourceId, startTime])
 }

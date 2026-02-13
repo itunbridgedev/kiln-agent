@@ -1,5 +1,14 @@
 "use client";
 
+interface WaitlistEntry {
+  id: number;
+  resourceId: number;
+  startTime: string;
+  endTime: string;
+  position: number;
+  subscriptionId: number;
+}
+
 interface ResourceAvailability {
   resourceId: number;
   resourceName: string;
@@ -14,13 +23,18 @@ interface ResourceAvailability {
     status: string;
   }>;
   heldSlots?: Array<{ startTime: string; endTime: string }>;
+  waitlistCounts?: Record<string, number>;
+  waitlistEntries?: WaitlistEntry[];
 }
 
 interface Props {
   sessionStartTime: string;
   sessionEndTime: string;
   resources: ResourceAvailability[];
+  subscriptionId?: number;
   onSlotClick: (resourceId: number, startTime: string) => void;
+  onHeldSlotClick?: (resourceId: number, startTime: string) => void;
+  onWaitlistCancel?: (waitlistId: number) => void;
 }
 
 function formatHour(time: string): string {
@@ -34,7 +48,10 @@ export default function AvailabilityGrid({
   sessionStartTime,
   sessionEndTime,
   resources,
+  subscriptionId,
   onSlotClick,
+  onHeldSlotClick,
+  onWaitlistCancel,
 }: Props) {
   // Generate hour slots from session start to end
   const startHour = parseInt(sessionStartTime.split(":")[0]);
@@ -54,6 +71,17 @@ export default function AvailabilityGrid({
     return (resource.heldSlots || []).some((slot) => {
       return slot.startTime <= hour && slot.endTime > hour;
     });
+  };
+
+  const getWaitlistEntry = (resource: ResourceAvailability, hour: string) => {
+    if (!subscriptionId || !resource.waitlistEntries) return null;
+    return resource.waitlistEntries.find(
+      (e) => e.startTime === hour && e.subscriptionId === subscriptionId
+    ) || null;
+  };
+
+  const getWaitlistCount = (resource: ResourceAvailability, hour: string) => {
+    return resource.waitlistCounts?.[hour] || 0;
   };
 
   return (
@@ -83,27 +111,45 @@ export default function AvailabilityGrid({
               {hours.map((hour) => {
                 const booked = isSlotBooked(resource, hour);
                 const held = isSlotHeld(resource, hour);
+                const myWaitlist = getWaitlistEntry(resource, hour);
+                const waitlistCount = getWaitlistCount(resource, hour);
 
                 return (
                   <td
                     key={`${resource.resourceId}-${hour}`}
                     className={`border p-1 text-center cursor-pointer transition-colors ${
-                      booked
-                        ? "bg-red-100 text-red-700"
-                        : held
-                          ? "bg-gray-100 text-gray-400"
-                          : "bg-green-50 hover:bg-green-100"
+                      myWaitlist
+                        ? "bg-amber-50 hover:bg-amber-100"
+                        : booked
+                          ? "bg-red-100 text-red-700"
+                          : held
+                            ? "bg-gray-100 text-gray-400 hover:bg-gray-200"
+                            : "bg-green-50 hover:bg-green-100"
                     }`}
                     onClick={() => {
-                      if (!booked && !held) {
+                      if (myWaitlist && onWaitlistCancel) {
+                        onWaitlistCancel(myWaitlist.id);
+                      } else if ((held || booked) && onHeldSlotClick) {
+                        onHeldSlotClick(resource.resourceId, hour);
+                      } else if (!booked && !held) {
                         onSlotClick(resource.resourceId, hour);
                       }
                     }}
                   >
-                    {booked ? (
+                    {myWaitlist ? (
+                      <div>
+                        <span className="text-xs font-medium text-amber-700">Waitlisted</span>
+                        <div className="text-[10px] text-amber-500">#{myWaitlist.position}</div>
+                      </div>
+                    ) : booked ? (
                       <span className="text-xs">Booked</span>
                     ) : held ? (
-                      <span className="text-xs">Held</span>
+                      <div>
+                        <span className="text-xs">Held</span>
+                        {waitlistCount > 0 && (
+                          <div className="text-[10px] text-gray-500">{waitlistCount} waiting</div>
+                        )}
+                      </div>
                     ) : (
                       <span className="text-xs text-green-600">Open</span>
                     )}
