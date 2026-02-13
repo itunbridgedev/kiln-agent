@@ -117,21 +117,19 @@ export default function AvailabilityGrid({
                 return (
                   <td
                     key={`${resource.resourceId}-${hour}`}
-                    className={`border p-1 text-center cursor-pointer transition-colors ${
+                    className={`border p-1 text-center transition-colors ${
                       myWaitlist
-                        ? "bg-amber-50 hover:bg-amber-100"
+                        ? "bg-amber-50 hover:bg-amber-100 cursor-pointer"
                         : booked
                           ? "bg-red-100 text-red-700"
                           : held
-                            ? "bg-gray-100 text-gray-400 hover:bg-gray-200"
-                            : "bg-green-50 hover:bg-green-100"
+                            ? "bg-gray-100 hover:bg-gray-200"
+                            : "bg-green-50 hover:bg-green-100 cursor-pointer"
                     }`}
                     onClick={() => {
                       if (myWaitlist && onWaitlistCancel) {
                         onWaitlistCancel(myWaitlist.id);
-                      } else if ((held || booked) && onHeldSlotClick) {
-                        onHeldSlotClick(resource.resourceId, hour);
-                      } else if (!booked && !held) {
+                      } else if (!held && !booked) {
                         onSlotClick(resource.resourceId, hour);
                       }
                     }}
@@ -144,11 +142,22 @@ export default function AvailabilityGrid({
                     ) : booked ? (
                       <span className="text-xs">Booked</span>
                     ) : held ? (
-                      <div>
-                        <span className="text-xs">Held</span>
+                      <div className="space-y-1">
+                        <div className="text-xs text-gray-600">Held</div>
                         {waitlistCount > 0 && (
                           <div className="text-[10px] text-gray-500">{waitlistCount} waiting</div>
                         )}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (onHeldSlotClick) {
+                              onHeldSlotClick(resource.resourceId, hour);
+                            }
+                          }}
+                          className="text-[11px] px-1.5 py-0.5 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                        >
+                          Join Waitlist
+                        </button>
                       </div>
                     ) : (
                       <span className="text-xs text-green-600">Open</span>
