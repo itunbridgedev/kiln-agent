@@ -272,6 +272,10 @@ model ClassSchedulePattern {
   defaultInstructorId Int? // Default instructor for generated sessions
   defaultAssistantId  Int? // Default assistant for generated sessions
 
+  // Resource hold settings — propagated to generated sessions
+  reserveFullCapacity  Boolean @default(false)
+  resourceReleaseHours Int?
+
   // Status
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())

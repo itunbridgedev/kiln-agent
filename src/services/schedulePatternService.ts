@@ -16,6 +16,8 @@ export interface SchedulePatternInput {
   location?: string;
   defaultInstructorId?: number | null;
   defaultAssistantId?: number | null;
+  reserveFullCapacity?: boolean;
+  resourceReleaseHours?: number | null;
 }
 
 export interface SessionPreview {
@@ -210,6 +212,8 @@ export async function createSchedulePattern(data: SchedulePatternInput) {
       location: data.location,
       defaultInstructorId: data.defaultInstructorId,
       defaultAssistantId: data.defaultAssistantId,
+      reserveFullCapacity: data.reserveFullCapacity ?? false,
+      resourceReleaseHours: data.resourceReleaseHours,
     },
     include: {
       class: {
@@ -408,6 +412,8 @@ export async function generateSessionsFromPattern(patternId: number) {
           maxStudents: pattern.maxStudents,
           location: pattern.location,
           status: "scheduled",
+          reserveFullCapacity: pattern.reserveFullCapacity,
+          resourceReleaseHours: pattern.resourceReleaseHours,
         });
 
         currentMinutes += sessionIntervalMinutes;
@@ -431,6 +437,8 @@ export async function generateSessionsFromPattern(patternId: number) {
         maxStudents: pattern.maxStudents,
         location: pattern.location,
         status: "scheduled",
+        reserveFullCapacity: pattern.reserveFullCapacity,
+        resourceReleaseHours: pattern.resourceReleaseHours,
       });
     }
   }
@@ -551,6 +559,10 @@ export async function updateSchedulePattern(
     updateData.defaultInstructorId = data.defaultInstructorId;
   if (data.defaultAssistantId !== undefined)
     updateData.defaultAssistantId = data.defaultAssistantId;
+  if (data.reserveFullCapacity !== undefined)
+    updateData.reserveFullCapacity = data.reserveFullCapacity;
+  if (data.resourceReleaseHours !== undefined)
+    updateData.resourceReleaseHours = data.resourceReleaseHours;
 
   const pattern = await prisma.classSchedulePattern.update({
     where: { id: patternId },

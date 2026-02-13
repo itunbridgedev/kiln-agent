@@ -73,6 +73,8 @@ router.post("/", isAuthenticated, isAdmin, async (req, res) => {
       location,
       defaultInstructorId,
       defaultAssistantId,
+      reserveFullCapacity,
+      resourceReleaseHours,
     } = req.body;
     const studioId = (req as any).studio?.id;
 
@@ -107,6 +109,10 @@ router.post("/", isAuthenticated, isAdmin, async (req, res) => {
         : undefined,
       defaultAssistantId: defaultAssistantId
         ? parseInt(defaultAssistantId)
+        : undefined,
+      reserveFullCapacity: reserveFullCapacity ?? false,
+      resourceReleaseHours: resourceReleaseHours != null
+        ? parseInt(resourceReleaseHours)
         : undefined,
     });
 
@@ -221,6 +227,8 @@ router.put("/:id", isAuthenticated, isAdmin, async (req, res) => {
       location,
       defaultInstructorId,
       defaultAssistantId,
+      reserveFullCapacity,
+      resourceReleaseHours,
     } = req.body;
 
     const pattern = await scheduleService.updateSchedulePattern(patternId, {
@@ -245,6 +253,14 @@ router.put("/:id", isAuthenticated, isAdmin, async (req, res) => {
             ? parseInt(defaultAssistantId)
             : null
           : undefined,
+      reserveFullCapacity: reserveFullCapacity !== undefined
+        ? reserveFullCapacity
+        : undefined,
+      resourceReleaseHours: resourceReleaseHours !== undefined
+        ? resourceReleaseHours !== null
+          ? parseInt(resourceReleaseHours)
+          : null
+        : undefined,
     });
 
     // Automatically regenerate sessions after updating the pattern

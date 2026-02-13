@@ -40,6 +40,8 @@ interface SchedulePattern {
   classStepId?: number | null;
   defaultInstructorId?: number | null;
   defaultAssistantId?: number | null;
+  reserveFullCapacity?: boolean;
+  resourceReleaseHours?: number | null;
 }
 
 interface GeneratedSession {
@@ -109,6 +111,10 @@ export default function SchedulePatternManager({
   const [selectedResources, setSelectedResources] = useState<
     { resourceId: number; quantityPerStudent: number }[]
   >([]);
+  const [reserveFullCapacity, setReserveFullCapacity] = useState(false);
+  const [resourceReleaseHours, setResourceReleaseHours] = useState<
+    number | null
+  >(null);
 
   const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -465,6 +471,8 @@ export default function SchedulePatternManager({
               maxStudents: classData.maxStudents || 12,
               defaultInstructorId,
               defaultAssistantId,
+              reserveFullCapacity,
+              resourceReleaseHours,
             }),
           });
 
@@ -527,6 +535,8 @@ export default function SchedulePatternManager({
             maxStudents: classData.maxStudents || 12,
             defaultInstructorId,
             defaultAssistantId,
+            reserveFullCapacity,
+            resourceReleaseHours,
           }),
         });
 
@@ -688,6 +698,8 @@ export default function SchedulePatternManager({
     setDefaultInstructorId(pattern.defaultInstructorId || null);
     setDefaultAssistantId(pattern.defaultAssistantId || null);
     setEndTime(pattern.endTime || "");
+    setReserveFullCapacity(pattern.reserveFullCapacity ?? false);
+    setResourceReleaseHours(pattern.resourceReleaseHours ?? null);
 
     if (pattern.classStepId) {
       // Find the step number for this step ID
@@ -813,6 +825,8 @@ export default function SchedulePatternManager({
                     setDefaultInstructorId(null);
                     setDefaultAssistantId(null);
                     setSelectedResources([]);
+                    setReserveFullCapacity(false);
+                    setResourceReleaseHours(null);
                   }}
                   className="btn btn-primary"
                 >
@@ -1315,6 +1329,61 @@ export default function SchedulePatternManager({
                     </select>
                   </div>
                 </div>
+              </div>
+
+              {/* Resource Reservation Section */}
+              <div className="form-section">
+                <h3>Resource Reservation (Optional)</h3>
+                <p className="text-muted" style={{ marginBottom: "1rem" }}>
+                  Reserve full resource capacity for this class and optionally
+                  release resources a set number of hours before the session
+                  starts (e.g., for same-day Open Studio availability).
+                </p>
+                <div className="form-group">
+                  <label className="checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={reserveFullCapacity}
+                      onChange={(e) => {
+                        setReserveFullCapacity(e.target.checked);
+                        if (!e.target.checked) {
+                          setResourceReleaseHours(null);
+                        }
+                      }}
+                    />
+                    <span>Reserve full resource capacity</span>
+                  </label>
+                  <small className="text-muted" style={{ marginLeft: "2rem" }}>
+                    When enabled, all available resources (e.g., pottery wheels)
+                    will be held for this class until released.
+                  </small>
+                </div>
+                {reserveFullCapacity && (
+                  <div
+                    className="form-group"
+                    style={{ marginTop: "1rem", marginLeft: "2rem" }}
+                  >
+                    <label>Release resources before session (hours)</label>
+                    <input
+                      type="number"
+                      value={resourceReleaseHours ?? ""}
+                      onChange={(e) =>
+                        setResourceReleaseHours(
+                          e.target.value ? parseInt(e.target.value) : null
+                        )
+                      }
+                      min="1"
+                      max="168"
+                      step="1"
+                      placeholder="e.g., 24"
+                      style={{ width: "150px" }}
+                    />
+                    <small className="text-muted">
+                      Resources will be freed this many hours before the session,
+                      making them available for Open Studio or other bookings.
+                    </small>
+                  </div>
+                )}
               </div>
 
               {patternType === "multi-step" && (
