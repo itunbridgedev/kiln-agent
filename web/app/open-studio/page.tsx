@@ -74,8 +74,8 @@ interface Subscription {
 }
 
 function combineDateAndTime(dateStr: string, timeStr: string): Date {
-  // dateStr is like "2026-02-12", timeStr is like "10:00"
-  const [y, m, d] = dateStr.split("-").map(Number);
+  // dateStr may be ISO like "2026-02-12T00:00:00.000Z" or just "2026-02-12"
+  const [y, m, d] = dateStr.slice(0, 10).split("-").map(Number);
   const [h, min] = timeStr.split(":").map(Number);
   return new Date(y, m - 1, d, h, min);
 }
