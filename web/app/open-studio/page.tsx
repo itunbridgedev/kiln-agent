@@ -81,11 +81,11 @@ function combineDateAndTime(dateStr: string, timeStr: string): Date {
 }
 
 const calendarFormats = {
-  timeGutterFormat: "h:mm A",
+  timeGutterFormat: "h:mm a",
   eventTimeRangeFormat: ({ start, end }: { start: Date; end: Date }) =>
-    `${format(start, "h:mm A")} - ${format(end, "h:mm A")}`,
+    `${format(start, "h:mm a")} - ${format(end, "h:mm a")}`,
   agendaTimeRangeFormat: ({ start, end }: { start: Date; end: Date }) =>
-    `${format(start, "h:mm A")} - ${format(end, "h:mm A")}`,
+    `${format(start, "h:mm a")} - ${format(end, "h:mm a")}`,
   dayHeaderFormat: "EEEE, MMMM d",
 };
 
@@ -209,7 +209,7 @@ export default function OpenStudioPage() {
     <div className="rbc-event-content">
       <strong>{event.title}</strong>
       <div className="text-xs opacity-80">
-        {format(event.start, "h:mm A")} - {format(event.end, "h:mm A")}
+        {format(event.start, "h:mm a")} - {format(event.end, "h:mm a")}
       </div>
     </div>
   );
