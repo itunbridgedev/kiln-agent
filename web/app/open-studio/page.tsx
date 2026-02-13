@@ -50,6 +50,7 @@ interface ResourceAvailability {
     endTime: string;
     status: string;
   }>;
+  heldSlots?: Array<{ startTime: string; endTime: string }>;
 }
 
 interface AvailabilityData {

@@ -100,6 +100,7 @@ export async function getAvailability(sessionId: number) {
   const availability = resources.map((resource) => {
     // Calculate how many of this resource are held by overlapping classes
     let heldByClasses = 0;
+    const heldSlots: { startTime: string; endTime: string }[] = [];
 
     for (const overlap of overlappingSessions) {
       const resourceReq = overlap.class.resourceRequirements.find(
@@ -126,11 +127,15 @@ export async function getAvailability(sessionId: number) {
           .filter((a) => a.resourceId === resource.id)
           .reduce((sum, a) => sum + a.quantity, 0);
         heldByClasses += Math.max(maxHeld, actualUsed);
+        heldSlots.push({ startTime: overlap.startTime, endTime: overlap.endTime });
       } else {
         // After cutoff or no hold: only count actual allocations
         const actualUsed = overlap.resourceAllocations
           .filter((a) => a.resourceId === resource.id)
           .reduce((sum, a) => sum + a.quantity, 0);
+        if (actualUsed > 0) {
+          heldSlots.push({ startTime: overlap.startTime, endTime: overlap.endTime });
+        }
         heldByClasses += actualUsed;
       }
     }
@@ -149,6 +154,7 @@ export async function getAvailability(sessionId: number) {
       resourceName: resource.name,
       totalQuantity: resource.quantity,
       heldByClasses,
+      heldSlots,
       currentlyBooked,
       available: Math.max(0, totalAvailable - currentlyBooked),
       bookings: bookedOnResource.map((b) => ({

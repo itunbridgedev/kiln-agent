@@ -13,6 +13,7 @@ interface ResourceAvailability {
     endTime: string;
     status: string;
   }>;
+  heldSlots?: Array<{ startTime: string; endTime: string }>;
 }
 
 interface Props {
@@ -49,8 +50,10 @@ export default function AvailabilityGrid({
     });
   };
 
-  const isSlotAvailable = (resource: ResourceAvailability) => {
-    return resource.available > 0;
+  const isSlotHeld = (resource: ResourceAvailability, hour: string) => {
+    return (resource.heldSlots || []).some((slot) => {
+      return slot.startTime <= hour && slot.endTime > hour;
+    });
   };
 
   return (
@@ -79,7 +82,7 @@ export default function AvailabilityGrid({
               </td>
               {hours.map((hour) => {
                 const booked = isSlotBooked(resource, hour);
-                const available = isSlotAvailable(resource);
+                const held = isSlotHeld(resource, hour);
 
                 return (
                   <td
@@ -87,22 +90,22 @@ export default function AvailabilityGrid({
                     className={`border p-1 text-center cursor-pointer transition-colors ${
                       booked
                         ? "bg-red-100 text-red-700"
-                        : available
-                          ? "bg-green-50 hover:bg-green-100"
-                          : "bg-gray-100 text-gray-400"
+                        : held
+                          ? "bg-gray-100 text-gray-400"
+                          : "bg-green-50 hover:bg-green-100"
                     }`}
                     onClick={() => {
-                      if (!booked && available) {
+                      if (!booked && !held) {
                         onSlotClick(resource.resourceId, hour);
                       }
                     }}
                   >
                     {booked ? (
                       <span className="text-xs">Booked</span>
-                    ) : available ? (
-                      <span className="text-xs text-green-600">Open</span>
+                    ) : held ? (
+                      <span className="text-xs">Held</span>
                     ) : (
-                      <span className="text-xs">-</span>
+                      <span className="text-xs text-green-600">Open</span>
                     )}
                   </td>
                 );
