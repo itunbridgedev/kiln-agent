@@ -897,18 +897,23 @@ router.get('/my-reservations', isAuthenticated, async (req: Request, res: Respon
       registrations: registrationsWithCounts,
       openStudioBookings: openStudioBookings.map(b => {
         // Check-in window: 2 hours before booking start to 2 hours after session end
-        const checkInStart = new Date(b.session.sessionDate);
+        // Times like "16:00" are local studio times; sessionDate is midnight UTC as a date marker
+        // TODO: use studio timezone field once available; hardcoded to America/Los_Angeles for now
+        const tzOffsetHours = 8; // PST = UTC-8 (use 7 for PDT)
         const [startH, startM] = b.startTime.split(':').map(Number);
-        checkInStart.setUTCHours(startH, startM, 0, 0);
-        checkInStart.setUTCHours(checkInStart.getUTCHours() - 2);
-        
-        const checkInEnd = new Date(b.session.sessionDate);
         const [endH, endM] = b.session.endTime.split(':').map(Number);
-        checkInEnd.setUTCHours(endH, endM, 0, 0);
-        checkInEnd.setUTCHours(checkInEnd.getUTCHours() + 2);
-        
+
+        // Convert local times to UTC by adding timezone offset
+        const checkInStart = new Date(b.session.sessionDate);
+        checkInStart.setUTCHours(startH + tzOffsetHours, startM, 0, 0);
+        checkInStart.setTime(checkInStart.getTime() - 2 * 60 * 60 * 1000);
+
+        const checkInEnd = new Date(b.session.sessionDate);
+        checkInEnd.setUTCHours(endH + tzOffsetHours, endM, 0, 0);
+        checkInEnd.setTime(checkInEnd.getTime() + 2 * 60 * 60 * 1000);
+
         const now = new Date();
-        const canCheckIn = now >= checkInStart && now <= checkInEnd;
+        const canCheckIn = b.status === 'RESERVED' && now >= checkInStart && now <= checkInEnd;
         
         return {
           id: b.id,
