@@ -597,9 +597,15 @@ router.get('/my-reservations', isAuthenticated, async (req: Request, res: Respon
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     // Convert to UTC by getting just the date portion and setting to midnight UTC
     const todayUTC = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
+    
+    // For Open Studio bookings, also include sessions from past 3 days to handle timezone differences
+    // e.g., Feb 13 local time = Feb 14 UTC, so we need to show Feb 13 bookings
+    const threeDaysAgoUTC = new Date(todayUTC);
+    threeDaysAgoUTC.setDate(threeDaysAgoUTC.getDate() - 3);
 
     console.log('[DEBUG] Current time:', now.toISOString());
     console.log('[DEBUG] Today local midnight as UTC:', todayUTC.toISOString());
+    console.log('[DEBUG] Including bookings from:', threeDaysAgoUTC.toISOString());
 
     // Get all registrations for the customer
     const registrations = await prisma.classRegistration.findMany({
@@ -700,6 +706,7 @@ router.get('/my-reservations', isAuthenticated, async (req: Request, res: Respon
     });
 
     // Fetch Open Studio bookings for this customer
+    // Include past 3 days to handle timezone differences (user's Feb 13 = server's Feb 14)
     const openStudioBookings = await prisma.openStudioBooking.findMany({
       where: {
         subscription: {
@@ -708,7 +715,7 @@ router.get('/my-reservations', isAuthenticated, async (req: Request, res: Respon
         status: { in: ['RESERVED', 'CHECKED_IN'] },
         session: {
           sessionDate: {
-            gte: todayUTC
+            gte: threeDaysAgoUTC
           }
         }
       },
@@ -739,6 +746,7 @@ router.get('/my-reservations', isAuthenticated, async (req: Request, res: Respon
     });
 
     // Fetch Open Studio waitlist entries for this customer
+    // Include past 3 days to handle timezone differences
     const openStudioWaitlist = await prisma.openStudioWaitlist.findMany({
       where: {
         subscription: {
@@ -748,7 +756,7 @@ router.get('/my-reservations', isAuthenticated, async (req: Request, res: Respon
         fulfilledAt: null,
         session: {
           sessionDate: {
-            gte: todayUTC
+            gte: threeDaysAgoUTC
           }
         }
       },
