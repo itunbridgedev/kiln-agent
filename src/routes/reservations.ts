@@ -707,6 +707,7 @@ router.get('/my-reservations', isAuthenticated, async (req: Request, res: Respon
 
     // Fetch Open Studio bookings for this customer
     // Include past 3 days to handle timezone differences (user's Feb 13 = server's Feb 14)
+    console.log('[DEBUG] Fetching open studio bookings for customerId:', customerId, 'since:', threeDaysAgoUTC.toISOString());
     const openStudioBookings = await prisma.openStudioBooking.findMany({
       where: {
         subscription: {
@@ -744,6 +745,8 @@ router.get('/my-reservations', isAuthenticated, async (req: Request, res: Respon
         { startTime: 'asc' }
       ]
     });
+
+    console.log('[DEBUG] Open studio bookings found:', openStudioBookings.length, openStudioBookings.map(b => ({ id: b.id, status: b.status, startTime: b.startTime, sessionDate: b.session.sessionDate })));
 
     // Fetch Open Studio waitlist entries for this customer
     // Include past 3 days to handle timezone differences
