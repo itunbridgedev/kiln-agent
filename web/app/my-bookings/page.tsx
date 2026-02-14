@@ -2,11 +2,9 @@
 
 import Footer from "@/components/home/Footer";
 import Header from "@/components/home/Header";
-import { useAuth } from "@/context/AuthContext";
 import "@/styles/Home.css";
 import { parseLocalDate } from "@/lib/dates";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 interface GuestBooking {
@@ -17,8 +15,6 @@ interface GuestBooking {
 }
 
 export default function MyBookingsPage() {
-  const router = useRouter();
-  const { user, logout } = useAuth();
   const [email, setEmail] = useState("");
   const [bookings, setBookings] = useState<GuestBooking[]>([]);
   const [showBookings, setShowBookings] = useState(false);
@@ -44,11 +40,6 @@ export default function MyBookingsPage() {
     } catch (error) {
       console.error("Error fetching studio info:", error);
     }
-  };
-
-  const handleLogout = async () => {
-    await logout();
-    router.push("/login");
   };
 
   const loadBookings = () => {
@@ -82,13 +73,7 @@ export default function MyBookingsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header
-        user={user}
-        studioName={studioName}
-        onLogout={handleLogout}
-        onNavigateAdmin={() => router.push("/admin")}
-        onNavigateLogin={() => router.push("/login")}
-      />
+      <Header studioName={studioName} />
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">

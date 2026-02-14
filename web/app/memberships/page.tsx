@@ -1,6 +1,9 @@
 "use client";
 
+import Footer from "@/components/home/Footer";
+import Header from "@/components/home/Header";
 import { useAuth } from "@/context/AuthContext";
+import "@/styles/Home.css";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -82,14 +85,14 @@ export default function MembershipsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 text-center">
-          <h1 className="text-3xl font-bold text-gray-900">Membership Plans</h1>
-          <p className="text-gray-600 mt-2">
-            Join our studio and get access to Open Studio time, special resources, and more.
-          </p>
-        </div>
-      </header>
+      <Header />
+
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 text-center">
+        <h1 className="text-3xl font-bold text-gray-900">Membership Plans</h1>
+        <p className="text-gray-600 mt-2">
+          Join our studio and get access to Open Studio time, special resources, and more.
+        </p>
+      </div>
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {error && (
@@ -182,6 +185,8 @@ export default function MembershipsPage() {
           </div>
         )}
       </main>
+
+      <Footer />
     </div>
   );
 }

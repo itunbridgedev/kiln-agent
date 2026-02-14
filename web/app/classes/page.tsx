@@ -49,7 +49,7 @@ interface Class {
 
 export default function ClassesPage() {
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const [classes, setClasses] = useState<Class[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -161,24 +161,13 @@ export default function ClassesPage() {
     }
   };
 
-  const handleLogout = async () => {
-    await logout();
-    router.push("/login");
-  };
-
   const hasStaffAccess = user?.roles?.some((role) =>
     ["admin", "manager", "staff"].includes(role)
   );
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header
-        user={user}
-        studioName={studioName}
-        onLogout={handleLogout}
-        onNavigateAdmin={() => router.push("/admin")}
-        onNavigateLogin={() => router.push("/login")}
-      />
+      <Header studioName={studioName} />
 
       {/* Page Header */}
       <div className="bg-white border-b border-gray-200">

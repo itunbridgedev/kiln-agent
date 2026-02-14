@@ -1,9 +1,12 @@
 "use client";
 
+import Footer from "@/components/home/Footer";
+import Header from "@/components/home/Header";
 import AvailabilityGrid from "@/components/open-studio/AvailabilityGrid";
 import BookingModal from "@/components/open-studio/BookingModal";
 import WaitlistModal from "@/components/open-studio/WaitlistModal";
 import { useAuth } from "@/context/AuthContext";
+import "@/styles/Home.css";
 import { format, getDay, parse, startOfWeek } from "date-fns";
 import { enUS } from "date-fns/locale";
 import { useRouter } from "next/navigation";
@@ -297,27 +300,27 @@ export default function OpenStudioPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <h1 className="text-2xl font-bold text-gray-900">Open Studio</h1>
-          <p className="text-gray-600 mt-1">
-            Reserve a wheel for your next pottery session
-          </p>
-          {subscription && (
-            <div className="mt-2 inline-flex items-center gap-2 bg-blue-50 px-3 py-1 rounded-full text-sm">
-              <span className="font-medium text-blue-700">{subscription.membership.name}</span>
-              <span className="text-blue-500">member</span>
-            </div>
-          )}
-          {!subscription && user && (
-            <div className="mt-2">
-              <a href="/memberships" className="text-blue-600 hover:underline text-sm">
-                Get a membership to book Open Studio time &rarr;
-              </a>
-            </div>
-          )}
-        </div>
-      </header>
+      <Header />
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <h1 className="text-2xl font-bold text-gray-900">Open Studio</h1>
+        <p className="text-gray-600 mt-1">
+          Reserve a wheel for your next pottery session
+        </p>
+        {subscription && (
+          <div className="mt-2 inline-flex items-center gap-2 bg-blue-50 px-3 py-1 rounded-full text-sm">
+            <span className="font-medium text-blue-700">{subscription.membership.name}</span>
+            <span className="text-blue-500">member</span>
+          </div>
+        )}
+        {!subscription && user && (
+          <div className="mt-2">
+            <a href="/memberships" className="text-blue-600 hover:underline text-sm">
+              Get a membership to book Open Studio time &rarr;
+            </a>
+          </div>
+        )}
+      </div>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {sessions.length > 0 ? (
@@ -435,6 +438,8 @@ export default function OpenStudioPage() {
           />
         )}
       </main>
+
+      <Footer />
 
       <style jsx global>{`
         .open-studio-calendar-container {

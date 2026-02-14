@@ -90,7 +90,7 @@ interface Reservation {
 
 export default function ReservationsPage() {
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const params = useParams();
   const registrationId = params?.id as string;
 
@@ -290,13 +290,6 @@ export default function ReservationsPage() {
     }
   };
 
-  const handleLogout = async () => {
-    await logout();
-    router.push("/login");
-  };
-
-
-
   const canCheckIn = (checkInWindow?: {
     start: string;
     end: string;
@@ -371,13 +364,7 @@ export default function ReservationsPage() {
   if (!user) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <Header
-          user={null}
-          studioName={studioName}
-          onLogout={handleLogout}
-          onNavigateAdmin={() => router.push("/admin")}
-          onNavigateLogin={() => router.push("/login")}
-        />
+        <Header studioName={studioName} />
         <div className="flex items-center justify-center py-12 px-4">
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 max-w-md w-full">
             <p className="text-yellow-800 mb-4">Please log in to manage reservations</p>
@@ -409,13 +396,7 @@ export default function ReservationsPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <Header
-          user={user}
-          studioName={studioName}
-          onLogout={handleLogout}
-          onNavigateAdmin={() => router.push("/admin")}
-          onNavigateLogin={() => router.push("/login")}
-        />
+        <Header studioName={studioName} />
         <div className="flex justify-center items-center py-12">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
         </div>
@@ -426,13 +407,7 @@ export default function ReservationsPage() {
   if (error || !registration) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <Header
-          user={user}
-          studioName={studioName}
-          onLogout={handleLogout}
-          onNavigateAdmin={() => router.push("/admin")}
-          onNavigateLogin={() => router.push("/login")}
-        />
+        <Header studioName={studioName} />
         <div className="flex items-center justify-center py-12">
           <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md">
             <p className="text-red-800">{error || "Registration not found"}</p>
@@ -450,13 +425,7 @@ export default function ReservationsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header
-        user={user}
-        studioName={studioName}
-        onLogout={handleLogout}
-        onNavigateAdmin={() => router.push("/admin")}
-        onNavigateLogin={() => router.push("/login")}
-      />
+      <Header studioName={studioName} />
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}

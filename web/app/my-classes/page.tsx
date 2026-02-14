@@ -79,7 +79,7 @@ interface WaitlistEntry {
 
 export default function MyClassesPage() {
   const router = useRouter();
-  const { user, logout, loading: authLoading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState<"registrations" | "waitlist">(
     "registrations"
   );
@@ -274,11 +274,6 @@ export default function MyClassesPage() {
     );
   };
 
-  const handleLogout = async () => {
-    await logout();
-    router.push("/login");
-  };
-
   // Show loading state while checking authentication
   if (authLoading || !user) {
     return (
@@ -293,13 +288,7 @@ export default function MyClassesPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header
-        user={user}
-        studioName={studioName}
-        onLogout={handleLogout}
-        onNavigateAdmin={() => router.push("/admin")}
-        onNavigateLogin={() => router.push("/login")}
-      />
+      <Header studioName={studioName} />
 
       {/* Header */}
       <div className="bg-white border-b border-gray-200">

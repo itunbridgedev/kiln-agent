@@ -8,8 +8,6 @@ import { format, parseISO } from "date-fns";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-
 interface ClassRegistration {
   id: number;
   className: string;
@@ -80,42 +78,26 @@ interface OpenStudioWaitlistEntry {
 
 export default function MyReservationsPage() {
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const [registrations, setRegistrations] = useState<ClassRegistration[]>([]);
   const [openStudioBookings, setOpenStudioBookings] = useState<OpenStudioBooking[]>([]);
   const [openStudioWaitlist, setOpenStudioWaitlist] = useState<OpenStudioWaitlistEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [studioName, setStudioName] = useState<string>("");
   const [checkingIn, setCheckingIn] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchStudioInfo();
     if (user) {
       fetchReservations();
     }
   }, [user]);
-
-  const fetchStudioInfo = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/studio`, {
-        credentials: "include",
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setStudioName(data.name);
-      }
-    } catch (error) {
-      console.error("Error fetching studio info:", error);
-    }
-  };
 
   const fetchReservations = async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/reservations/my-reservations`, {
+      const response = await fetch(`/api/reservations/my-reservations`, {
         credentials: "include",
       });
 
@@ -132,11 +114,6 @@ export default function MyReservationsPage() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleLogout = async () => {
-    await logout();
-    router.push("/login");
   };
 
   const formatTime = (time: string) => {
@@ -158,9 +135,9 @@ export default function MyReservationsPage() {
   const handleCheckIn = async (bookingId: string | number, type: 'class' | 'openStudio' = 'class') => {
     setCheckingIn(`${type}-${bookingId}`);
     try {
-      let endpoint = `${API_BASE_URL}/api/reservations/${bookingId}/check-in`;
+      let endpoint = `/api/reservations/${bookingId}/check-in`;
       if (type === 'openStudio') {
-        endpoint = `${API_BASE_URL}/api/open-studio/bookings/${bookingId}/check-in`;
+        endpoint = `/api/open-studio/bookings/${bookingId}/check-in`;
       }
 
       const response = await fetch(endpoint, {
@@ -185,13 +162,7 @@ export default function MyReservationsPage() {
   if (!user) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <Header
-          user={null}
-          studioName={studioName}
-          onLogout={handleLogout}
-          onNavigateAdmin={() => router.push("/admin")}
-          onNavigateLogin={() => router.push("/login")}
-        />
+        <Header />
         <div className="flex items-center justify-center py-12">
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 max-w-md">
             <p className="text-yellow-800">Please log in to view your reservations</p>
@@ -210,14 +181,7 @@ export default function MyReservationsPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <Header
-          user={user}
-          studioName={studioName}
-          onLogout={handleLogout}
-          onNavigateAdmin={() => router.push("/admin")}
-          onNavigateLogin={() => router.push("/login")}
-          onNavigateReservations={() => router.push("/my-reservations")}
-        />
+        <Header />
         <div className="flex justify-center items-center py-12">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
         </div>
@@ -228,14 +192,7 @@ export default function MyReservationsPage() {
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <Header
-          user={user}
-          studioName={studioName}
-          onLogout={handleLogout}
-          onNavigateAdmin={() => router.push("/admin")}
-          onNavigateLogin={() => router.push("/login")}
-          onNavigateReservations={() => router.push("/my-reservations")}
-        />
+        <Header />
         <div className="flex items-center justify-center py-12">
           <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md">
             <p className="text-red-800">{error}</p>
@@ -252,14 +209,7 @@ export default function MyReservationsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header
-        user={user}
-        studioName={studioName}
-        onLogout={handleLogout}
-        onNavigateAdmin={() => router.push("/admin")}
-        onNavigateLogin={() => router.push("/login")}
-        onNavigateReservations={() => router.push("/my-reservations")}
-      />
+      <Header />
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}

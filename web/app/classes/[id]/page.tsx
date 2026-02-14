@@ -95,7 +95,7 @@ interface Class {
 
 export default function ClassDetailPage() {
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const params = useParams();
   const classId = params?.id as string;
 
@@ -409,11 +409,6 @@ export default function ClassDetailPage() {
     (s) => s.id === selectedSessionId
   );
 
-  const handleLogout = async () => {
-    await logout();
-    router.push("/login");
-  };
-
   // Calendar helper functions
   const getCalendarDays = () => {
     let start, end;
@@ -480,13 +475,7 @@ export default function ClassDetailPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <Header
-          user={user}
-          studioName={studioName}
-          onLogout={handleLogout}
-          onNavigateAdmin={() => router.push("/admin")}
-          onNavigateLogin={() => router.push("/login")}
-        />
+        <Header studioName={studioName} />
         <div className="flex justify-center items-center py-12">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
         </div>
@@ -497,13 +486,7 @@ export default function ClassDetailPage() {
   if (error || !classDetails) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <Header
-          user={user}
-          studioName={studioName}
-          onLogout={handleLogout}
-          onNavigateAdmin={() => router.push("/admin")}
-          onNavigateLogin={() => router.push("/login")}
-        />
+        <Header studioName={studioName} />
         <div className="flex items-center justify-center py-12">
           <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md">
             <p className="text-red-800">{error || "Class not found"}</p>
@@ -521,13 +504,7 @@ export default function ClassDetailPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header
-        user={user}
-        studioName={studioName}
-        onLogout={handleLogout}
-        onNavigateAdmin={() => router.push("/admin")}
-        onNavigateLogin={() => router.push("/login")}
-      />
+      <Header studioName={studioName} />
 
       {/* Hero Section */}
       <div className="bg-white border-b border-gray-200">

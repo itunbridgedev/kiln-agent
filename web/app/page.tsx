@@ -8,7 +8,7 @@ import MarketingPage from "@/components/marketing/MarketingPage";
 import { useAuth } from "@/context/AuthContext";
 import "@/styles/Home.css";
 import "@/styles/Marketing.css";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 interface Product {
@@ -30,17 +30,26 @@ interface Category {
   products: Product[];
 }
 
+interface Membership {
+  id: number;
+  name: string;
+  description: string | null;
+  price: string;
+  billingPeriod: string;
+}
+
 export default function HomePage() {
-  const { user, logout, loading } = useAuth();
-  const router = useRouter();
+  const { loading } = useAuth();
   const [categories, setCategories] = useState<Category[]>([]);
   const [studioName, setStudioName] = useState<string>("");
   const [isRootDomain, setIsRootDomain] = useState<boolean>(false);
   const [loadingProducts, setLoadingProducts] = useState(true);
+  const [memberships, setMemberships] = useState<Membership[]>([]);
 
   useEffect(() => {
     fetchStudioInfo();
     fetchProducts();
+    fetchMemberships();
   }, []);
 
   const fetchStudioInfo = async () => {
@@ -74,9 +83,15 @@ export default function HomePage() {
     }
   };
 
-  const handleLogout = async () => {
-    await logout();
-    router.push("/login");
+  const fetchMemberships = async () => {
+    try {
+      const response = await fetch("/api/memberships", { credentials: "include" });
+      if (response.ok) {
+        setMemberships(await response.json());
+      }
+    } catch (error) {
+      console.error("Error fetching memberships:", error);
+    }
   };
 
   if (loading) {
@@ -94,19 +109,38 @@ export default function HomePage() {
 
   return (
     <div className="home-container">
-      <Header
-        user={user}
-        studioName={studioName}
-        onLogout={handleLogout}
-        onNavigateAdmin={() => router.push("/admin")}
-        onNavigateLogin={() => router.push("/login")}
-        onNavigateReservations={() => router.push("/my-reservations")}
-        onNavigateMembership={() => router.push(user ? "/membership" : "/memberships")}
-      />
+      <Header studioName={studioName} />
 
       <main className="home-main">
-        <Hero user={user} onNavigateMembership={() => router.push(user ? "/membership" : "/memberships")} />
+        <Hero />
         <ProductCatalog categories={categories} loading={loadingProducts} />
+
+        {/* Memberships Section */}
+        {memberships.length > 0 && (
+          <section className="products-section">
+            <div className="category-section">
+              <h3 className="category-title">Memberships</h3>
+              <p className="category-description">
+                Join our studio and get access to Open Studio time, special resources, and more.
+              </p>
+              <div className="products-grid">
+                {memberships.map((m) => (
+                  <Link key={m.id} href="/memberships" className="product-card" style={{ textDecoration: "none" }}>
+                    <div className="product-info">
+                      <h4 className="product-name">{m.name}</h4>
+                      {m.description && (
+                        <p className="product-description">{m.description}</p>
+                      )}
+                      <p className="product-price">
+                        ${parseFloat(m.price).toFixed(2)}/{m.billingPeriod.toLowerCase()}
+                      </p>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
       </main>
 
       <Footer />
