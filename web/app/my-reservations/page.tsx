@@ -61,15 +61,33 @@ interface OpenStudioBooking {
   };
 }
 
+interface OpenStudioWaitlistEntry {
+  id: number;
+  className: string;
+  resourceName: string;
+  position: number;
+  reservedAt: string;
+  session: {
+    id: number;
+    date: string;
+    startTime: string;
+    endTime: string;
+    className: string;
+  };
+  waitlistStartTime: string;
+  waitlistEndTime: string;
+}
+
 export default function MyReservationsPage() {
   const router = useRouter();
   const { user, logout } = useAuth();
   const [registrations, setRegistrations] = useState<ClassRegistration[]>([]);
   const [openStudioBookings, setOpenStudioBookings] = useState<OpenStudioBooking[]>([]);
+  const [openStudioWaitlist, setOpenStudioWaitlist] = useState<OpenStudioWaitlistEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [studioName, setStudioName] = useState<string>("");
-  const [checkingIn, setCheckingIn] = useState<number | null>(null);
+  const [checkingIn, setCheckingIn] = useState<string | null>(null);
 
   useEffect(() => {
     fetchStudioInfo();
@@ -108,6 +126,7 @@ export default function MyReservationsPage() {
       const data = await response.json();
       setRegistrations(data.registrations);
       setOpenStudioBookings(data.openStudioBookings || []);
+      setOpenStudioWaitlist(data.openStudioWaitlist || []);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -136,16 +155,18 @@ export default function MyReservationsPage() {
     }
   };
 
-  const handleCheckIn = async (reservationId: number) => {
-    setCheckingIn(reservationId);
+  const handleCheckIn = async (bookingId: string | number, type: 'class' | 'openStudio' = 'class') => {
+    setCheckingIn(`${type}-${bookingId}`);
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/reservations/${reservationId}/check-in`,
-        {
-          method: "POST",
-          credentials: "include",
-        }
-      );
+      let endpoint = `${API_BASE_URL}/api/reservations/${bookingId}/check-in`;
+      if (type === 'openStudio') {
+        endpoint = `${API_BASE_URL}/api/open-studio/bookings/${bookingId}/check-in`;
+      }
+
+      const response = await fetch(endpoint, {
+        method: "POST",
+        credentials: "include",
+      });
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -227,7 +248,7 @@ export default function MyReservationsPage() {
   const totalUpcomingReservations = registrations.reduce(
     (sum, reg) => sum + reg.upcomingReservations.length,
     0
-  ) + openStudioBookings.length;
+  ) + openStudioBookings.length + openStudioWaitlist.length;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -296,6 +317,19 @@ export default function MyReservationsPage() {
                                   : "Check In"}
                               </button>
                             )}
+                        <div className="flex items-center gap-2">
+                          {booking.status === "RESERVED" &&
+                            booking.checkInWindow?.canCheckIn && (
+                              <button
+                                onClick={() => handleCheckIn(booking.id, 'openStudio')}
+                                disabled={checkingIn === `openStudio-${booking.id}`}
+                                className="px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium text-xs disabled:bg-gray-400 disabled:cursor-not-allowed"
+                              >
+                                {checkingIn === `openStudio-${booking.id}`
+                                  ? "Checking In..."
+                                  : "Check In"}
+                              </button>
+                            )}
                           <span
                             className={`px-3 py-1 rounded-full text-xs font-medium ${
                               booking.status === "RESERVED"
@@ -317,6 +351,34 @@ export default function MyReservationsPage() {
                               : `Check-in opens: ${format(parseISO(booking.checkInWindow.start), "MMM d 'at' h:mm a")}`}
                           </div>
                         )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Open Studio Waitlist Section */}
+            {openStudioWaitlist.length > 0 && (
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <h2 className="text-xl font-semibold text-gray-900 mb-4">Open Studio Waitlist</h2>
+                <div className="space-y-3">
+                  {openStudioWaitlist.map((entry) => (
+                    <div key={entry.id} className="bg-gray-50 rounded-lg p-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-900">
+                            {formatDateTime(entry.session.date, entry.waitlistStartTime)}
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            {entry.resourceName} • {entry.session.className}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="px-3 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                            Waitlist #{entry.position}
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -385,11 +447,11 @@ export default function MyReservationsPage() {
                             {reservation.status === "PENDING" &&
                               reservation.checkInWindow?.canCheckIn && (
                                 <button
-                                  onClick={() => handleCheckIn(reservation.id)}
-                                  disabled={checkingIn === reservation.id}
-                                  className="px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium text-xs disabled:bg-gray-400 disabled:cursor-not-allowed"
-                                >
-                                  {checkingIn === reservation.id
+                                onClick={() => handleCheckIn(reservation.id, 'class')}
+                                disabled={checkingIn === `class-${reservation.id}`}
+                                className="px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium text-xs disabled:bg-gray-400 disabled:cursor-not-allowed"
+                              >
+                                {checkingIn === `class-${reservation.id}`
                                     ? "Checking In..."
                                     : "Check In"}
                                 </button>

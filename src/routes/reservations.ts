@@ -738,6 +738,46 @@ router.get('/my-reservations', isAuthenticated, async (req: Request, res: Respon
       ]
     });
 
+    // Fetch Open Studio waitlist entries for this customer
+    const openStudioWaitlist = await prisma.openStudioWaitlist.findMany({
+      where: {
+        subscription: {
+          customerId
+        },
+        cancelledAt: null,
+        fulfilledAt: null,
+        session: {
+          sessionDate: {
+            gte: todayUTC
+          }
+        }
+      },
+      include: {
+        session: {
+          select: {
+            id: true,
+            sessionDate: true,
+            startTime: true,
+            endTime: true,
+            class: {
+              select: {
+                name: true
+              }
+            }
+          }
+        },
+        resource: {
+          select: {
+            name: true
+          }
+        }
+      },
+      orderBy: [
+        { session: { sessionDate: 'asc' } },
+        { startTime: 'asc' }
+      ]
+    });
+
     // Count current reservations for each registration
     const registrationsWithCounts = await Promise.all(
       registrations.map(async (reg) => {
@@ -822,7 +862,8 @@ router.get('/my-reservations', isAuthenticated, async (req: Request, res: Respon
             const checkInWindow = checkInService.getCheckInWindow(
               new Date(r.session.date),
               r.session.startTime,
-              false // customer check-in
+              false, // customer check-in
+              r.session.endTime // pass session end time
             );
 
             return {
@@ -843,41 +884,58 @@ router.get('/my-reservations', isAuthenticated, async (req: Request, res: Respon
 
     res.json({ 
       registrations: registrationsWithCounts,
-      openStudioBookings: openStudioBookings.map(b => ({
-        id: b.id,
-        className: b.session.class.name,
-        resourceName: b.resource.name,
-        status: b.status,
-        reservedAt: b.reservedAt,
-        session: {
-          id: b.session.id,
-          date: b.session.sessionDate.toISOString().split('T')[0],
-          startTime: b.session.startTime,
-          endTime: b.session.endTime,
-          className: b.session.class.name
-        },
-        bookingStartTime: b.startTime,
-        bookingEndTime: b.endTime,
-        checkInWindow: (() => {
-          // Open Studio bookings use their specific start/end times
-          // Check-in opens 15 minutes before start time
-          const checkInStart = new Date(b.session.sessionDate);
-          const [startH, startM] = b.startTime.split(':').map(Number);
-          checkInStart.setUTCHours(startH, startM - 15, 0, 0);
-          
-          const checkInEnd = new Date(b.session.sessionDate);
-          const [endH, endM] = b.session.endTime.split(':').map(Number);
-          checkInEnd.setUTCHours(endH, endM, 0, 0);
-          
-          const now = new Date();
-          const canCheckIn = now >= checkInStart && now <= checkInEnd;
-          
-          return {
+      openStudioBookings: openStudioBookings.map(b => {
+        // Check-in window: 2 hours before booking start to 2 hours after session end
+        const checkInStart = new Date(b.session.sessionDate);
+        const [startH, startM] = b.startTime.split(':').map(Number);
+        checkInStart.setUTCHours(startH, startM, 0, 0);
+        checkInStart.setUTCHours(checkInStart.getUTCHours() - 2);
+        
+        const checkInEnd = new Date(b.session.sessionDate);
+        const [endH, endM] = b.session.endTime.split(':').map(Number);
+        checkInEnd.setUTCHours(endH, endM, 0, 0);
+        checkInEnd.setUTCHours(checkInEnd.getUTCHours() + 2);
+        
+        const now = new Date();
+        const canCheckIn = now >= checkInStart && now <= checkInEnd;
+        
+        return {
+          id: b.id,
+          className: b.session.class.name,
+          resourceName: b.resource.name,
+          status: b.status,
+          reservedAt: b.reservedAt,
+          session: {
+            id: b.session.id,
+            date: b.session.sessionDate.toISOString().split('T')[0],
+            startTime: b.session.startTime,
+            endTime: b.session.endTime,
+            className: b.session.class.name
+          },
+          bookingStartTime: b.startTime,
+          bookingEndTime: b.endTime,
+          checkInWindow: {
             start: checkInStart.toISOString(),
             end: checkInEnd.toISOString(),
             canCheckIn
-          };
-        })()
+          }
+        };
+      }),
+      openStudioWaitlist: openStudioWaitlist.map(w => ({
+        id: w.id,
+        className: w.session.class.name,
+        resourceName: w.resource.name,
+        position: w.position,
+        reservedAt: w.joinedAt,
+        session: {
+          id: w.session.id,
+          date: w.session.sessionDate.toISOString().split('T')[0],
+          startTime: w.session.startTime,
+          endTime: w.session.endTime,
+          className: w.session.class.name
+        },
+        waitlistStartTime: w.startTime,
+        waitlistEndTime: w.endTime
       }))
     });
   } catch (error) {

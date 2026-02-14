@@ -17,10 +17,10 @@ export interface CheckInWindow {
 export class CheckInService {
   /**
    * Calculate check-in time window for a session
-   * Customer: ±2 hours from session start
+   * Customer: 2 hours before session start through 2 hours after session end
    * Staff: Anytime on session day (00:00 - 23:59)
    */
-  getCheckInWindow(sessionDate: Date, sessionStartTime: string, isStaff: boolean): CheckInWindow {
+  getCheckInWindow(sessionDate: Date, sessionStartTime: string, isStaff: boolean, sessionEndTime?: string): CheckInWindow {
     const now = new Date();
     
     // Parse session start time (format: "HH:MM")
@@ -45,9 +45,20 @@ export class CheckInService {
         reason: canCheckIn ? undefined : 'Staff can only check in on the session day'
       };
     } else {
-      // Customer can check in ±2 hours from session start
-      const windowStart = new Date(sessionStart.getTime() - 2 * 60 * 60 * 1000); // -2 hours
-      const windowEnd = new Date(sessionStart.getTime() + 2 * 60 * 60 * 1000); // +2 hours
+      // Customer can check in 2 hours before session start through 2 hours after session end
+      const windowStart = new Date(sessionStart.getTime() - 2 * 60 * 60 * 1000); // -2 hours from start
+      
+      let windowEnd: Date;
+      if (sessionEndTime) {
+        // If session end time provided, calculate 2 hours after session end
+        const [endHours, endMinutes] = sessionEndTime.split(':').map(Number);
+        const sessionEnd = new Date(sessionDate);
+        sessionEnd.setHours(endHours, endMinutes, 0, 0);
+        windowEnd = new Date(sessionEnd.getTime() + 2 * 60 * 60 * 1000); // +2 hours from end
+      } else {
+        // Fallback: 2 hours after session start
+        windowEnd = new Date(sessionStart.getTime() + 2 * 60 * 60 * 1000); // +2 hours from start
+      }
 
       const canCheckIn = now >= windowStart && now <= windowEnd;
 
@@ -55,7 +66,7 @@ export class CheckInService {
         canCheckIn,
         windowStart,
         windowEnd,
-        reason: canCheckIn ? undefined : 'Check-in window is 2 hours before to 2 hours after session start'
+        reason: canCheckIn ? undefined : 'Check-in window is 2 hours before to 2 hours after session end'
       };
     }
   }
