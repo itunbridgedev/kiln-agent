@@ -308,19 +308,6 @@ export default function MyReservationsPage() {
                           {booking.status === "RESERVED" &&
                             booking.checkInWindow?.canCheckIn && (
                               <button
-                                onClick={() => handleCheckIn(booking.id)}
-                                disabled={checkingIn === booking.id}
-                                className="px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium text-xs disabled:bg-gray-400 disabled:cursor-not-allowed"
-                              >
-                                {checkingIn === booking.id
-                                  ? "Checking In..."
-                                  : "Check In"}
-                              </button>
-                            )}
-                        <div className="flex items-center gap-2">
-                          {booking.status === "RESERVED" &&
-                            booking.checkInWindow?.canCheckIn && (
-                              <button
                                 onClick={() => handleCheckIn(booking.id, 'openStudio')}
                                 disabled={checkingIn === `openStudio-${booking.id}`}
                                 className="px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium text-xs disabled:bg-gray-400 disabled:cursor-not-allowed"
