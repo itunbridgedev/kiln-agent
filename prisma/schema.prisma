@@ -36,6 +36,8 @@ model Studio {
   customerSuspensions CustomerSuspension[]
   memberships            Membership[]
   membershipSubscriptions MembershipSubscription[]
+  punchPasses            PunchPass[]
+  customerPunchPasses    CustomerPunchPass[]
   openStudioBookings     OpenStudioBooking[]
   openStudioWaitlist     OpenStudioWaitlist[]
 }
@@ -81,6 +83,7 @@ model Customer {
   suspensions         CustomerSuspension[]
   suspensionsLifted   CustomerSuspension[] @relation("LiftedBy")
   membershipSubscriptions MembershipSubscription[]
+  customerPunchPasses     CustomerPunchPass[]
 
   @@unique([studioId, email])
   @@index([studioId])
@@ -916,13 +919,65 @@ model MembershipSubscription {
   @@index([studioId, status])
 }
 
+// Punch pass product definition (e.g., 10-pack for $45)
+model PunchPass {
+  id                Int                 @id @default(autoincrement())
+  studioId          Int
+  studio            Studio              @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  
+  name              String              // e.g., "10-Pack Punch Pass"
+  description       String?
+  punchCount        Int                 // 1, 5, 10, 20, or 50
+  price             Decimal             @db.Decimal(10, 2)
+  expirationDays    Int                 // How many days until pass expires
+  isTransferable    Boolean             @default(false) // Can be used by other customers
+  isActive          Boolean             @default(true)
+  displayOrder      Int                 @default(0)
+  
+  stripeProductId   String?
+  stripePriceId     String?
+  
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  
+  customerPasses    CustomerPunchPass[]
+  
+  @@unique([studioId, punchCount])
+  @@index([studioId])
+}
+
+// Customer's purchase of a punch pass
+model CustomerPunchPass {
+  id                Int                 @id @default(autoincrement())
+  studioId          Int
+  studio            Studio              @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  customerId        Int
+  customer          Customer            @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  punchPassId       Int
+  punchPass         PunchPass           @relation(fields: [punchPassId], references: [id])
+  
+  punchesRemaining  Int                 // Decrements with each use
+  purchasedAt       DateTime            @default(now())
+  expiresAt         DateTime            // purchasedAt + expirationDays
+  
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  
+  openStudioBookings OpenStudioBooking[]
+  
+  @@index([customerId])
+  @@index([studioId, customerId])
+}
+
 // Open Studio time-block booking on a specific resource
 model OpenStudioBooking {
   id               Int                    @id @default(autoincrement())
   studioId         Int
   studio           Studio                 @relation(fields: [studioId], references: [id])
-  subscriptionId   Int
-  subscription     MembershipSubscription @relation(fields: [subscriptionId], references: [id])
+  subscriptionId   Int?                   // Nullable for punch pass bookings
+  subscription     MembershipSubscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  customerPunchPassId Int?                // Set if booking uses a punch pass
+  customerPunchPass    CustomerPunchPass?  @relation(fields: [customerPunchPassId], references: [id], onDelete: SetNull)
   sessionId        Int
   session          ClassSession           @relation(fields: [sessionId], references: [id])
   resourceId       Int

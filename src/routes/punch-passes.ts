@@ -1,0 +1,150 @@
+import express, { Request, Response } from 'express';
+import { isAuthenticated, AuthenticatedRequest } from '../middleware/auth';
+import prisma from '../prisma';
+
+const router = express.Router();
+
+/**
+ * GET /api/punch-passes
+ * List all active punch pass products for purchase (public endpoint)
+ */
+router.get('/', async (req: Request, res: Response) => {
+  try {
+    const hostHeader = req.get('host') || '';
+    const studioSubdomain = hostHeader.split('.')[0];
+
+    const studio = await prisma.studio.findUnique({
+      where: { subdomain: studioSubdomain },
+      select: { id: true }
+    });
+
+    if (!studio) {
+      return res.status(404).json({ error: 'Studio not found' });
+    }
+
+    const punchPasses = await prisma.punchPass.findMany({
+      where: {
+        studioId: studio.id,
+        isActive: true
+      },
+      orderBy: [{ punchCount: 'asc' }],
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        punchCount: true,
+        price: true,
+        expirationDays: true,
+        isTransferable: true,
+        displayOrder: true,
+        stripeProductId: true,
+        stripePriceId: true
+      }
+    });
+
+    res.json(punchPasses);
+  } catch (error) {
+    console.error('Error fetching punch passes:', error);
+    res.status(500).json({ error: 'Failed to fetch punch passes' });
+  }
+});
+
+/**
+ * GET /api/punch-passes/my-passes
+ * Get customer's active punch passes with remaining punches
+ */
+router.get('/my-passes', isAuthenticated, async (req: Request, res: Response) => {
+  const authReq = req as AuthenticatedRequest;
+  try {
+    const customerId = authReq.user?.id;
+    if (!customerId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const now = new Date();
+
+    const customerPasses = await prisma.customerPunchPass.findMany({
+      where: {
+        customerId,
+        expiresAt: { gt: now }, // Not expired
+        punchesRemaining: { gt: 0 } // Has remaining punches
+      },
+      include: {
+        punchPass: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            punchCount: true,
+            expirationDays: true,
+            isTransferable: true
+          }
+        }
+      },
+      orderBy: [{ expiresAt: 'asc' }] // Show expiring soon first
+    });
+
+    res.json(
+      customerPasses.map((pass) => ({
+        id: pass.id,
+        punchPassId: pass.punchPass.id,
+        name: pass.punchPass.name,
+        description: pass.punchPass.description,
+        punchesRemaining: pass.punchesRemaining,
+        totalPunches: pass.punchPass.punchCount,
+        purchasedAt: pass.purchasedAt,
+        expiresAt: pass.expiresAt,
+        expiresIn: Math.ceil(
+          (pass.expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+        ), // days
+        isTransferable: pass.punchPass.isTransferable
+      }))
+    );
+  } catch (error) {
+    console.error('Error fetching customer punch passes:', error);
+    res.status(500).json({ error: 'Failed to fetch punch passes' });
+  }
+});
+
+/**
+ * POST /api/punch-passes/deduct
+ * Internal endpoint: deduct one punch from a customer's pass after booking
+ * Used by open studio booking system
+ */
+router.post('/deduct', isAuthenticated, async (req: Request, res: Response) => {
+  const authReq = req as AuthenticatedRequest;
+  try {
+    const customerId = authReq.user?.id;
+    const { customerPunchPassId } = req.body;
+
+    if (!customerId || !customerPunchPassId) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    const punchPass = await prisma.customerPunchPass.findUnique({
+      where: { id: customerPunchPassId },
+      select: { customerId: true, punchesRemaining: true }
+    });
+
+    if (!punchPass || punchPass.customerId !== customerId) {
+      return res.status(403).json({ error: 'Punch pass not found or not owned by customer' });
+    }
+
+    if (punchPass.punchesRemaining <= 0) {
+      return res.status(400).json({ error: 'No punches remaining' });
+    }
+
+    // Deduct one punch
+    const updated = await prisma.customerPunchPass.update({
+      where: { id: customerPunchPassId },
+      data: { punchesRemaining: punchPass.punchesRemaining - 1 }
+    });
+
+    res.json({ success: true, punchesRemaining: updated.punchesRemaining });
+  } catch (error) {
+    console.error('Error deducting punch:', error);
+    res.status(500).json({ error: 'Failed to deduct punch' });
+  }
+});
+
+export default router;
