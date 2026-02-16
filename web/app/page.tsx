@@ -140,7 +140,7 @@ export default function HomePage() {
                             <p className="product-description">{c.description}</p>
                           )}
                           <p className="product-price">
-                            ${c.price.toFixed(2)}
+                            ${(typeof c.price === 'string' ? parseFloat(c.price) : c.price).toFixed(2)}
                           </p>
                         </div>
                       </Link>
