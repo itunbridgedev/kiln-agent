@@ -54,7 +54,7 @@ ALTER TABLE "PunchPass" ADD CONSTRAINT "PunchPass_studioId_fkey" FOREIGN KEY ("s
 ALTER TABLE "CustomerPunchPass" ADD CONSTRAINT "CustomerPunchPass_studioId_fkey" FOREIGN KEY ("studioId") REFERENCES "Studio"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey: CustomerPunchPass -> Customer
-ALTER TABLE "CustomerPunchPass" ADD CONSTRAINT "CustomerPunchPass_customerId_fkey" FOREIGN KEY ("customerId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "CustomerPunchPass" ADD CONSTRAINT "CustomerPunchPass_customerId_fkey" FOREIGN KEY ("customerId") REFERENCES "Customer"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey: CustomerPunchPass -> PunchPass
 ALTER TABLE "CustomerPunchPass" ADD CONSTRAINT "CustomerPunchPass_punchPassId_fkey" FOREIGN KEY ("punchPassId") REFERENCES "PunchPass"("id") ON UPDATE CASCADE;
