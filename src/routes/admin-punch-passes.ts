@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import { isAuthenticated, isAdmin, AuthenticatedRequest } from '../middleware/auth';
 import prisma from '../prisma';
+import stripe from '../services/stripe';
 
 const router = express.Router();
 
@@ -137,6 +138,77 @@ router.delete('/:id', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error deleting punch pass:', error);
     res.status(500).json({ error: 'Failed to delete punch pass' });
+  }
+});
+
+/**
+ * POST /api/admin/punch-passes/:id/sync-stripe
+ * Sync punch pass to Stripe and get product/price IDs
+ */
+router.post('/:id/sync-stripe', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const punchPass = await prisma.punchPass.findUnique({
+      where: { id: parseInt(id) },
+      include: { studio: { select: { stripeAccountId: true } } }
+    });
+
+    if (!punchPass) {
+      return res.status(404).json({ error: 'Punch pass not found' });
+    }
+
+    if (!punchPass.studio.stripeAccountId) {
+      return res.status(400).json({ error: 'Studio has no Stripe account connected' });
+    }
+
+    // Create or update Stripe product
+    let stripeProductId = punchPass.stripeProductId;
+    if (!stripeProductId) {
+      const product = await stripe.products.create(
+        {
+          name: punchPass.name,
+          description: punchPass.description || `${punchPass.punchCount} punch pass`,
+          metadata: {
+            punchPassId: punchPass.id.toString(),
+            punchCount: punchPass.punchCount.toString()
+          }
+        },
+        { stripeAccount: punchPass.studio.stripeAccountId }
+      );
+      stripeProductId = product.id;
+    }
+
+    // Create or update Stripe price
+    let stripePriceId = punchPass.stripePriceId;
+    if (!stripePriceId) {
+      const price = await stripe.prices.create(
+        {
+          product: stripeProductId,
+          unit_amount: Math.round(parseFloat(punchPass.price.toString()) * 100),
+          currency: 'usd',
+          metadata: {
+            punchPassId: punchPass.id.toString()
+          }
+        },
+        { stripeAccount: punchPass.studio.stripeAccountId }
+      );
+      stripePriceId = price.id;
+    }
+
+    // Update punch pass with Stripe IDs
+    const updated = await prisma.punchPass.update({
+      where: { id: parseInt(id) },
+      data: {
+        stripeProductId,
+        stripePriceId
+      }
+    });
+
+    res.json(updated);
+  } catch (error: any) {
+    console.error('Error syncing punch pass to Stripe:', error);
+    res.status(500).json({ error: error.message || 'Failed to sync to Stripe' });
   }
 });
 

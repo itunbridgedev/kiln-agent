@@ -256,7 +256,7 @@ export default function MembershipsPage() {
             <div className="grid md:grid-cols-3 gap-6">
               {punchPasses.map((p) => (
                 <div key={p.id} className="bg-white rounded-xl shadow-sm border border-amber-200 overflow-hidden flex flex-col hover:shadow-md transition-shadow">
-                  <div className="p-6 flex-1 bg-gradient-to-br from-amber-50 to-white">
+                  <div className="p-6 flex-1 bg-white">
                     <div className="inline-block bg-amber-100 text-amber-700 px-3 py-1 rounded-full text-sm font-medium mb-3">
                       Punch Pass
                     </div>
