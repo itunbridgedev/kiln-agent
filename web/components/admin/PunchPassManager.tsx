@@ -445,12 +445,16 @@ export default function PunchPassManager({ onNavigateToStripe }: PunchPassManage
                       >
                         {pass.isActive ? "Deactivate" : "Activate"}
                       </button>
-                      {pass.stripePriceId && stripeStatus?.connected && (
+                      {stripeStatus?.connected && (
                         <button
                           onClick={() => handleSyncStripe(pass.id)}
-                          className="text-blue-600 hover:text-blue-700 font-medium text-sm"
+                          className={`font-medium text-sm ${
+                            pass.stripePriceId
+                              ? "text-green-600 hover:text-green-700"
+                              : "text-blue-600 hover:text-blue-700"
+                          }`}
                         >
-                          Sync to Stripe
+                          {pass.stripePriceId ? "Synced ✓" : "Sync to Stripe"}
                         </button>
                       )}
                     </div>
