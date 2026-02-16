@@ -1,27 +1,17 @@
 import express, { Request, Response } from 'express';
-import { isAuthenticated, AuthenticatedRequest } from '../middleware/auth';
+import { isAuthenticated, isAdmin, AuthenticatedRequest } from '../middleware/auth';
 import prisma from '../prisma';
 
 const router = express.Router();
 
-// Verify admin access
-const requireAdmin = (req: Request, res: Response, next: Function) => {
-  const authReq = req as AuthenticatedRequest;
-  const hasAdminAccess = authReq.user?.roles?.some((r: any) =>
-    ["admin", "manager", "staff"].includes(r.role?.name)
-  );
-  
-  if (!hasAdminAccess) {
-    return res.status(403).json({ error: 'Admin access required' });
-  }
-  next();
-};
+// Require authentication and admin access for all routes
+router.use(isAuthenticated, isAdmin);
 
 /**
  * GET /api/admin/punch-passes
  * List all punch passes for this studio (admin only)
  */
-router.get('/', isAuthenticated, requireAdmin, async (req: Request, res: Response) => {
+router.get('/', async (req: Request, res: Response) => {
   try {
     const hostHeader = req.get('host') || '';
     const studioSubdomain = hostHeader.split('.')[0];
@@ -61,7 +51,7 @@ router.get('/', isAuthenticated, requireAdmin, async (req: Request, res: Respons
  * POST /api/admin/punch-passes
  * Create a new punch pass (admin only)
  */
-router.post('/', isAuthenticated, requireAdmin, async (req: Request, res: Response) => {
+router.post('/', async (req: Request, res: Response) => {
   const authReq = req as AuthenticatedRequest;
   try {
     const { name, description, punchCount, price, expirationDays, isTransferable, displayOrder } = req.body;
@@ -120,7 +110,7 @@ router.post('/', isAuthenticated, requireAdmin, async (req: Request, res: Respon
  * PUT /api/admin/punch-passes/:id
  * Update a punch pass (admin only)
  */
-router.put('/:id', isAuthenticated, requireAdmin, async (req: Request, res: Response) => {
+router.put('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { name, description, price, expirationDays, isTransferable, isActive, displayOrder } = req.body;
@@ -149,7 +139,7 @@ router.put('/:id', isAuthenticated, requireAdmin, async (req: Request, res: Resp
  * DELETE /api/admin/punch-passes/:id
  * Soft delete (archive) a punch pass (admin only)
  */
-router.delete('/:id', isAuthenticated, requireAdmin, async (req: Request, res: Response) => {
+router.delete('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
