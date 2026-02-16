@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import { isAuthenticated, AuthenticatedRequest } from '../middleware/auth';
 import prisma from '../prisma';
+import * as PunchPassService from '../services/PunchPassService';
 
 const router = express.Router();
 
@@ -144,6 +145,74 @@ router.post('/deduct', isAuthenticated, async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error deducting punch:', error);
     res.status(500).json({ error: 'Failed to deduct punch' });
+  }
+});
+
+/**
+ * POST /api/punch-passes/refund
+ * Internal endpoint: refund one punch to a customer's pass after booking cancellation
+ */
+router.post('/refund', isAuthenticated, async (req: Request, res: Response) => {
+  const authReq = req as AuthenticatedRequest;
+  try {
+    const customerId = authReq.user?.id;
+    const { customerPunchPassId } = req.body;
+
+    if (!customerId || !customerPunchPassId) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    const punchPass = await prisma.customerPunchPass.findUnique({
+      where: { id: customerPunchPassId },
+      include: { punchPass: { select: { punchCount: true } } }
+    });
+
+    if (!punchPass || punchPass.customerId !== customerId) {
+      return res.status(403).json({ error: 'Punch pass not found or not owned by customer' });
+    }
+
+    // Don't refund more than the original punch count
+    const newCount = Math.min(punchPass.punchesRemaining + 1, punchPass.punchPass.punchCount);
+
+    const updated = await prisma.customerPunchPass.update({
+      where: { id: customerPunchPassId },
+      data: { punchesRemaining: newCount }
+    });
+
+    res.json({ success: true, punchesRemaining: updated.punchesRemaining });
+  } catch (error) {
+    console.error('Error refunding punch:', error);
+    res.status(500).json({ error: 'Failed to refund punch' });
+  }
+});
+
+/**
+ * POST /api/punch-passes/purchase
+ * Initiate punch pass purchase via Stripe checkout
+ */
+router.post('/purchase', isAuthenticated, async (req: Request, res: Response) => {
+  const authReq = req as AuthenticatedRequest;
+  try {
+    const customerId = authReq.user?.id;
+    const { punchPassId, successUrl, cancelUrl } = req.body;
+
+    if (!customerId || !punchPassId || !successUrl || !cancelUrl) {
+      return res.status(400).json({
+        error: 'Missing required fields: punchPassId, successUrl, cancelUrl'
+      });
+    }
+
+    const checkoutUrl = await PunchPassService.createPunchPassCheckout(
+      punchPassId,
+      customerId,
+      successUrl,
+      cancelUrl
+    );
+
+    res.json({ url: checkoutUrl });
+  } catch (error: any) {
+    console.error('Error initiating punch pass purchase:', error);
+    res.status(500).json({ error: error.message || 'Failed to initiate purchase' });
   }
 });
 

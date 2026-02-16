@@ -960,6 +960,10 @@ model CustomerPunchPass {
   purchasedAt       DateTime            @default(now())
   expiresAt         DateTime            // purchasedAt + expirationDays
   
+  // Stripe payment tracking
+  stripeCheckoutSessionId String?        // Stripe checkout session ID from purchase
+  stripePaymentIntentId String?          // Stripe payment intent ID
+  
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt
   
@@ -967,6 +971,7 @@ model CustomerPunchPass {
   
   @@index([customerId])
   @@index([studioId, customerId])
+  @@index([stripeCheckoutSessionId])
 }
 
 // Open Studio time-block booking on a specific resource

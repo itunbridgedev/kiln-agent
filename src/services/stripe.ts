@@ -1,6 +1,7 @@
 import Stripe from "stripe";
 import prisma from "../prisma";
 import * as MembershipService from "./MembershipService";
+import * as PunchPassService from "./PunchPassService";
 
 // Initialize Stripe with your secret key
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
@@ -421,6 +422,26 @@ export async function handleWebhookEvent(event: Stripe.Event): Promise<void> {
         const subscription = event.data.object as Stripe.Subscription;
         console.log(`[Webhook] Subscription deleted: ${subscription.id}`);
         await MembershipService.handleSubscriptionDeleted(subscription);
+        break;
+      }
+
+      case "checkout.session.completed": {
+        const session = event.data.object as Stripe.Checkout.Session;
+        const accountId = event.account;
+        
+        if (!accountId) {
+          console.error("[Webhook] Checkout session completed without account ID, skipping:", session.id);
+          break;
+        }
+
+        console.log(`[Webhook] Checkout session completed: ${session.id} on account: ${accountId}`);
+        
+        // Check if this is a punch pass purchase (payment mode) or membership (subscription mode)
+        if (session.mode === 'payment') {
+          // Handle punch pass purchase
+          await PunchPassService.handlePunchPassPurchase(session.id, accountId);
+        }
+        // Subscription mode is handled by customer.subscription.created event
         break;
       }
 

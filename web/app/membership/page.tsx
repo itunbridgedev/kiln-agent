@@ -45,11 +45,19 @@ interface Booking {
   };
 }
 
+interface PunchPass {
+  id: number;
+  passType: string;
+  punchesRemaining: number;
+  expiresAt: string;
+}
+
 function MembershipContent() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [subscription, setSubscription] = useState<Subscription | null>(null);
+  const [punchPasses, setPunchPasses] = useState<PunchPass[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -68,6 +76,7 @@ function MembershipContent() {
     }
     if (user) {
       fetchSubscription();
+      fetchPunchPasses();
       fetchBookings();
     }
   }, [user, authLoading, router]);
@@ -80,6 +89,15 @@ function MembershipContent() {
       console.error("Error:", err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchPunchPasses = async () => {
+    try {
+      const response = await fetch("/api/punch-passes/my-passes", { credentials: "include" });
+      if (response.ok) setPunchPasses(await response.json());
+    } catch (err) {
+      console.error("Error fetching punch passes:", err);
     }
   };
 
@@ -253,6 +271,43 @@ function MembershipContent() {
             <BenefitsSummary benefits={benefits} />
           </div>
         </div>
+
+        {/* Punch Passes */}
+        {punchPasses.length > 0 && (
+          <div className="bg-white rounded-xl shadow-sm border p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold">Punch Passes</h3>
+              <a href="/memberships" className="text-amber-600 hover:underline text-sm">
+                Buy More &rarr;
+              </a>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {punchPasses.map((pass) => {
+                const expiresDate = new Date(pass.expiresAt);
+                const isExpiring = expiresDate.getTime() - Date.now() < 14 * 24 * 60 * 60 * 1000; // 2 weeks
+                return (
+                  <div key={pass.id} className="bg-gradient-to-br from-amber-50 to-white border border-amber-200 rounded-lg p-4">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="text-sm text-gray-600">{pass.passType}</p>
+                        <div className="text-2xl font-bold text-amber-600 mt-1">{pass.punchesRemaining}</div>
+                        <p className="text-xs text-gray-500 mt-1">punches remaining</p>
+                      </div>
+                      {isExpiring && (
+                        <span className="bg-yellow-100 text-yellow-800 text-xs font-medium px-2 py-1 rounded">
+                          Expiring Soon
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-3">
+                      Expires: {formatDate(pass.expiresAt)}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Upcoming Bookings */}
         <div className="bg-white rounded-xl shadow-sm border p-6">

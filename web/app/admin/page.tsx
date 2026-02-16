@@ -3,6 +3,7 @@
 import AdminSidebar, { AdminTab } from "@/components/admin/AdminSidebar";
 import MembershipManager from "@/components/admin/MembershipManager";
 import OpenStudioManager from "@/components/admin/OpenStudioManager";
+import PunchPassManager from "@/components/admin/PunchPassManager";
 import StripeConnectSettings from "@/components/admin/StripeConnectSettings";
 import CategoryForm, {
   CategoryFormData,
@@ -77,6 +78,7 @@ export default function AdminPage() {
     "resources",
     "users",
     "membership-tiers",
+    "punch-passes",
     "open-studio",
     "stripe-connect",
   ];
@@ -1012,6 +1014,7 @@ export default function AdminPage() {
                 : activeTab === "resources" ? "Studio Resources"
                 : activeTab === "users" ? "User Management"
                 : activeTab === "membership-tiers" ? "Membership Tiers"
+                : activeTab === "punch-passes" ? "Punch Passes"
                 : activeTab === "open-studio" ? "Open Studio"
                 : activeTab === "stripe-connect" ? "Stripe Connect"
                 : "Admin"}
@@ -1024,6 +1027,7 @@ export default function AdminPage() {
                 : activeTab === "resources" ? "Manage studio equipment and capacity"
                 : activeTab === "users" ? "Search for users and manage their roles"
                 : activeTab === "membership-tiers" ? "Manage membership tiers and subscribers"
+                : activeTab === "punch-passes" ? "Create and manage punch pass products"
                 : activeTab === "open-studio" ? "Manage bookings and walk-ins"
                 : activeTab === "stripe-connect" ? "Manage your payment processing and Stripe integration"
                 : ""}
@@ -1498,6 +1502,15 @@ export default function AdminPage() {
 
           {activeTab === "membership-tiers" && (
             <MembershipManager
+              onNavigateToStripe={() => {
+                setActiveTab("stripe-connect");
+                setSettingsExpanded(true);
+              }}
+            />
+          )}
+
+          {activeTab === "punch-passes" && (
+            <PunchPassManager
               onNavigateToStripe={() => {
                 setActiveTab("stripe-connect");
                 setSettingsExpanded(true);

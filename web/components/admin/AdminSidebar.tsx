@@ -9,6 +9,7 @@ export type AdminTab =
   | "resources"
   | "users"
   | "membership-tiers"
+  | "punch-passes"
   | "open-studio"
   | "stripe-connect";
 
@@ -289,7 +290,7 @@ export default function AdminSidebar({
               </button>
 
               <ul
-                className={`mt-1 ml-4 space-y-1 overflow-hidden transition-all ${membershipsExpanded ? "max-h-60" : "max-h-0"}`}
+                className={`mt-1 ml-4 space-y-1 overflow-hidden transition-all ${membershipsExpanded ? "max-h-80" : "max-h-0"}`}
               >
                 <li>
                   <button
@@ -297,6 +298,14 @@ export default function AdminSidebar({
                     onClick={() => handleTabChange("membership-tiers")}
                   >
                     Membership Tiers
+                  </button>
+                </li>
+                <li>
+                  <button
+                    className={`w-full text-left px-4 py-2 rounded-md text-sm transition-colors ${activeTab === "punch-passes" ? "bg-white/30 font-semibold" : "hover:bg-white/10"}`}
+                    onClick={() => handleTabChange("punch-passes")}
+                  >
+                    Punch Passes
                   </button>
                 </li>
                 <li>
