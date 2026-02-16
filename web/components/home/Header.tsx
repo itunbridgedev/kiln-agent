@@ -3,10 +3,15 @@
 import { useAuth } from "@/context/AuthContext";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 
 interface HeaderProps {
   studioName?: string;
+}
+
+interface Subscription {
+  id: number;
+  status: string;
 }
 
 export default function Header({ studioName }: HeaderProps) {
@@ -14,14 +19,70 @@ export default function Header({ studioName }: HeaderProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [subscription, setSubscription] = useState<Subscription | null>(null);
+  const [loadingSubscription, setLoadingSubscription] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const hasStaffAccess = user?.roles?.some((role) =>
     ["admin", "manager", "staff"].includes(role)
   );
 
+  // Fetch subscription when user is available
+  useEffect(() => {
+    if (user && dropdownOpen) {
+      fetchSubscription();
+    }
+  }, [user, dropdownOpen]);
+
+  const fetchSubscription = async () => {
+    setLoadingSubscription(true);
+    try {
+      const response = await fetch("/api/memberships/my-subscription", {
+        credentials: "include",
+      });
+      if (response.ok) {
+        setSubscription(await response.json());
+      }
+    } catch (err) {
+      console.error("Error fetching subscription:", err);
+    } finally {
+      setLoadingSubscription(false);
+    }
+  };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setDropdownOpen(false);
+      }
+    }
+
+    if (dropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [dropdownOpen]);
+
   const handleLogout = async () => {
     await logout();
     router.push("/login");
+  };
+
+  const getInitials = (name?: string) => {
+    if (!name) return "U";
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
   };
 
   const navLinks = user
@@ -68,12 +129,39 @@ export default function Header({ studioName }: HeaderProps) {
             </Link>
           ))}
           {user && (
-            <>
-              <span className="user-greeting">Hi, {user.name}</span>
-              <button onClick={handleLogout} className="nav-link nav-logout-btn">
-                Logout
+            <div className="user-menu-container" ref={dropdownRef}>
+              <button
+                onClick={() => setDropdownOpen(!dropdownOpen)}
+                className="user-avatar-btn"
+                aria-label="User menu"
+                title={user.name}
+              >
+                {user.picture ? (
+                  <img src={user.picture} alt={user.name} className="avatar-image" />
+                ) : (
+                  <span className="avatar-initials">{getInitials(user.name)}</span>
+                )}
               </button>
-            </>
+              {dropdownOpen && (
+                <div className="user-dropdown-menu">
+                  <div className="dropdown-user-name">{user.name}</div>
+                  {subscription?.status && (
+                    <Link href="/membership" className="dropdown-link">
+                      My Membership
+                    </Link>
+                  )}
+                  <button
+                    onClick={() => {
+                      setDropdownOpen(false);
+                      handleLogout();
+                    }}
+                    className="dropdown-link dropdown-logout"
+                  >
+                    Logout
+                  </button>
+                </div>
+              )}
+            </div>
           )}
         </nav>
 
@@ -110,16 +198,27 @@ export default function Header({ studioName }: HeaderProps) {
           ))}
           {user && (
             <>
-              <span className="mobile-nav-greeting">Hi, {user.name}</span>
-              <button
-                onClick={() => {
-                  closeMobile();
-                  handleLogout();
-                }}
-                className="mobile-nav-link nav-logout-btn"
-              >
-                Logout
-              </button>
+              <div className="mobile-user-section">
+                <div className="mobile-user-name">{user.name}</div>
+                {subscription?.status && (
+                  <Link
+                    href="/membership"
+                    className="mobile-nav-link"
+                    onClick={closeMobile}
+                  >
+                    My Membership
+                  </Link>
+                )}
+                <button
+                  onClick={() => {
+                    closeMobile();
+                    handleLogout();
+                  }}
+                  className="mobile-nav-link nav-logout-btn"
+                >
+                  Logout
+                </button>
+              </div>
             </>
           )}
         </nav>
