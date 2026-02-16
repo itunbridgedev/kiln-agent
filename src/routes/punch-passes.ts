@@ -11,16 +11,9 @@ const router = express.Router();
  */
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const hostHeader = req.get('host') || '';
-    const studioSubdomain = hostHeader.split('.')[0];
-
-    const studio = await prisma.studio.findUnique({
-      where: { subdomain: studioSubdomain },
-      select: { id: true }
-    });
-
+    const studio = (req as any).studio;
     if (!studio) {
-      return res.status(404).json({ error: 'Studio not found' });
+      return res.status(404).json({ error: 'Studio context required' });
     }
 
     const punchPasses = await prisma.punchPass.findMany({

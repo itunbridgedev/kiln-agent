@@ -13,16 +13,9 @@ router.use(isAuthenticated, isAdmin);
  */
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const hostHeader = req.get('host') || '';
-    const studioSubdomain = hostHeader.split('.')[0];
-
-    const studio = await prisma.studio.findUnique({
-      where: { subdomain: studioSubdomain },
-      select: { id: true }
-    });
-
+    const studio = (req as any).studio;
     if (!studio) {
-      return res.status(404).json({ error: 'Studio not found' });
+      return res.status(404).json({ error: 'Studio context required' });
     }
 
     const punchPasses = await prisma.punchPass.findMany({
@@ -52,21 +45,13 @@ router.get('/', async (req: Request, res: Response) => {
  * Create a new punch pass (admin only)
  */
 router.post('/', async (req: Request, res: Response) => {
-  const authReq = req as AuthenticatedRequest;
   try {
-    const { name, description, punchCount, price, expirationDays, isTransferable, displayOrder } = req.body;
-
-    const hostHeader = req.get('host') || '';
-    const studioSubdomain = hostHeader.split('.')[0];
-
-    const studio = await prisma.studio.findUnique({
-      where: { subdomain: studioSubdomain },
-      select: { id: true }
-    });
-
+    const studio = (req as any).studio;
     if (!studio) {
-      return res.status(404).json({ error: 'Studio not found' });
+      return res.status(404).json({ error: 'Studio context required' });
     }
+
+    const { name, description, punchCount, price, expirationDays, isTransferable, displayOrder } = req.body;
 
     // Validate required fields
     if (!name || !punchCount || !price || !expirationDays) {
