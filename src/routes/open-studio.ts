@@ -52,17 +52,18 @@ router.post(
         return res.status(401).json({ error: "Not authenticated" });
       }
 
-      const { subscriptionId, sessionId, resourceId, startTime, endTime } =
+      const { subscriptionId, customerPunchPassId, sessionId, resourceId, startTime, endTime } =
         req.body;
 
-      if (!subscriptionId || !sessionId || !resourceId || !startTime || !endTime) {
+      if ((!subscriptionId && !customerPunchPassId) || !sessionId || !resourceId || !startTime || !endTime) {
         return res.status(400).json({
-          error: "subscriptionId, sessionId, resourceId, startTime, and endTime are required",
+          error: "Either subscriptionId or customerPunchPassId, plus sessionId, resourceId, startTime, and endTime are required",
         });
       }
 
       const booking = await OpenStudioService.createBooking(
-        parseInt(subscriptionId),
+        subscriptionId ? parseInt(subscriptionId) : undefined,
+        customerPunchPassId ? parseInt(customerPunchPassId) : undefined,
         parseInt(sessionId),
         parseInt(resourceId),
         startTime,

@@ -270,81 +270,137 @@ export async function getAvailability(sessionId: number) {
  * Create a booking for a time block on a specific resource
  */
 export async function createBooking(
-  subscriptionId: number,
+  subscriptionId: number | undefined,
+  customerPunchPassId: number | undefined,
   sessionId: number,
   resourceId: number,
   startTime: string,
   endTime: string
 ) {
-  // Validate the subscription is active
-  const subscription = await prisma.membershipSubscription.findUnique({
-    where: { id: subscriptionId },
-    include: { membership: true },
-  });
+  const now = new Date();
+  let studioId: number = 0;
+  let customerId: number = 0;
 
-  if (!subscription) {
-    throw new Error("Subscription not found");
+  // Validate that we have either subscription or punch pass
+  if (!subscriptionId && !customerPunchPassId) {
+    throw new Error("Either subscription or punch pass is required");
   }
 
-  if (subscription.status !== "ACTIVE") {
-    throw new Error("Subscription is not active");
-  }
+  // Handle subscription-based booking
+  if (subscriptionId) {
+    const subscription = await prisma.membershipSubscription.findUnique({
+      where: { id: subscriptionId },
+      include: { membership: true },
+    });
 
-  const benefits = subscription.membership.benefits as any;
+    if (!subscription) {
+      throw new Error("Subscription not found");
+    }
 
-  // Check block length doesn't exceed membership benefit
-  const maxMinutes = benefits?.openStudio?.maxBlockMinutes || 120;
-  const [startH, startM] = startTime.split(":").map(Number);
-  const [endH, endM] = endTime.split(":").map(Number);
-  const blockMinutes = (endH * 60 + endM) - (startH * 60 + startM);
+    if (subscription.status !== "ACTIVE") {
+      throw new Error("Subscription is not active");
+    }
 
-  if (blockMinutes > maxMinutes) {
-    throw new Error(
-      `Block length ${blockMinutes} minutes exceeds your maximum of ${maxMinutes} minutes`
+    studioId = subscription.studioId;
+    customerId = subscription.customerId;
+    const benefits = subscription.membership.benefits as any;
+
+    // Check block length doesn't exceed membership benefit
+    const maxMinutes = benefits?.openStudio?.maxBlockMinutes || 120;
+    const [startH, startM] = startTime.split(":").map(Number);
+    const [endH, endM] = endTime.split(":").map(Number);
+    const blockMinutes = (endH * 60 + endM) - (startH * 60 + startM);
+
+    if (blockMinutes > maxMinutes) {
+      throw new Error(
+        `Block length ${blockMinutes} minutes exceeds your maximum of ${maxMinutes} minutes`
+      );
+    }
+
+    if (blockMinutes <= 0) {
+      throw new Error("End time must be after start time");
+    }
+
+    // Check bookings per week limit
+    const maxPerWeek = benefits?.openStudio?.maxBookingsPerWeek || 3;
+    const startOfWeek = getStartOfWeek();
+    const bookingsThisWeek = await prisma.openStudioBooking.count({
+      where: {
+        subscriptionId,
+        status: { in: ["RESERVED", "CHECKED_IN", "COMPLETED"] },
+        reservedAt: { gte: startOfWeek },
+      },
+    });
+
+    if (bookingsThisWeek >= maxPerWeek) {
+      throw new Error(
+        `You have reached your limit of ${maxPerWeek} bookings per week`
+      );
+    }
+
+    // Check advance booking days
+    const advanceDays = benefits?.openStudio?.advanceBookingDays || 1;
+    const session = await prisma.classSession.findUnique({
+      where: { id: sessionId },
+    });
+
+    if (!session) {
+      throw new Error("Session not found");
+    }
+
+    const sessionDate = new Date(session.sessionDate);
+    const daysUntilSession = Math.ceil(
+      (sessionDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
     );
+
+    if (daysUntilSession > advanceDays) {
+      throw new Error(
+        `You can only book up to ${advanceDays} day(s) in advance`
+      );
+    }
+  } 
+  // Handle punch pass-based booking
+  else if (customerPunchPassId) {
+    const customerPunchPass = await prisma.customerPunchPass.findUnique({
+      where: { id: customerPunchPassId },
+      include: { punchPass: true },
+    });
+
+    if (!customerPunchPass) {
+      throw new Error("Punch pass not found");
+    }
+
+    // Check punch pass is not expired
+    if (customerPunchPass.expiresAt < now) {
+      throw new Error("Punch pass has expired");
+    }
+
+    // Check punch pass has remaining punches
+    if (customerPunchPass.punchesRemaining <= 0) {
+      throw new Error("No punches remaining on this pass");
+    }
+
+    studioId = customerPunchPass.studioId;
+    customerId = customerPunchPass.customerId;
+
+    // For punch passes, allow flexible duration (no specific max)
+    // Just validate time is positive
+    const [startH, startM] = startTime.split(":").map(Number);
+    const [endH, endM] = endTime.split(":").map(Number);
+    const blockMinutes = (endH * 60 + endM) - (startH * 60 + startM);
+
+    if (blockMinutes <= 0) {
+      throw new Error("End time must be after start time");
+    }
   }
 
-  if (blockMinutes <= 0) {
-    throw new Error("End time must be after start time");
-  }
-
-  // Check bookings per week limit
-  const maxPerWeek = benefits?.openStudio?.maxBookingsPerWeek || 3;
-  const startOfWeek = getStartOfWeek();
-  const bookingsThisWeek = await prisma.openStudioBooking.count({
-    where: {
-      subscriptionId,
-      status: { in: ["RESERVED", "CHECKED_IN", "COMPLETED"] },
-      reservedAt: { gte: startOfWeek },
-    },
-  });
-
-  if (bookingsThisWeek >= maxPerWeek) {
-    throw new Error(
-      `You have reached your limit of ${maxPerWeek} bookings per week`
-    );
-  }
-
-  // Check advance booking days
-  const advanceDays = benefits?.openStudio?.advanceBookingDays || 1;
+  // Common validation for both booking types
   const session = await prisma.classSession.findUnique({
     where: { id: sessionId },
   });
 
   if (!session) {
     throw new Error("Session not found");
-  }
-
-  const now = new Date();
-  const sessionDate = new Date(session.sessionDate);
-  const daysUntilSession = Math.ceil(
-    (sessionDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
-  );
-
-  if (daysUntilSession > advanceDays) {
-    throw new Error(
-      `You can only book up to ${advanceDays} day(s) in advance`
-    );
   }
 
   // Check for conflicts on this resource at this time
@@ -368,8 +424,8 @@ export async function createBooking(
   // Check customer isn't suspended
   const activeSuspension = await prisma.customerSuspension.findFirst({
     where: {
-      customerId: subscription.customerId,
-      studioId: subscription.studioId,
+      customerId,
+      studioId,
       isActive: true,
       suspendedUntil: { gt: now },
     },
@@ -381,8 +437,9 @@ export async function createBooking(
 
   return prisma.openStudioBooking.create({
     data: {
-      studioId: subscription.studioId,
-      subscriptionId,
+      studioId,
+      subscriptionId: subscriptionId || undefined,
+      customerPunchPassId: customerPunchPassId || undefined,
       sessionId,
       resourceId,
       startTime,
@@ -692,6 +749,7 @@ export async function processWaitlist(
     try {
       const booking = await createBooking(
         entry.subscriptionId,
+        undefined, // customerPunchPassId
         entry.sessionId,
         entry.resourceId,
         entry.startTime,

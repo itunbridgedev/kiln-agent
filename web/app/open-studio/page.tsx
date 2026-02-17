@@ -87,6 +87,13 @@ interface Subscription {
   status: string;
 }
 
+interface PunchPass {
+  id: number;
+  name: string;
+  punchesRemaining: number;
+  expiresAt: string;
+}
+
 function combineDateAndTime(dateStr: string, timeStr: string): Date {
   // dateStr may be ISO like "2026-02-12T00:00:00.000Z" or just "2026-02-12"
   const [y, m, d] = dateStr.slice(0, 10).split("-").map(Number);
@@ -111,6 +118,7 @@ export default function OpenStudioPage() {
   const [selectedSession, setSelectedSession] = useState<number | null>(null);
   const [availability, setAvailability] = useState<AvailabilityData | null>(null);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
+  const [punchPasses, setPunchPasses] = useState<PunchPass[]>([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<View>("week");
   const [date, setDate] = useState(new Date());
@@ -128,7 +136,10 @@ export default function OpenStudioPage() {
 
   useEffect(() => {
     fetchSessions();
-    if (user) fetchSubscription();
+    if (user) {
+      fetchSubscription();
+      fetchPunchPasses();
+    }
   }, [user]);
 
   useEffect(() => {
@@ -162,6 +173,18 @@ export default function OpenStudioPage() {
     }
   };
 
+  const fetchPunchPasses = async () => {
+    try {
+      const response = await fetch("/api/punch-passes/my-passes", { credentials: "include" });
+      if (response.ok) {
+        const data = await response.json();
+        setPunchPasses(data);
+      }
+    } catch (err) {
+      console.error("Error fetching punch passes:", err);
+    }
+  };
+
   const fetchAvailability = async (sessionId: number) => {
     try {
       const response = await fetch(`/api/open-studio/sessions/${sessionId}/availability`, {
@@ -179,7 +202,7 @@ export default function OpenStudioPage() {
       router.push("/login?returnTo=/open-studio");
       return;
     }
-    if (!subscription) {
+    if (!subscription && punchPasses.length === 0) {
       router.push("/memberships");
       return;
     }
@@ -197,7 +220,7 @@ export default function OpenStudioPage() {
       router.push("/login?returnTo=/open-studio");
       return;
     }
-    if (!subscription) {
+    if (!subscription && punchPasses.length === 0) {
       router.push("/memberships");
       return;
     }
@@ -399,7 +422,7 @@ export default function OpenStudioPage() {
         )}
 
         {/* Booking Modal */}
-        {bookingModal && subscription && availability && (
+        {bookingModal && (subscription || punchPasses.length > 0) && availability && (
           <BookingModal
             sessionId={selectedSession!}
             resourceId={bookingModal.resourceId}
@@ -408,9 +431,12 @@ export default function OpenStudioPage() {
             sessionEndTime={availability.session.endTime}
             preselectedStartTime={bookingModal.startTime}
             maxBlockMinutes={
-              subscription.membership.benefits?.openStudio?.maxBlockMinutes || 120
+              subscription && subscription.membership?.benefits?.openStudio?.maxBlockMinutes ? 
+                subscription.membership.benefits.openStudio.maxBlockMinutes : 
+                120
             }
-            subscriptionId={subscription.id}
+            subscriptionId={subscription?.id}
+            punchPassId={punchPasses.length > 0 ? punchPasses[0].id : undefined}
             onClose={() => setBookingModal(null)}
             onBookingCreated={() => {
               setBookingModal(null);

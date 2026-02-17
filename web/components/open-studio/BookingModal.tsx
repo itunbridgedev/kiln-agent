@@ -10,7 +10,8 @@ interface Props {
   sessionEndTime: string;
   preselectedStartTime: string;
   maxBlockMinutes: number;
-  subscriptionId: number;
+  subscriptionId?: number;
+  punchPassId?: number;
   onClose: () => void;
   onBookingCreated: () => void;
 }
@@ -31,6 +32,7 @@ export default function BookingModal({
   preselectedStartTime,
   maxBlockMinutes,
   subscriptionId,
+  punchPassId,
   onClose,
   onBookingCreated,
 }: Props) {
@@ -69,17 +71,27 @@ export default function BookingModal({
     setError(null);
 
     try {
+      const body: any = {
+        sessionId,
+        resourceId,
+        startTime,
+        endTime,
+      };
+
+      // Send either subscription or punch pass ID
+      if (subscriptionId) {
+        body.subscriptionId = subscriptionId;
+      } else if (punchPassId) {
+        body.customerPunchPassId = punchPassId;
+      } else {
+        throw new Error("No valid pass type found");
+      }
+
       const response = await fetch("/api/open-studio/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({
-          subscriptionId,
-          sessionId,
-          resourceId,
-          startTime,
-          endTime,
-        }),
+        body: JSON.stringify(body),
       });
 
       if (!response.ok) {
