@@ -47,9 +47,15 @@ interface Booking {
 
 interface PunchPass {
   id: number;
-  passType: string;
+  punchPassId: number;
+  name: string;
+  description: string | null;
   punchesRemaining: number;
+  totalPunches: number;
+  purchasedAt: string;
   expiresAt: string;
+  expiresIn: number;
+  isTransferable: boolean;
 }
 
 function MembershipContent() {
@@ -179,7 +185,7 @@ function MembershipContent() {
 
   if (!user) return null;
 
-  if (!subscription) {
+  if (!subscription && punchPasses.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -193,7 +199,7 @@ function MembershipContent() {
     );
   }
 
-  const benefits = subscription.membership.benefits;
+  const benefits = subscription?.membership.benefits;
   const upcomingBookings = bookings.filter((b) => b.status === "RESERVED");
   const pastBookings = bookings.filter((b) => ["CHECKED_IN", "COMPLETED"].includes(b.status));
 
@@ -202,17 +208,20 @@ function MembershipContent() {
       <Header />
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <h1 className="text-2xl font-bold text-gray-900">My Membership</h1>
+        <h1 className="text-2xl font-bold text-gray-900">
+          {subscription ? "My Membership" : "My Punch Passes"}
+        </h1>
       </div>
 
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {showSuccess && (
           <div className="p-4 bg-green-100 text-green-700 rounded-lg">
-            Welcome! Your membership is now active.
+            {subscription ? "Welcome! Your membership is now active." : "Thank you for your purchase!"}
           </div>
         )}
 
         {/* Subscription Status */}
+        {subscription && (
         <div className="bg-white rounded-xl shadow-sm border p-6">
           <div className="flex items-start justify-between">
             <div>
@@ -256,8 +265,10 @@ function MembershipContent() {
             </div>
           </div>
         </div>
+        )}
 
         {/* Usage + Benefits */}
+        {subscription && (
         <div className="grid md:grid-cols-2 gap-6">
           <div className="bg-white rounded-xl shadow-sm border p-6">
             <h3 className="font-semibold mb-4">Usage</h3>
@@ -271,6 +282,7 @@ function MembershipContent() {
             <BenefitsSummary benefits={benefits} />
           </div>
         </div>
+        )}
 
         {/* Punch Passes */}
         {punchPasses.length > 0 && (
@@ -286,12 +298,12 @@ function MembershipContent() {
                 const expiresDate = new Date(pass.expiresAt);
                 const isExpiring = expiresDate.getTime() - Date.now() < 14 * 24 * 60 * 60 * 1000; // 2 weeks
                 return (
-                  <div key={pass.id} className="bg-gradient-to-br from-amber-50 to-white border border-amber-200 rounded-lg p-4">
+                  <div key={pass.id} className="bg-white border border-amber-200 rounded-lg p-4">
                     <div className="flex items-start justify-between">
                       <div>
-                        <p className="text-sm text-gray-600">{pass.passType}</p>
+                        <p className="text-sm font-medium text-gray-700">{pass.name}</p>
                         <div className="text-2xl font-bold text-amber-600 mt-1">{pass.punchesRemaining}</div>
-                        <p className="text-xs text-gray-500 mt-1">punches remaining</p>
+                        <p className="text-xs text-gray-500 mt-1">punches remaining of {pass.totalPunches}</p>
                       </div>
                       {isExpiring && (
                         <span className="bg-yellow-100 text-yellow-800 text-xs font-medium px-2 py-1 rounded">
@@ -302,6 +314,9 @@ function MembershipContent() {
                     <p className="text-xs text-gray-500 mt-3">
                       Expires: {formatDate(pass.expiresAt)}
                     </p>
+                    {pass.isTransferable && (
+                      <p className="text-xs text-amber-600 mt-1">Can be shared with others</p>
+                    )}
                   </div>
                 );
               })}
