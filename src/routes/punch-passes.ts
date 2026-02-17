@@ -56,11 +56,12 @@ router.get('/my-passes', isAuthenticated, async (req: Request, res: Response) =>
     }
 
     const now = new Date();
-    console.log(`[my-passes] Fetching passes for customer ${customerId} at ${now.toISOString()}`);
 
     const customerPasses = await prisma.customerPunchPass.findMany({
       where: {
-        customerId
+        customerId,
+        expiresAt: { gt: now }, // Not expired
+        punchesRemaining: { gt: 0 } // Has remaining punches
       },
       include: {
         punchPass: {
@@ -76,15 +77,6 @@ router.get('/my-passes', isAuthenticated, async (req: Request, res: Response) =>
       },
       orderBy: [{ expiresAt: 'asc' }] // Show expiring soon first
     });
-
-    console.log(`[my-passes] Found ${customerPasses.length} total passes`);
-    customerPasses.forEach(p => {
-      console.log(`[my-passes] Pass ${p.id}: expires=${p.expiresAt.toISOString()}, remaining=${p.punchesRemaining}, now=${now.toISOString()}, isExpired=${p.expiresAt <= now}`);
-    });
-
-    // Filter for active passes
-    const activePass = customerPasses.filter(p => p.expiresAt > now && p.punchesRemaining > 0);
-    console.log(`[my-passes] Filtered to ${activePass.length} active passes`);
 
     res.json(
       customerPasses.map((pass) => ({
