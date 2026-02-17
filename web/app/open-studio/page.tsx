@@ -198,15 +198,18 @@ export default function OpenStudioPage() {
   };
 
   const handleSlotClick = (resourceId: number, startTime: string) => {
+    console.log("[handleSlotClick] user:", user?.id, "subscription:", subscription?.id, "punchPasses:", punchPasses.length);
     if (!user) {
       router.push("/login?returnTo=/open-studio");
       return;
     }
     if (!subscription && punchPasses.length === 0) {
+      console.log("[handleSlotClick] No subscription and no punch passes, redirecting to /memberships");
       router.push("/memberships");
       return;
     }
 
+    console.log("[handleSlotClick] Opening booking modal");
     const resource = availability?.resources.find((r) => r.resourceId === resourceId);
     setBookingModal({
       resourceId,

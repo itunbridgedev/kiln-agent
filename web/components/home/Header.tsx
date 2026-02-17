@@ -14,6 +14,11 @@ interface Subscription {
   status: string;
 }
 
+interface PunchPass {
+  id: number;
+  name: string;
+}
+
 export default function Header({ studioName }: HeaderProps) {
   const { user, logout } = useAuth();
   const pathname = usePathname();
@@ -21,6 +26,7 @@ export default function Header({ studioName }: HeaderProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
+  const [punchPasses, setPunchPasses] = useState<PunchPass[]>([]);
   const [loadingSubscription, setLoadingSubscription] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -28,10 +34,11 @@ export default function Header({ studioName }: HeaderProps) {
     ["admin", "manager", "staff"].includes(role)
   );
 
-  // Fetch subscription when user is available
+  // Fetch subscription and punch passes when user is available
   useEffect(() => {
     if (user && dropdownOpen) {
       fetchSubscription();
+      fetchPunchPasses();
     }
   }, [user, dropdownOpen]);
 
@@ -48,6 +55,19 @@ export default function Header({ studioName }: HeaderProps) {
       console.error("Error fetching subscription:", err);
     } finally {
       setLoadingSubscription(false);
+    }
+  };
+
+  const fetchPunchPasses = async () => {
+    try {
+      const response = await fetch("/api/punch-passes/my-passes", {
+        credentials: "include",
+      });
+      if (response.ok) {
+        setPunchPasses(await response.json());
+      }
+    } catch (err) {
+      console.error("Error fetching punch passes:", err);
     }
   };
 
@@ -145,7 +165,7 @@ export default function Header({ studioName }: HeaderProps) {
               {dropdownOpen && (
                 <div className="user-dropdown-menu">
                   <div className="dropdown-user-name">{user.name}</div>
-                  {subscription?.status && (
+                  {(subscription?.status || punchPasses.length > 0) && (
                     <Link href="/membership" className="dropdown-link">
                       My Membership
                     </Link>
