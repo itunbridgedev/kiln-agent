@@ -435,7 +435,8 @@ export async function createBooking(
     throw new Error("Your account is currently suspended");
   }
 
-  return prisma.openStudioBooking.create({
+  // Create the booking
+  const booking = await prisma.openStudioBooking.create({
     data: {
       studioId,
       subscriptionId: subscriptionId || undefined,
@@ -452,6 +453,16 @@ export async function createBooking(
       session: { select: { sessionDate: true, startTime: true, endTime: true } },
     },
   });
+
+  // If this is a punch pass booking, deduct one punch
+  if (customerPunchPassId) {
+    await prisma.customerPunchPass.update({
+      where: { id: customerPunchPassId },
+      data: { punchesRemaining: { decrement: 1 } },
+    });
+  }
+
+  return booking;
 }
 
 /**
@@ -544,6 +555,27 @@ export async function cancelBooking(bookingId: number) {
       cancelledAt: new Date(),
     },
   });
+
+  // If this was a punch pass booking, refund the punch
+  if (booking.customerPunchPassId) {
+    const punchPass = await prisma.customerPunchPass.findUnique({
+      where: { id: booking.customerPunchPassId },
+      include: { punchPass: true },
+    });
+
+    if (punchPass) {
+      // Refund one punch, but don't exceed the original punch count
+      const refundedCount = Math.min(
+        punchPass.punchesRemaining + 1,
+        punchPass.punchPass.punchCount
+      );
+
+      await prisma.customerPunchPass.update({
+        where: { id: booking.customerPunchPassId },
+        data: { punchesRemaining: refundedCount },
+      });
+    }
+  }
 
   // Trigger waitlist processing for the freed slot
   try {

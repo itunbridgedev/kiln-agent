@@ -443,6 +443,7 @@ export default function OpenStudioPage() {
             onClose={() => setBookingModal(null)}
             onBookingCreated={() => {
               setBookingModal(null);
+              fetchPunchPasses();
               if (selectedSession) fetchAvailability(selectedSession);
             }}
           />
