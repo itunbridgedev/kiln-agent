@@ -56,13 +56,19 @@ router.get('/my-passes', isAuthenticated, async (req: Request, res: Response) =>
     }
 
     const now = new Date();
+    const includeUsed = req.query.includeUsed === 'true';
+
+    const passFilters: any = {
+      customerId,
+      expiresAt: { gt: now },
+    };
+
+    if (!includeUsed) {
+      passFilters.punchesRemaining = { gt: 0 };
+    }
 
     const customerPasses = await prisma.customerPunchPass.findMany({
-      where: {
-        customerId,
-        expiresAt: { gt: now }, // Not expired
-        punchesRemaining: { gt: 0 } // Has remaining punches
-      },
+      where: passFilters,
       include: {
         punchPass: {
           select: {

@@ -67,6 +67,7 @@ function MembershipContent() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [showUsedPasses, setShowUsedPasses] = useState(false);
 
   useEffect(() => {
     if (searchParams.get("success") === "true") {
@@ -100,7 +101,9 @@ function MembershipContent() {
 
   const fetchPunchPasses = async () => {
     try {
-      const response = await fetch("/api/punch-passes/my-passes", { credentials: "include" });
+      const response = await fetch("/api/punch-passes/my-passes?includeUsed=true", {
+        credentials: "include",
+      });
       if (response.ok) setPunchPasses(await response.json());
     } catch (err) {
       console.error("Error fetching punch passes:", err);
@@ -162,7 +165,10 @@ function MembershipContent() {
         method: "DELETE",
         credentials: "include",
       });
-      if (response.ok) fetchBookings();
+      if (response.ok) {
+        fetchBookings();
+        fetchPunchPasses();
+      }
     } catch (err) {
       console.error("Error:", err);
     }
@@ -202,6 +208,10 @@ function MembershipContent() {
   const benefits = subscription?.membership.benefits;
   const upcomingBookings = bookings.filter((b) => b.status === "RESERVED");
   const pastBookings = bookings.filter((b) => ["CHECKED_IN", "COMPLETED"].includes(b.status));
+  const visiblePunchPasses = showUsedPasses
+    ? punchPasses
+    : punchPasses.filter((pass) => pass.punchesRemaining > 0);
+  const hasUsedPunchPasses = punchPasses.some((pass) => pass.punchesRemaining === 0);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -287,40 +297,77 @@ function MembershipContent() {
         {/* Punch Passes */}
         {punchPasses.length > 0 && (
           <div className="bg-white rounded-xl shadow-sm border p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold">Punch Passes</h3>
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-4">
+              <div className="flex items-center gap-4">
+                <h3 className="font-semibold">Punch Passes</h3>
+                <label className="inline-flex items-center gap-2 text-sm text-gray-600">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
+                    checked={showUsedPasses}
+                    onChange={(event) => setShowUsedPasses(event.target.checked)}
+                  />
+                  Show used passes
+                </label>
+              </div>
               <a href="/memberships" className="text-amber-600 hover:underline text-sm">
                 Buy More &rarr;
               </a>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {punchPasses.map((pass) => {
-                const expiresDate = new Date(pass.expiresAt);
-                const isExpiring = expiresDate.getTime() - Date.now() < 14 * 24 * 60 * 60 * 1000; // 2 weeks
-                return (
-                  <div key={pass.id} className="bg-white border border-amber-200 rounded-lg p-4">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-gray-700">{pass.name}</p>
-                        <div className="text-2xl font-bold text-amber-600 mt-1">{pass.punchesRemaining}</div>
-                        <p className="text-xs text-gray-500 mt-1">punches remaining of {pass.totalPunches}</p>
+
+            {visiblePunchPasses.length === 0 ? (
+              <p className="text-sm text-gray-500">
+                {showUsedPasses
+                  ? "No punch passes found."
+                  : hasUsedPunchPasses
+                    ? "No active punch passes. Check \"Show used passes\" to review previously used passes."
+                    : "No active punch passes."}
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {visiblePunchPasses.map((pass) => {
+                  const expiresDate = new Date(pass.expiresAt);
+                  const isExpiring = expiresDate.getTime() - Date.now() < 14 * 24 * 60 * 60 * 1000;
+                  const isUsed = pass.punchesRemaining === 0;
+
+                  return (
+                    <div
+                      key={pass.id}
+                      className={`rounded-lg p-4 border ${
+                        isUsed ? "border-gray-200 bg-gray-50" : "border-amber-200 bg-white"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-gray-700">{pass.name}</p>
+                          <div className={`text-2xl font-bold mt-1 ${isUsed ? "text-gray-400" : "text-amber-600"}`}>
+                            {pass.punchesRemaining}
+                          </div>
+                          <p className="text-xs text-gray-500 mt-1">
+                            punches remaining of {pass.totalPunches}
+                          </p>
+                        </div>
+                        {isUsed ? (
+                          <span className="bg-gray-200 text-gray-700 text-xs font-medium px-2 py-1 rounded">
+                            Used Up
+                          </span>
+                        ) : (
+                          isExpiring && (
+                            <span className="bg-yellow-100 text-yellow-800 text-xs font-medium px-2 py-1 rounded">
+                              Expiring Soon
+                            </span>
+                          )
+                        )}
                       </div>
-                      {isExpiring && (
-                        <span className="bg-yellow-100 text-yellow-800 text-xs font-medium px-2 py-1 rounded">
-                          Expiring Soon
-                        </span>
+                      <p className="text-xs text-gray-500 mt-3">Expires: {formatDate(pass.expiresAt)}</p>
+                      {pass.isTransferable && (
+                        <p className="text-xs text-amber-600 mt-1">Can be shared with others</p>
                       )}
                     </div>
-                    <p className="text-xs text-gray-500 mt-3">
-                      Expires: {formatDate(pass.expiresAt)}
-                    </p>
-                    {pass.isTransferable && (
-                      <p className="text-xs text-amber-600 mt-1">Can be shared with others</p>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
