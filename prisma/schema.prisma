@@ -999,7 +999,7 @@ model OpenStudioBooking {
   completedAt      DateTime?
   cancelledAt      DateTime?
 
-  @@unique([sessionId, resourceId, startTime])
+  @@index([sessionId, resourceId, startTime])
   @@index([studioId, sessionId])
 }
 
