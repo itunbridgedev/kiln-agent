@@ -710,9 +710,10 @@ router.get('/my-reservations', isAuthenticated, async (req: Request, res: Respon
     console.log('[DEBUG] Fetching open studio bookings for customerId:', customerId, 'since:', threeDaysAgoUTC.toISOString());
     const openStudioBookings = await prisma.openStudioBooking.findMany({
       where: {
-        subscription: {
-          customerId
-        },
+        OR: [
+          { subscription: { customerId } },
+          { customerPunchPass: { customerId } },
+        ],
         status: { in: ['RESERVED', 'CHECKED_IN'] },
         session: {
           sessionDate: {
