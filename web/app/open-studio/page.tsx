@@ -85,6 +85,10 @@ interface Subscription {
     benefits: any;
   };
   status: string;
+  usage?: {
+    bookingsThisWeek: number;
+    maxBookingsPerWeek: number;
+  };
 }
 
 interface PunchPass {
@@ -437,16 +441,26 @@ export default function OpenStudioPage() {
             sessionEndTime={availability.session.endTime}
             preselectedStartTime={bookingModal.startTime}
             maxBlockMinutes={
-              subscription && subscription.membership?.benefits?.openStudio?.maxBlockMinutes ? 
-                subscription.membership.benefits.openStudio.maxBlockMinutes : 
+              subscription && subscription.membership?.benefits?.openStudio?.maxBlockMinutes ?
+                subscription.membership.benefits.openStudio.maxBlockMinutes :
                 120
             }
-            subscriptionId={subscription?.id}
-            punchPassId={punchPasses.length > 0 ? punchPasses[0].id : undefined}
+            subscription={subscription ? {
+              id: subscription.id,
+              membershipName: subscription.membership.name,
+              bookingsThisWeek: subscription.usage?.bookingsThisWeek ?? 0,
+              maxBookingsPerWeek: subscription.membership.benefits?.openStudio?.maxBookingsPerWeek ?? 3,
+            } : null}
+            punchPasses={punchPasses.map((p) => ({
+              id: p.id,
+              name: p.name,
+              punchesRemaining: p.punchesRemaining,
+            }))}
             onClose={() => setBookingModal(null)}
             onBookingCreated={() => {
               setBookingModal(null);
               fetchPunchPasses();
+              fetchSubscription();
               if (selectedSession) fetchAvailability(selectedSession);
             }}
           />

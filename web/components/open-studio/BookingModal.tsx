@@ -1,6 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+
+interface PunchPassOption {
+  id: number;
+  name: string;
+  punchesRemaining: number;
+}
+
+interface SubscriptionOption {
+  id: number;
+  membershipName: string;
+  bookingsThisWeek: number;
+  maxBookingsPerWeek: number;
+}
 
 interface Props {
   sessionId: number;
@@ -10,8 +23,8 @@ interface Props {
   sessionEndTime: string;
   preselectedStartTime: string;
   maxBlockMinutes: number;
-  subscriptionId?: number;
-  punchPassId?: number;
+  subscription?: SubscriptionOption | null;
+  punchPasses: PunchPassOption[];
   onClose: () => void;
   onBookingCreated: () => void;
 }
@@ -23,6 +36,8 @@ function formatHour(time: string): string {
   return m === 0 ? `${hour12}:00 ${period}` : `${hour12}:${String(m).padStart(2, "0")} ${period}`;
 }
 
+type PayMethod = "subscription" | "punchpass";
+
 export default function BookingModal({
   sessionId,
   resourceId,
@@ -31,8 +46,8 @@ export default function BookingModal({
   sessionEndTime,
   preselectedStartTime,
   maxBlockMinutes,
-  subscriptionId,
-  punchPassId,
+  subscription,
+  punchPasses,
   onClose,
   onBookingCreated,
 }: Props) {
@@ -40,6 +55,32 @@ export default function BookingModal({
   const [duration, setDuration] = useState(Math.min(120, maxBlockMinutes));
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const subscriptionAvailable =
+    subscription != null &&
+    subscription.bookingsThisWeek < subscription.maxBookingsPerWeek;
+
+  const hasPunchPasses = punchPasses.length > 0;
+
+  // Determine if we need to ask the user which method to use
+  const needsChoice = !subscriptionAvailable && hasPunchPasses && subscription != null;
+
+  // Auto-select payment method
+  const autoMethod: PayMethod | null = subscriptionAvailable
+    ? "subscription"
+    : !subscription && hasPunchPasses
+      ? "punchpass"
+      : null;
+
+  const [payMethod, setPayMethod] = useState<PayMethod | null>(autoMethod);
+  const [selectedPunchPassId, setSelectedPunchPassId] = useState<number | undefined>(
+    punchPasses.length > 0 ? punchPasses[0].id : undefined
+  );
+
+  // If needsChoice and user hasn't picked yet, payMethod is null
+  useEffect(() => {
+    if (autoMethod) setPayMethod(autoMethod);
+  }, [autoMethod]);
 
   const calculateEndTime = (start: string, durationMin: number): string => {
     const [h, m] = start.split(":").map(Number);
@@ -78,13 +119,12 @@ export default function BookingModal({
         endTime,
       };
 
-      // Send either subscription or punch pass ID
-      if (subscriptionId) {
-        body.subscriptionId = subscriptionId;
-      } else if (punchPassId) {
-        body.customerPunchPassId = punchPassId;
+      if (payMethod === "subscription" && subscription) {
+        body.subscriptionId = subscription.id;
+      } else if (payMethod === "punchpass" && selectedPunchPassId) {
+        body.customerPunchPassId = selectedPunchPassId;
       } else {
-        throw new Error("No valid pass type found");
+        throw new Error("Please select a booking method");
       }
 
       const response = await fetch("/api/open-studio/bookings", {
@@ -156,6 +196,57 @@ export default function BookingModal({
             <p className="text-sm text-gray-500">{duration} minutes on {resourceName}</p>
           </div>
 
+          {/* Payment method selection — only shown when membership limit reached */}
+          {needsChoice && (
+            <div className="border border-amber-200 bg-amber-50 rounded-lg p-4">
+              <p className="text-sm font-medium text-amber-800 mb-2">
+                You've used {subscription!.bookingsThisWeek}/{subscription!.maxBookingsPerWeek} membership
+                bookings this week.
+              </p>
+              <p className="text-sm text-amber-700 mb-3">
+                Would you like to use a punch pass for this booking?
+              </p>
+              <div className="space-y-2">
+                {punchPasses.map((pass) => (
+                  <label
+                    key={pass.id}
+                    className={`flex items-center gap-3 p-2 rounded-lg border cursor-pointer transition-colors ${
+                      payMethod === "punchpass" && selectedPunchPassId === pass.id
+                        ? "border-amber-400 bg-white"
+                        : "border-transparent hover:bg-amber-100/50"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="payMethod"
+                      checked={payMethod === "punchpass" && selectedPunchPassId === pass.id}
+                      onChange={() => {
+                        setPayMethod("punchpass");
+                        setSelectedPunchPassId(pass.id);
+                      }}
+                      className="accent-amber-600"
+                    />
+                    <div>
+                      <span className="text-sm font-medium">{pass.name}</span>
+                      <span className="text-xs text-gray-500 ml-2">
+                        ({pass.punchesRemaining} punches remaining)
+                      </span>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Show which method will be used (when auto-selected) */}
+          {!needsChoice && payMethod && (
+            <div className="text-xs text-gray-500">
+              {payMethod === "subscription"
+                ? `Using membership (${subscription!.bookingsThisWeek + 1}/${subscription!.maxBookingsPerWeek} bookings this week)`
+                : `Using punch pass (${punchPasses.find((p) => p.id === selectedPunchPassId)?.punchesRemaining ?? 0} punches remaining)`}
+            </div>
+          )}
+
           <div className="flex justify-end gap-3 pt-2">
             <button
               onClick={onClose}
@@ -165,7 +256,7 @@ export default function BookingModal({
             </button>
             <button
               onClick={handleSubmit}
-              disabled={submitting}
+              disabled={submitting || !payMethod}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
             >
               {submitting ? "Booking..." : "Confirm Booking"}
