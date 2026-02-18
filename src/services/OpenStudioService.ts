@@ -413,7 +413,14 @@ export async function createBooking(
   }
 
   // Check for conflicts on this resource at this time
-  const conflict = await prisma.openStudioBooking.findFirst({
+  const resource = await prisma.studioResource.findUnique({
+    where: { id: resourceId },
+  });
+  if (!resource) {
+    throw new Error("Resource not found");
+  }
+
+  const conflictCount = await prisma.openStudioBooking.count({
     where: {
       sessionId,
       resourceId,
@@ -426,8 +433,8 @@ export async function createBooking(
     },
   });
 
-  if (conflict) {
-    throw new Error("This resource is already booked for the requested time");
+  if (conflictCount >= resource.quantity) {
+    throw new Error("This resource is fully booked for the requested time");
   }
 
   // Check customer isn't suspended
