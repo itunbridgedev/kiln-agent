@@ -29,21 +29,6 @@ interface Subscription {
   };
 }
 
-interface Booking {
-  id: number;
-  startTime: string;
-  endTime: string;
-  status: string;
-  isWalkIn: boolean;
-  reservedAt: string;
-  resource: { name: string };
-  session: {
-    sessionDate: string;
-    startTime: string;
-    endTime: string;
-    class: { name: string };
-  };
-}
 
 interface PunchPass {
   id: number;
@@ -64,7 +49,6 @@ function MembershipContent() {
   const searchParams = useSearchParams();
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [punchPasses, setPunchPasses] = useState<PunchPass[]>([]);
-  const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [showSuccess, setShowSuccess] = useState(false);
   const [showUsedPasses, setShowUsedPasses] = useState(false);
@@ -84,7 +68,6 @@ function MembershipContent() {
     if (user) {
       fetchSubscription();
       fetchPunchPasses();
-      fetchBookings();
     }
   }, [user, authLoading, router]);
 
@@ -110,14 +93,6 @@ function MembershipContent() {
     }
   };
 
-  const fetchBookings = async () => {
-    try {
-      const response = await fetch("/api/open-studio/my-bookings", { credentials: "include" });
-      if (response.ok) setBookings(await response.json());
-    } catch (err) {
-      console.error("Error:", err);
-    }
-  };
 
   const handleCancel = async () => {
     if (!subscription) return;
@@ -159,20 +134,6 @@ function MembershipContent() {
     }
   };
 
-  const cancelBooking = async (bookingId: number) => {
-    try {
-      const response = await fetch(`/api/open-studio/bookings/${bookingId}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-      if (response.ok) {
-        fetchBookings();
-        fetchPunchPasses();
-      }
-    } catch (err) {
-      console.error("Error:", err);
-    }
-  };
 
   const formatDate = (dateStr: string) =>
     new Date(dateStr).toLocaleDateString("en-US", {
@@ -206,8 +167,6 @@ function MembershipContent() {
   }
 
   const benefits = subscription?.membership.benefits;
-  const upcomingBookings = bookings.filter((b) => b.status === "RESERVED");
-  const pastBookings = bookings.filter((b) => ["CHECKED_IN", "COMPLETED"].includes(b.status));
   const visiblePunchPasses = showUsedPasses
     ? punchPasses
     : punchPasses.filter((pass) => pass.punchesRemaining > 0);
@@ -371,65 +330,19 @@ function MembershipContent() {
           </div>
         )}
 
-        {/* Upcoming Bookings */}
-        <div className="bg-white rounded-xl shadow-sm border p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold">Upcoming Bookings</h3>
-            <a href="/open-studio" className="text-blue-600 hover:underline text-sm">
-              Book a Session &rarr;
-            </a>
+        {/* Quick Links */}
+        <div className="bg-white rounded-xl shadow-sm border p-6 flex items-center justify-between">
+          <div>
+            <h3 className="font-semibold">Reservations</h3>
+            <p className="text-sm text-gray-500 mt-1">View upcoming sessions, check in, and manage bookings.</p>
           </div>
-          {upcomingBookings.length > 0 ? (
-            <div className="space-y-3">
-              {upcomingBookings.map((b) => (
-                <div key={b.id} className="flex items-center justify-between border rounded-lg p-3">
-                  <div>
-                    <div className="font-medium">
-                      {formatDate(b.session.sessionDate)} &middot; {b.startTime} - {b.endTime}
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      {b.resource.name} &middot; {b.session.class.name}
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => cancelBooking(b.id)}
-                    className="text-sm text-red-600 hover:underline"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-gray-500 text-sm">No upcoming bookings.</p>
-          )}
+          <a
+            href="/my-reservations"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm whitespace-nowrap"
+          >
+            View My Reservations &rarr;
+          </a>
         </div>
-
-        {/* Past Bookings */}
-        {pastBookings.length > 0 && (
-          <div className="bg-white rounded-xl shadow-sm border p-6">
-            <h3 className="font-semibold mb-4">Recent History</h3>
-            <div className="space-y-2">
-              {pastBookings.slice(0, 10).map((b) => (
-                <div key={b.id} className="flex items-center justify-between text-sm border-b pb-2 last:border-0">
-                  <div>
-                    <span className="text-gray-600">{formatDate(b.session.sessionDate)}</span>{" "}
-                    <span className="font-medium">{b.startTime} - {b.endTime}</span>{" "}
-                    <span className="text-gray-500">on {b.resource.name}</span>
-                    {b.isWalkIn && (
-                      <span className="ml-1 text-xs bg-gray-100 px-1.5 py-0.5 rounded">Walk-in</span>
-                    )}
-                  </div>
-                  <span className={`text-xs px-2 py-0.5 rounded ${
-                    b.status === "COMPLETED" ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"
-                  }`}>
-                    {b.status}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </main>
 
       <Footer />
