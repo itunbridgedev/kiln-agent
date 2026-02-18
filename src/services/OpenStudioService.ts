@@ -634,7 +634,10 @@ export async function checkIn(bookingId: number) {
 export async function getMyBookings(customerId: number) {
   return prisma.openStudioBooking.findMany({
     where: {
-      subscription: { customerId },
+      OR: [
+        { subscription: { customerId } },
+        { customerPunchPass: { customerId } },
+      ],
       status: { in: ["RESERVED", "CHECKED_IN", "COMPLETED"] },
     },
     include: {
