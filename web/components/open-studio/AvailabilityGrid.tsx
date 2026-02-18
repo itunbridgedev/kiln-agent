@@ -21,6 +21,7 @@ interface ResourceAvailability {
     startTime: string;
     endTime: string;
     status: string;
+    isMine?: boolean;
   }>;
   heldSlots?: Array<{ startTime: string; endTime: string }>;
   waitlistCounts?: Record<string, number>;
@@ -61,10 +62,8 @@ export default function AvailabilityGrid({
     hours.push(`${String(h).padStart(2, "0")}:00`);
   }
 
-  const isSlotBooked = (resource: ResourceAvailability, hour: string) => {
-    return resource.bookings.some((b) => {
-      return b.startTime <= hour && b.endTime > hour;
-    });
+  const getSlotBooking = (resource: ResourceAvailability, hour: string) => {
+    return resource.bookings.find((b) => b.startTime <= hour && b.endTime > hour) || null;
   };
 
   const isSlotHeld = (resource: ResourceAvailability, hour: string) => {
@@ -109,7 +108,9 @@ export default function AvailabilityGrid({
                 </div>
               </td>
               {hours.map((hour) => {
-                const booked = isSlotBooked(resource, hour);
+                const booking = getSlotBooking(resource, hour);
+                const booked = booking != null;
+                const isMine = booking?.isMine ?? false;
                 const held = isSlotHeld(resource, hour);
                 const myWaitlist = getWaitlistEntry(resource, hour);
                 const waitlistCount = getWaitlistCount(resource, hour);
@@ -120,11 +121,13 @@ export default function AvailabilityGrid({
                     className={`border p-1 text-center transition-colors ${
                       myWaitlist
                         ? "bg-amber-50 hover:bg-amber-100 cursor-pointer"
-                        : booked
-                          ? "bg-red-100 text-red-700"
-                          : held
-                            ? "bg-gray-100 hover:bg-gray-200"
-                            : "bg-green-50 hover:bg-green-100 cursor-pointer"
+                        : isMine
+                          ? "bg-blue-100 text-blue-700"
+                          : booked
+                            ? "bg-red-100 text-red-700"
+                            : held
+                              ? "bg-gray-100 hover:bg-gray-200"
+                              : "bg-green-50 hover:bg-green-100 cursor-pointer"
                     }`}
                     onClick={() => {
                       if (myWaitlist && onWaitlistCancel) {
@@ -139,8 +142,10 @@ export default function AvailabilityGrid({
                         <span className="text-xs font-medium text-amber-700">Waitlisted</span>
                         <div className="text-[10px] text-amber-500">#{myWaitlist.position}</div>
                       </div>
+                    ) : isMine ? (
+                      <span className="text-xs font-medium">My Booking</span>
                     ) : booked ? (
-                      <span className="text-xs">Booked</span>
+                      <span className="text-xs">Unavailable</span>
                     ) : held ? (
                       <div className="space-y-1">
                         <div className="text-xs text-gray-600">Held</div>

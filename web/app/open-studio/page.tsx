@@ -367,10 +367,13 @@ export default function OpenStudioPage() {
                       <span className="w-3 h-3 rounded bg-green-50 border border-green-200" /> Available
                     </span>
                     <span className="flex items-center gap-1">
-                      <span className="w-3 h-3 rounded bg-red-100 border border-red-200" /> Booked
+                      <span className="w-3 h-3 rounded bg-blue-100 border border-blue-200" /> My Booking
                     </span>
                     <span className="flex items-center gap-1">
-                      <span className="w-3 h-3 rounded bg-gray-100 border border-gray-200" /> Unavailable
+                      <span className="w-3 h-3 rounded bg-red-100 border border-red-200" /> Unavailable
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="w-3 h-3 rounded bg-gray-100 border border-gray-200" /> Held
                     </span>
                     <span className="flex items-center gap-1">
                       <span className="w-3 h-3 rounded bg-amber-50 border border-amber-200" /> Waitlisted

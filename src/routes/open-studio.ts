@@ -33,7 +33,8 @@ router.get("/sessions", async (req: Request, res: Response) => {
 router.get("/sessions/:id/availability", async (req: Request, res: Response) => {
   try {
     const sessionId = parseInt(req.params.id);
-    const availability = await OpenStudioService.getAvailability(sessionId);
+    const userId = (req as AuthenticatedRequest).user?.id;
+    const availability = await OpenStudioService.getAvailability(sessionId, userId);
     res.json(availability);
   } catch (error: any) {
     console.error("Error fetching availability:", error);

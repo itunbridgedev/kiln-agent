@@ -28,7 +28,7 @@ export async function getUpcomingSessions(studioId: number) {
  * Returns available resources and time slots, factoring in class resource holds
  * and existing bookings.
  */
-export async function getAvailability(sessionId: number) {
+export async function getAvailability(sessionId: number, userId?: number) {
   const session = await prisma.classSession.findUnique({
     where: { id: sessionId },
     include: {
@@ -52,6 +52,10 @@ export async function getAvailability(sessionId: number) {
     where: {
       sessionId,
       status: { in: ["RESERVED", "CHECKED_IN"] },
+    },
+    include: {
+      subscription: { select: { customerId: true } },
+      customerPunchPass: { select: { customerId: true } },
     },
   });
 
@@ -190,12 +194,17 @@ export async function getAvailability(sessionId: number) {
       heldSlots,
       currentlyBooked,
       available: Math.max(0, totalAvailable - currentlyBooked),
-      bookings: bookedOnResource.map((b) => ({
-        id: b.id,
-        startTime: b.startTime,
-        endTime: b.endTime,
-        status: b.status,
-      })),
+      bookings: bookedOnResource.map((b) => {
+        const bookingCustomerId =
+          b.subscription?.customerId ?? b.customerPunchPass?.customerId;
+        return {
+          id: b.id,
+          startTime: b.startTime,
+          endTime: b.endTime,
+          status: b.status,
+          isMine: userId != null && bookingCustomerId === userId,
+        };
+      }),
     };
   });
 
