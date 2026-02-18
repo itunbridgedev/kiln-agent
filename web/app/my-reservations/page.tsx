@@ -85,6 +85,7 @@ export default function MyReservationsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [checkingIn, setCheckingIn] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -156,6 +157,34 @@ export default function MyReservationsPage() {
       alert(`Error: ${err.message}`);
     } finally {
       setCheckingIn(null);
+    }
+  };
+
+  const handleCancel = async (bookingId: number, type: 'class' | 'openStudio') => {
+    if (!confirm("Are you sure you want to cancel this reservation?")) return;
+
+    const key = `${type}-${bookingId}`;
+    setCancelling(key);
+    try {
+      const endpoint = type === 'openStudio'
+        ? `/api/open-studio/bookings/${bookingId}`
+        : `/api/reservations/${bookingId}`;
+
+      const response = await fetch(endpoint, {
+        method: "DELETE",
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to cancel reservation");
+      }
+
+      await fetchReservations();
+    } catch (err: any) {
+      alert(`Error: ${err.message}`);
+    } finally {
+      setCancelling(null);
     }
   };
 
@@ -255,18 +284,28 @@ export default function MyReservationsPage() {
                           </p>
                         </div>
                         <div className="flex items-center gap-2">
-                          {booking.status === "RESERVED" &&
-                            booking.checkInWindow?.canCheckIn && (
+                          {booking.status === "RESERVED" && (
+                            <>
+                              {booking.checkInWindow?.canCheckIn && (
+                                <button
+                                  onClick={() => handleCheckIn(booking.id, 'openStudio')}
+                                  disabled={checkingIn === `openStudio-${booking.id}`}
+                                  className="px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium text-xs disabled:bg-gray-400 disabled:cursor-not-allowed"
+                                >
+                                  {checkingIn === `openStudio-${booking.id}`
+                                    ? "Checking In..."
+                                    : "Check In"}
+                                </button>
+                              )}
                               <button
-                                onClick={() => handleCheckIn(booking.id, 'openStudio')}
-                                disabled={checkingIn === `openStudio-${booking.id}`}
-                                className="px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium text-xs disabled:bg-gray-400 disabled:cursor-not-allowed"
+                                onClick={() => handleCancel(booking.id, 'openStudio')}
+                                disabled={cancelling === `openStudio-${booking.id}`}
+                                className="px-3 py-1 text-red-600 hover:text-red-800 font-medium text-xs disabled:text-gray-400 disabled:cursor-not-allowed"
                               >
-                                {checkingIn === `openStudio-${booking.id}`
-                                  ? "Checking In..."
-                                  : "Check In"}
+                                {cancelling === `openStudio-${booking.id}` ? "Cancelling..." : "Cancel"}
                               </button>
-                            )}
+                            </>
+                          )}
                           <span
                             className={`px-3 py-1 rounded-full text-xs font-medium ${
                               booking.status === "RESERVED"
@@ -381,18 +420,28 @@ export default function MyReservationsPage() {
                             )}
                           </div>
                           <div className="flex items-center gap-2">
-                            {reservation.status === "PENDING" &&
-                              reservation.checkInWindow?.canCheckIn && (
+                            {reservation.status === "PENDING" && (
+                              <>
+                                {reservation.checkInWindow?.canCheckIn && (
+                                  <button
+                                    onClick={() => handleCheckIn(reservation.id, 'class')}
+                                    disabled={checkingIn === `class-${reservation.id}`}
+                                    className="px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium text-xs disabled:bg-gray-400 disabled:cursor-not-allowed"
+                                  >
+                                    {checkingIn === `class-${reservation.id}`
+                                      ? "Checking In..."
+                                      : "Check In"}
+                                  </button>
+                                )}
                                 <button
-                                onClick={() => handleCheckIn(reservation.id, 'class')}
-                                disabled={checkingIn === `class-${reservation.id}`}
-                                className="px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium text-xs disabled:bg-gray-400 disabled:cursor-not-allowed"
-                              >
-                                {checkingIn === `class-${reservation.id}`
-                                    ? "Checking In..."
-                                    : "Check In"}
+                                  onClick={() => handleCancel(reservation.id, 'class')}
+                                  disabled={cancelling === `class-${reservation.id}`}
+                                  className="px-3 py-1 text-red-600 hover:text-red-800 font-medium text-xs disabled:text-gray-400 disabled:cursor-not-allowed"
+                                >
+                                  {cancelling === `class-${reservation.id}` ? "Cancelling..." : "Cancel"}
                                 </button>
-                              )}
+                              </>
+                            )}
                             <span
                               className={`px-3 py-1 rounded-full text-xs font-medium ${
                                 reservation.status === "PENDING"
