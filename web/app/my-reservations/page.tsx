@@ -226,9 +226,9 @@ export default function MyReservationsPage() {
           </p>
         </div>
 
-        {registrations.length === 0 ? (
+        {totalUpcomingReservations === 0 ? (
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
-            <p className="text-gray-500 mb-4">You don't have any class registrations yet.</p>
+            <p className="text-gray-500 mb-4">You don't have any upcoming reservations.</p>
             <button
               onClick={() => router.push("/")}
               className="text-blue-600 hover:text-blue-800 font-medium"
