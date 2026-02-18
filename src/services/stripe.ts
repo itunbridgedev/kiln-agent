@@ -2,6 +2,7 @@ import Stripe from "stripe";
 import prisma from "../prisma";
 import * as MembershipService from "./MembershipService";
 import * as PunchPassService from "./PunchPassService";
+import * as FiringService from "./FiringService";
 
 // Initialize Stripe with your secret key
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
@@ -438,8 +439,12 @@ export async function handleWebhookEvent(event: Stripe.Event): Promise<void> {
         
         // Check if this is a punch pass purchase (payment mode) or membership (subscription mode)
         if (session.mode === 'payment') {
-          // Handle punch pass purchase
-          await PunchPassService.handlePunchPassPurchase(session.id, accountId);
+          if (session.metadata?.type === 'firing_purchase') {
+            await FiringService.handleFiringPurchaseWebhook(session.id, accountId);
+          } else {
+            // Handle punch pass purchase
+            await PunchPassService.handlePunchPassPurchase(session.id, accountId);
+          }
         }
         // Subscription mode is handled by customer.subscription.created event
         break;

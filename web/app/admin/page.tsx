@@ -3,6 +3,9 @@
 import AdminSidebar, { AdminTab } from "@/components/admin/AdminSidebar";
 import MembershipManager from "@/components/admin/MembershipManager";
 import OpenStudioManager from "@/components/admin/OpenStudioManager";
+import ProjectsBoard from "@/components/admin/ProjectsBoard";
+import FiringProductManager from "@/components/admin/FiringProductManager";
+import FiringPhotoMatch from "@/components/admin/FiringPhotoMatch";
 import PunchPassManager from "@/components/admin/PunchPassManager";
 import StripeConnectSettings from "@/components/admin/StripeConnectSettings";
 import CategoryForm, {
@@ -80,6 +83,8 @@ export default function AdminPage() {
     "membership-tiers",
     "punch-passes",
     "open-studio",
+    "projects-board",
+    "firing-products",
     "stripe-connect",
   ];
   const [activeTab, setActiveTab] = useState<AdminTab>(() => {
@@ -94,6 +99,7 @@ export default function AdminPage() {
   const [classesExpanded, setClassesExpanded] = useState(false);
   const [scheduleExpanded, setScheduleExpanded] = useState(true);
   const [membershipsExpanded, setMembershipsExpanded] = useState(false);
+  const [kilnExpanded, setKilnExpanded] = useState(false);
   const [settingsExpanded, setSettingsExpanded] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [studioName, setStudioName] = useState<string>("");
@@ -946,6 +952,7 @@ export default function AdminPage() {
         classesExpanded={classesExpanded}
         scheduleExpanded={scheduleExpanded}
         membershipsExpanded={membershipsExpanded}
+        kilnExpanded={kilnExpanded}
         settingsExpanded={settingsExpanded}
         studioName={studioName}
         user={user!}
@@ -959,6 +966,7 @@ export default function AdminPage() {
             setScheduleExpanded(true);
             setClassesExpanded(false);
             setMembershipsExpanded(false);
+            setKilnExpanded(false);
             setSettingsExpanded(false);
           } else if (
             tab === "categories" ||
@@ -969,27 +977,38 @@ export default function AdminPage() {
             setClassesExpanded(true);
             setScheduleExpanded(false);
             setMembershipsExpanded(false);
+            setKilnExpanded(false);
             setSettingsExpanded(false);
-          } else if (tab === "membership-tiers" || tab === "open-studio") {
+          } else if (tab === "membership-tiers" || tab === "open-studio" || tab === "punch-passes") {
             setMembershipsExpanded(true);
             setScheduleExpanded(false);
             setClassesExpanded(false);
+            setKilnExpanded(false);
+            setSettingsExpanded(false);
+          } else if (tab === "projects-board" || tab === "firing-products") {
+            setKilnExpanded(true);
+            setScheduleExpanded(false);
+            setClassesExpanded(false);
+            setMembershipsExpanded(false);
             setSettingsExpanded(false);
           } else if (tab === "stripe-connect") {
             setSettingsExpanded(true);
             setScheduleExpanded(false);
             setClassesExpanded(false);
             setMembershipsExpanded(false);
+            setKilnExpanded(false);
           } else {
             setClassesExpanded(false);
             setScheduleExpanded(false);
             setMembershipsExpanded(false);
+            setKilnExpanded(false);
             setSettingsExpanded(false);
           }
         }}
         onToggleClassesExpanded={() => setClassesExpanded(!classesExpanded)}
         onToggleScheduleExpanded={() => setScheduleExpanded(!scheduleExpanded)}
         onToggleMembershipsExpanded={() => setMembershipsExpanded(!membershipsExpanded)}
+        onToggleKilnExpanded={() => setKilnExpanded(!kilnExpanded)}
         onToggleSettingsExpanded={() => setSettingsExpanded(!settingsExpanded)}
         onBackHome={() => router.push("/")}
         onLogout={async () => {
@@ -1016,6 +1035,8 @@ export default function AdminPage() {
                 : activeTab === "membership-tiers" ? "Membership Tiers"
                 : activeTab === "punch-passes" ? "Punch Passes"
                 : activeTab === "open-studio" ? "Open Studio"
+                : activeTab === "projects-board" ? "Projects Board"
+                : activeTab === "firing-products" ? "Firing Products"
                 : activeTab === "stripe-connect" ? "Stripe Connect"
                 : "Admin"}
             </h1>
@@ -1029,6 +1050,8 @@ export default function AdminPage() {
                 : activeTab === "membership-tiers" ? "Manage membership tiers and subscribers"
                 : activeTab === "punch-passes" ? "Create and manage punch pass products"
                 : activeTab === "open-studio" ? "Manage bookings and walk-ins"
+                : activeTab === "projects-board" ? "Track projects through the kiln workflow"
+                : activeTab === "firing-products" ? "Configure firing products and pricing"
                 : activeTab === "stripe-connect" ? "Manage your payment processing and Stripe integration"
                 : ""}
             </p>
@@ -1519,6 +1542,17 @@ export default function AdminPage() {
           )}
 
           {activeTab === "open-studio" && <OpenStudioManager />}
+
+          {activeTab === "projects-board" && <ProjectsBoard />}
+
+          {activeTab === "firing-products" && (
+            <FiringProductManager
+              onNavigateToStripe={() => {
+                setActiveTab("stripe-connect");
+                setSettingsExpanded(true);
+              }}
+            />
+          )}
 
           {activeTab === "stripe-connect" && <StripeConnectSettings />}
 

@@ -19,6 +19,8 @@ const nonTenantModels = [
   "CustomerSuspension",
   "ClassResourceRequirement",
   "StaffCalendarFeed",
+  "ProjectStatusHistory",
+  "ProjectImage",
 ];
 
 // Create base Prisma client (exported for cross-tenant queries like platform admin)

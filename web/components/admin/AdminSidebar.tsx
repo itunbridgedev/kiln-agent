@@ -11,6 +11,8 @@ export type AdminTab =
   | "membership-tiers"
   | "punch-passes"
   | "open-studio"
+  | "projects-board"
+  | "firing-products"
   | "stripe-connect";
 
 interface AdminSidebarProps {
@@ -18,6 +20,7 @@ interface AdminSidebarProps {
   classesExpanded: boolean;
   scheduleExpanded: boolean;
   membershipsExpanded: boolean;
+  kilnExpanded: boolean;
   settingsExpanded: boolean;
   studioName?: string;
   user: {
@@ -31,6 +34,7 @@ interface AdminSidebarProps {
   onToggleClassesExpanded: () => void;
   onToggleScheduleExpanded: () => void;
   onToggleMembershipsExpanded: () => void;
+  onToggleKilnExpanded: () => void;
   onToggleSettingsExpanded: () => void;
   onBackHome: () => void;
   onLogout: () => void;
@@ -42,6 +46,7 @@ export default function AdminSidebar({
   classesExpanded,
   scheduleExpanded,
   membershipsExpanded,
+  kilnExpanded,
   settingsExpanded,
   studioName,
   user,
@@ -50,6 +55,7 @@ export default function AdminSidebar({
   onToggleClassesExpanded,
   onToggleScheduleExpanded,
   onToggleMembershipsExpanded,
+  onToggleKilnExpanded,
   onToggleSettingsExpanded,
   onBackHome,
   onLogout,
@@ -314,6 +320,43 @@ export default function AdminSidebar({
                     onClick={() => handleTabChange("open-studio")}
                   >
                     Open Studio
+                  </button>
+                </li>
+              </ul>
+            </li>
+
+            {/* Kiln Management Section */}
+            <li>
+              <button
+                className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${kilnExpanded ? "bg-white/20" : "hover:bg-white/10"}`}
+                onClick={onToggleKilnExpanded}
+              >
+                <span className="text-xl">🔥</span>
+                <span className="flex-1 text-left font-medium">Kiln Management</span>
+                <span
+                  className={`transition-transform text-sm ${kilnExpanded ? "rotate-90" : ""}`}
+                >
+                  ▶
+                </span>
+              </button>
+
+              <ul
+                className={`mt-1 ml-4 space-y-1 overflow-hidden transition-all ${kilnExpanded ? "max-h-60" : "max-h-0"}`}
+              >
+                <li>
+                  <button
+                    className={`w-full text-left px-4 py-2 rounded-md text-sm transition-colors ${activeTab === "projects-board" ? "bg-white/30 font-semibold" : "hover:bg-white/10"}`}
+                    onClick={() => handleTabChange("projects-board")}
+                  >
+                    Projects Board
+                  </button>
+                </li>
+                <li>
+                  <button
+                    className={`w-full text-left px-4 py-2 rounded-md text-sm transition-colors ${activeTab === "firing-products" ? "bg-white/30 font-semibold" : "hover:bg-white/10"}`}
+                    onClick={() => handleTabChange("firing-products")}
+                  >
+                    Firing Products
                   </button>
                 </li>
               </ul>

@@ -32,6 +32,8 @@ import stripeWebhookRoutes from "./routes/stripe-webhook";
 import studioRoutes from "./routes/studio";
 import teachingRolesRoutes from "./routes/teaching-roles";
 import usersRoutes from "./routes/users";
+import projectsRoutes from "./routes/projects";
+import adminProjectsRoutes from "./routes/admin-projects";
 
 // Load environment variables
 dotenv.config({ path: `.env.${process.env.NODE_ENV || "development"}` });
@@ -254,6 +256,8 @@ app.use("/api/admin/users", usersRoutes);
 app.use("/api/memberships", membershipsRoutes);
 app.use("/api/punch-passes", punchPassesRoutes);
 app.use("/api/open-studio", openStudioRoutes);
+app.use("/api/projects", projectsRoutes);
+app.use("/api/admin", adminProjectsRoutes);
 app.use("/api/staff", staffRoutes);
 app.use("/api/staff", staffReservationsRoutes); // Staff reservation management
 app.use("/api/studio", studioRoutes);

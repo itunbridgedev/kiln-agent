@@ -110,6 +110,7 @@ export default function Header({ studioName }: HeaderProps) {
         { href: "/", label: "Home" },
         { href: "/open-studio", label: "Open Studio" },
         { href: "/memberships", label: "Memberships" },
+        { href: "/my-projects", label: "My Projects" },
         { href: "/my-reservations", label: "My Reservations" },
         ...(hasStaffAccess ? [{ href: "/admin", label: "Admin" }] : []),
       ]

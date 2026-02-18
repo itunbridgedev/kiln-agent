@@ -40,6 +40,9 @@ model Studio {
   customerPunchPasses    CustomerPunchPass[]
   openStudioBookings     OpenStudioBooking[]
   openStudioWaitlist     OpenStudioWaitlist[]
+  projects               Project[]
+  firingProducts         FiringProduct[]
+  firingRequests         FiringRequest[]
 }
 
 model Customer {
@@ -84,6 +87,8 @@ model Customer {
   suspensionsLifted   CustomerSuspension[] @relation("LiftedBy")
   membershipSubscriptions MembershipSubscription[]
   customerPunchPasses     CustomerPunchPass[]
+  projects                Project[]
+  projectStatusChanges    ProjectStatusHistory[] @relation("ProjectStatusChanges")
 
   @@unique([studioId, email])
   @@index([studioId])
@@ -337,6 +342,7 @@ model ClassSession {
   resourceAllocations  SessionResourceAllocation[]
   openStudioBookings   OpenStudioBooking[]
   openStudioWaitlist   OpenStudioWaitlist[]
+  projects             Project[]
 
   @@index([studioId])
   @@index([scheduleId])
@@ -914,6 +920,7 @@ model MembershipSubscription {
 
   openStudioBookings    OpenStudioBooking[]
   openStudioWaitlist    OpenStudioWaitlist[]
+  firingRequests        FiringRequest[]
 
   @@unique([studioId, customerId, membershipId])
   @@index([studioId, status])
@@ -968,7 +975,8 @@ model CustomerPunchPass {
   updatedAt         DateTime            @updatedAt
   
   openStudioBookings OpenStudioBooking[]
-  
+  firingRequests     FiringRequest[]
+
   @@index([customerId])
   @@index([studioId, customerId])
   @@index([stripeCheckoutSessionId])
@@ -999,8 +1007,138 @@ model OpenStudioBooking {
   completedAt      DateTime?
   cancelledAt      DateTime?
 
+  projects         Project[]
+
   @@index([sessionId, resourceId, startTime])
   @@index([studioId, sessionId])
+}
+
+// =============================================
+// Kiln Management / Project Tracking
+// =============================================
+
+enum ProjectStatus {
+  CREATED
+  DRYING
+  DOCK_BISQUE
+  KILN_BISQUE
+  BISQUE_DONE
+  DOCK_GLAZE
+  KILN_GLAZE
+  GLAZE_DONE
+  PICKUP_READY
+  PICKED_UP
+  DAMAGED
+}
+
+enum FiringType {
+  BISQUE
+  GLAZE
+}
+
+model Project {
+  id            Int           @id @default(autoincrement())
+  studioId      Int
+  studio        Studio        @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  customerId    Int
+  customer      Customer      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  name          String
+  description   String?
+  tags          String[]
+  status        ProjectStatus @default(CREATED)
+
+  classSessionId      Int?
+  classSession        ClassSession?       @relation(fields: [classSessionId], references: [id], onDelete: SetNull)
+  openStudioBookingId Int?
+  openStudioBooking   OpenStudioBooking?  @relation(fields: [openStudioBookingId], references: [id], onDelete: SetNull)
+
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  images        ProjectImage[]
+  firings       FiringRequest[]
+  statusHistory ProjectStatusHistory[]
+
+  @@index([studioId, customerId])
+  @@index([studioId, status])
+}
+
+model ProjectImage {
+  id         Int      @id @default(autoincrement())
+  projectId  Int
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  imageUrl   String
+  s3Key      String
+  stage      String?
+  caption    String?
+  sortOrder  Int      @default(0)
+  uploadedAt DateTime @default(now())
+
+  @@index([projectId])
+}
+
+model FiringProduct {
+  id              Int         @id @default(autoincrement())
+  studioId        Int
+  studio          Studio      @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  name            String
+  description     String?
+  firingType      FiringType
+  price           Decimal     @db.Decimal(10, 2)
+  isActive        Boolean     @default(true)
+
+  allowMembershipBenefit Boolean @default(false)
+  allowPunchPass         Boolean @default(false)
+
+  stripeProductId String?
+  stripePriceId   String?
+
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  firingRequests  FiringRequest[]
+
+  @@index([studioId])
+}
+
+model FiringRequest {
+  id                Int           @id @default(autoincrement())
+  studioId          Int
+  studio            Studio        @relation(fields: [studioId], references: [id], onDelete: Cascade)
+  projectId         Int
+  project           Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  firingProductId   Int
+  firingProduct     FiringProduct @relation(fields: [firingProductId], references: [id])
+  firingType        FiringType
+
+  stripePaymentIntentId String?
+  stripeCheckoutSessionId String?
+  subscriptionId        Int?
+  subscription          MembershipSubscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  customerPunchPassId   Int?
+  customerPunchPass     CustomerPunchPass?      @relation(fields: [customerPunchPassId], references: [id], onDelete: SetNull)
+
+  paidAt            DateTime?
+  requestedAt       DateTime      @default(now())
+  completedAt       DateTime?
+  notes             String?
+
+  @@index([studioId, projectId])
+}
+
+model ProjectStatusHistory {
+  id          Int           @id @default(autoincrement())
+  projectId   Int
+  project     Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  fromStatus  ProjectStatus
+  toStatus    ProjectStatus
+  changedById Int?
+  changedBy   Customer?     @relation("ProjectStatusChanges", fields: [changedById], references: [id], onDelete: SetNull)
+  note        String?
+  changedAt   DateTime      @default(now())
+
+  @@index([projectId])
 }
 
 // Waitlist for held/unavailable open studio time slots
