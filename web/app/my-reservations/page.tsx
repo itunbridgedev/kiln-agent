@@ -284,6 +284,14 @@ export default function MyReservationsPage() {
                           </p>
                         </div>
                         <div className="flex items-center gap-2">
+                          {booking.status === "CHECKED_IN" && (
+                            <button
+                              onClick={() => router.push(`/my-projects?newFromBooking=${booking.id}&sessionName=${encodeURIComponent(booking.session.className)}`)}
+                              className="px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-xs"
+                            >
+                              New Project
+                            </button>
+                          )}
                           {booking.status === "RESERVED" && (
                             <>
                               {booking.checkInWindow?.canCheckIn && (

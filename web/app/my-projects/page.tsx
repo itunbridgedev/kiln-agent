@@ -6,8 +6,8 @@ import ProjectCard from "@/components/projects/ProjectCard";
 import ProjectForm from "@/components/projects/ProjectForm";
 import { useAuth } from "@/context/AuthContext";
 import "@/styles/Home.css";
-import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useState } from "react";
 
 interface Project {
   id: number;
@@ -33,15 +33,26 @@ const STATUS_OPTIONS = [
   { value: "PICKED_UP", label: "Picked Up" },
 ];
 
-export default function MyProjectsPage() {
+export default function MyProjectsPageWrapper() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="text-gray-500">Loading...</div></div>}>
+      <MyProjectsPage />
+    </Suspense>
+  );
+}
+
+function MyProjectsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [linkedBookingId, setLinkedBookingId] = useState<number | null>(null);
+  const [defaultProjectName, setDefaultProjectName] = useState("");
 
   // Filters
   const [statusFilter, setStatusFilter] = useState("");
@@ -55,6 +66,17 @@ export default function MyProjectsPage() {
       router.push("/login");
     }
   }, [user, authLoading, router]);
+
+  // Auto-open form if coming from a booking
+  useEffect(() => {
+    const bookingId = searchParams.get("newFromBooking");
+    const sessionName = searchParams.get("sessionName");
+    if (bookingId) {
+      setLinkedBookingId(parseInt(bookingId));
+      setDefaultProjectName(sessionName ? `Piece from ${sessionName}` : "");
+      setShowForm(true);
+    }
+  }, [searchParams]);
 
   const fetchProjects = useCallback(async () => {
     setLoading(true);
@@ -91,7 +113,10 @@ export default function MyProjectsPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          ...data,
+          ...(linkedBookingId ? { openStudioBookingId: linkedBookingId } : {}),
+        }),
       });
 
       if (!response.ok) {
@@ -214,9 +239,19 @@ export default function MyProjectsPage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
             <h2 className="text-xl font-bold mb-4">New Project</h2>
+            {linkedBookingId && (
+              <div className="bg-blue-50 rounded-lg p-3 text-sm text-blue-800 mb-3">
+                Linking to your open studio session
+              </div>
+            )}
             <ProjectForm
               onSubmit={handleCreate}
-              onCancel={() => setShowForm(false)}
+              onCancel={() => {
+                setShowForm(false);
+                setLinkedBookingId(null);
+                setDefaultProjectName("");
+              }}
+              initialData={defaultProjectName ? { name: defaultProjectName, description: "", tags: [] } : undefined}
               submitting={creating}
             />
           </div>
