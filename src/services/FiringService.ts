@@ -150,6 +150,21 @@ export async function purchaseFiring(
     where: { projectId, completedAt: null },
   });
   if (activeFiring) {
+    // If the project is still in CREATED/BISQUE_DONE but has an active firing,
+    // it means the status advance failed previously — fix it now
+    if (project.status === ProjectStatus.CREATED || project.status === ProjectStatus.BISQUE_DONE) {
+      const dockStatus =
+        activeFiring.firingType === FiringType.BISQUE
+          ? ProjectStatus.DOCK_BISQUE
+          : ProjectStatus.DOCK_GLAZE;
+      await ProjectService.updateProjectStatus(
+        projectId,
+        dockStatus,
+        customerId,
+        "Status recovery — firing was already requested"
+      );
+      return { firing: activeFiring, recovered: true };
+    }
     throw new Error("A firing request is already in progress for this project");
   }
 
