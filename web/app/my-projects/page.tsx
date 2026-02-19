@@ -22,11 +22,12 @@ interface Project {
 const STATUS_OPTIONS = [
   { value: "", label: "All Statuses" },
   { value: "CREATED", label: "Created" },
-  { value: "DRYING", label: "Drying" },
   { value: "DOCK_BISQUE", label: "Dock (Bisque)" },
+  { value: "DRYING", label: "Drying" },
   { value: "KILN_BISQUE", label: "In Kiln (Bisque)" },
   { value: "BISQUE_DONE", label: "Bisque Done" },
   { value: "DOCK_GLAZE", label: "Dock (Glaze)" },
+  { value: "DRYING_GLAZE", label: "Drying (Glaze)" },
   { value: "KILN_GLAZE", label: "In Kiln (Glaze)" },
   { value: "GLAZE_DONE", label: "Glaze Done" },
   { value: "PICKUP_READY", label: "Ready for Pickup" },

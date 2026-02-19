@@ -14,11 +14,12 @@ interface StatusEntry {
 
 const SHORT_LABELS: Record<string, string> = {
   CREATED: "Created",
-  DRYING: "Drying",
   DOCK_BISQUE: "Dock",
+  DRYING: "Drying",
   KILN_BISQUE: "Kiln",
   BISQUE_DONE: "Bisque Done",
   DOCK_GLAZE: "Dock",
+  DRYING_GLAZE: "Drying",
   KILN_GLAZE: "Kiln",
   GLAZE_DONE: "Glaze Done",
   PICKUP_READY: "Pickup",
@@ -27,8 +28,8 @@ const SHORT_LABELS: Record<string, string> = {
 
 export default function StatusTimeline({ history, currentStatus }: { history: StatusEntry[]; currentStatus: string }) {
   const allSteps = [
-    "CREATED", "DRYING", "DOCK_BISQUE", "KILN_BISQUE", "BISQUE_DONE",
-    "DOCK_GLAZE", "KILN_GLAZE", "GLAZE_DONE", "PICKUP_READY", "PICKED_UP",
+    "CREATED", "DOCK_BISQUE", "DRYING", "KILN_BISQUE", "BISQUE_DONE",
+    "DOCK_GLAZE", "DRYING_GLAZE", "KILN_GLAZE", "GLAZE_DONE", "PICKUP_READY", "PICKED_UP",
   ];
 
   const currentIndex = allSteps.indexOf(currentStatus);
@@ -86,6 +87,7 @@ export default function StatusTimeline({ history, currentStatus }: { history: St
             const globalIndex = i + 5;
             const isPast = globalIndex <= currentIndex && currentStatus !== "DAMAGED";
             const isCurrent = step === currentStatus;
+            const glazeSteps = allSteps.length - 5;
 
             return (
               <div key={step} className="flex items-center">
@@ -105,9 +107,9 @@ export default function StatusTimeline({ history, currentStatus }: { history: St
                     {SHORT_LABELS[step]}
                   </span>
                 </div>
-                {i < 4 && (
+                {i < glazeSteps - 1 && (
                   <div
-                    className={`w-6 sm:w-10 h-0.5 mt-[-12px] ${
+                    className={`w-6 sm:w-8 h-0.5 mt-[-12px] ${
                       globalIndex < currentIndex && currentStatus !== "DAMAGED"
                         ? "bg-green-500"
                         : "bg-gray-200"

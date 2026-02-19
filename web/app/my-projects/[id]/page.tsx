@@ -152,7 +152,7 @@ export default function ProjectDetailPage() {
     (project?.images?.length ?? 0) > 0;
   const isRefire = project?.status === "PICKUP_READY" || project?.status === "PICKED_UP";
   const isDocking = ["DOCK_BISQUE", "DOCK_GLAZE"].includes(project?.status || "");
-  const isInProgress = ["DRYING", "DOCK_BISQUE", "KILN_BISQUE", "DOCK_GLAZE", "KILN_GLAZE"].includes(project?.status || "");
+  const isInProgress = ["DOCK_BISQUE", "DRYING", "KILN_BISQUE", "DOCK_GLAZE", "DRYING_GLAZE", "KILN_GLAZE"].includes(project?.status || "");
 
   if (authLoading || !user) {
     return (

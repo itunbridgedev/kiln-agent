@@ -4,12 +4,13 @@ import * as S3Service from "./S3Service";
 
 // Valid status transitions
 const STATUS_TRANSITIONS: Record<ProjectStatus, ProjectStatus[]> = {
-  CREATED: [ProjectStatus.DRYING, ProjectStatus.DOCK_BISQUE, ProjectStatus.DAMAGED],
-  DRYING: [ProjectStatus.DOCK_BISQUE, ProjectStatus.DAMAGED],
-  DOCK_BISQUE: [ProjectStatus.KILN_BISQUE, ProjectStatus.DAMAGED],
+  CREATED: [ProjectStatus.DOCK_BISQUE, ProjectStatus.DAMAGED],
+  DOCK_BISQUE: [ProjectStatus.DRYING, ProjectStatus.DAMAGED],
+  DRYING: [ProjectStatus.KILN_BISQUE, ProjectStatus.DAMAGED],
   KILN_BISQUE: [ProjectStatus.BISQUE_DONE, ProjectStatus.DAMAGED],
   BISQUE_DONE: [ProjectStatus.DOCK_GLAZE, ProjectStatus.PICKUP_READY, ProjectStatus.DAMAGED],
-  DOCK_GLAZE: [ProjectStatus.KILN_GLAZE, ProjectStatus.DAMAGED],
+  DOCK_GLAZE: [ProjectStatus.DRYING_GLAZE, ProjectStatus.DAMAGED],
+  DRYING_GLAZE: [ProjectStatus.KILN_GLAZE, ProjectStatus.DAMAGED],
   KILN_GLAZE: [ProjectStatus.GLAZE_DONE, ProjectStatus.DAMAGED],
   GLAZE_DONE: [ProjectStatus.PICKUP_READY, ProjectStatus.DAMAGED],
   PICKUP_READY: [ProjectStatus.PICKED_UP, ProjectStatus.DOCK_BISQUE, ProjectStatus.DOCK_GLAZE, ProjectStatus.DAMAGED],
@@ -252,11 +253,12 @@ export async function getProjectsByStatus(filters?: {
 
 export async function getProjectsBoard() {
   const statuses: ProjectStatus[] = [
-    ProjectStatus.DRYING,
     ProjectStatus.DOCK_BISQUE,
+    ProjectStatus.DRYING,
     ProjectStatus.KILN_BISQUE,
     ProjectStatus.BISQUE_DONE,
     ProjectStatus.DOCK_GLAZE,
+    ProjectStatus.DRYING_GLAZE,
     ProjectStatus.KILN_GLAZE,
     ProjectStatus.GLAZE_DONE,
     ProjectStatus.PICKUP_READY,
