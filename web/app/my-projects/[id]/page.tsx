@@ -145,9 +145,14 @@ export default function ProjectDetailPage() {
     }
   };
 
+  const firingEligibleStatuses = ["CREATED", "BISQUE_DONE", "PICKUP_READY", "PICKED_UP"];
+  const needsPhoto = ["CREATED", "BISQUE_DONE"].includes(project?.status || "");
   const canRequestFiring =
-    (project?.status === "CREATED" || project?.status === "BISQUE_DONE") &&
+    firingEligibleStatuses.includes(project?.status || "") &&
     (project?.images?.length ?? 0) > 0;
+  const isRefire = project?.status === "PICKUP_READY" || project?.status === "PICKED_UP";
+  const isDocking = ["DOCK_BISQUE", "DOCK_GLAZE"].includes(project?.status || "");
+  const isInProgress = ["DRYING", "DOCK_BISQUE", "KILN_BISQUE", "DOCK_GLAZE", "KILN_GLAZE"].includes(project?.status || "");
 
   if (authLoading || !user) {
     return (
@@ -193,11 +198,10 @@ export default function ProjectDetailPage() {
                     onClick={() => setShowFiringModal(true)}
                     className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 text-sm font-medium"
                   >
-                    Request Firing
+                    {isRefire ? "Re-fire" : "Request Firing"}
                   </button>
                 )}
-                {(project.status === "CREATED" || project.status === "BISQUE_DONE") &&
-                  project.images.length === 0 && (
+                {needsPhoto && project.images.length === 0 && (
                   <span className="text-xs text-gray-500 self-center">
                     Upload a photo to request firing
                   </span>
@@ -210,6 +214,18 @@ export default function ProjectDetailPage() {
                 </button>
               </div>
             </div>
+
+            {/* Docking / In-Progress Message */}
+            {isDocking && (
+              <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 text-sm text-orange-800">
+                Please leave your piece in the kiln docking area. Staff will load it into the kiln when ready.
+              </div>
+            )}
+            {isInProgress && !isDocking && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
+                Your piece is being processed. You&apos;ll see status updates here as it moves through the kiln.
+              </div>
+            )}
 
             {/* Linked Session */}
             {project.classSession && (

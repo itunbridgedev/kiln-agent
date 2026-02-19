@@ -12,8 +12,8 @@ const STATUS_TRANSITIONS: Record<ProjectStatus, ProjectStatus[]> = {
   DOCK_GLAZE: [ProjectStatus.KILN_GLAZE, ProjectStatus.DAMAGED],
   KILN_GLAZE: [ProjectStatus.GLAZE_DONE, ProjectStatus.DAMAGED],
   GLAZE_DONE: [ProjectStatus.PICKUP_READY, ProjectStatus.DAMAGED],
-  PICKUP_READY: [ProjectStatus.PICKED_UP, ProjectStatus.DAMAGED],
-  PICKED_UP: [],
+  PICKUP_READY: [ProjectStatus.PICKED_UP, ProjectStatus.DOCK_BISQUE, ProjectStatus.DOCK_GLAZE, ProjectStatus.DAMAGED],
+  PICKED_UP: [ProjectStatus.DOCK_BISQUE, ProjectStatus.DOCK_GLAZE],
   DAMAGED: [],
 };
 

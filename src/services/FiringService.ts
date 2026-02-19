@@ -1,5 +1,6 @@
 import { FiringType, ProjectStatus } from "@prisma/client";
 import prisma from "../prisma";
+import * as ProjectService from "./ProjectService";
 import stripe from "./stripe";
 
 // --- Firing Product CRUD ---
@@ -132,11 +133,24 @@ export async function purchaseFiring(
   if (!project) throw new Error("Project not found");
 
   // Check project is in a valid state for firing
-  const validStatuses: ProjectStatus[] = [ProjectStatus.CREATED, ProjectStatus.BISQUE_DONE];
+  const validStatuses: ProjectStatus[] = [
+    ProjectStatus.CREATED,
+    ProjectStatus.BISQUE_DONE,
+    ProjectStatus.PICKUP_READY,
+    ProjectStatus.PICKED_UP,
+  ];
   if (!validStatuses.includes(project.status)) {
     throw new Error(
-      `Project must be in CREATED or BISQUE_DONE status to request firing`
+      `Project must be in CREATED, BISQUE_DONE, PICKUP_READY, or PICKED_UP status to request firing`
     );
+  }
+
+  // Prevent duplicate firing requests — check if there's already an active (uncompleted) firing
+  const activeFiring = await prisma.firingRequest.findFirst({
+    where: { projectId, completedAt: null },
+  });
+  if (activeFiring) {
+    throw new Error("A firing request is already in progress for this project");
   }
 
   const firingProduct = await prisma.firingProduct.findUnique({
@@ -148,10 +162,13 @@ export async function purchaseFiring(
   }
 
   // Determine expected firing type based on project status
+  // CREATED → bisque, BISQUE_DONE → glaze, PICKUP_READY/PICKED_UP → either (re-fire)
   const expectedType =
     project.status === ProjectStatus.CREATED
       ? FiringType.BISQUE
-      : FiringType.GLAZE;
+      : project.status === ProjectStatus.BISQUE_DONE
+        ? FiringType.GLAZE
+        : firingProduct.firingType; // re-fire allows any type
   if (firingProduct.firingType !== expectedType) {
     throw new Error(
       `Expected ${expectedType} firing for project in ${project.status} status`
@@ -216,6 +233,18 @@ export async function purchaseFiring(
       },
     });
 
+    // Advance project status to docking
+    const dockStatus =
+      firingProduct.firingType === FiringType.BISQUE
+        ? ProjectStatus.DOCK_BISQUE
+        : ProjectStatus.DOCK_GLAZE;
+    await ProjectService.updateProjectStatus(
+      projectId,
+      dockStatus,
+      customerId,
+      `Firing requested (membership)`
+    );
+
     return { firing };
   }
 
@@ -272,6 +301,18 @@ export async function handleFiringPurchaseWebhook(
       paidAt: new Date(),
     },
   });
+
+  // Advance project status to docking
+  const dockStatus =
+    firingProduct.firingType === FiringType.BISQUE
+      ? ProjectStatus.DOCK_BISQUE
+      : ProjectStatus.DOCK_GLAZE;
+  await ProjectService.updateProjectStatus(
+    projectId,
+    dockStatus,
+    customerId,
+    `Firing requested (Stripe payment)`
+  );
 
   console.log(`Successfully created firing request: ${firing.id}`);
   return firing;
