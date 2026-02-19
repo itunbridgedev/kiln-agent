@@ -7,6 +7,22 @@ import * as FiringService from "../services/FiringService";
 
 const router = Router();
 
+// GET /api/projects/firing-products — Active firing products for customers
+router.get(
+  "/firing-products",
+  isAuthenticated,
+  async (req: Request, res: Response) => {
+    try {
+      const products = await FiringService.getFiringProducts();
+      // Only return active products to customers
+      const active = products.filter((p: any) => p.isActive);
+      res.json(active);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+);
+
 // GET /api/projects — My projects (paginated, filterable)
 router.get("/", isAuthenticated, async (req: Request, res: Response) => {
   try {

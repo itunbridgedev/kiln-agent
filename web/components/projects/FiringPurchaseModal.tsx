@@ -57,7 +57,7 @@ export default function FiringPurchaseModal({
   const loadData = async () => {
     try {
       const [productsRes, subRes, passesRes] = await Promise.all([
-        fetch("/api/admin/firing-products", { credentials: "include" }),
+        fetch("/api/projects/firing-products", { credentials: "include" }),
         fetch("/api/memberships/my-subscription", { credentials: "include" }),
         fetch("/api/punch-passes/my-passes", { credentials: "include" }),
       ]);
