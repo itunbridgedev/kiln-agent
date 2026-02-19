@@ -12,7 +12,6 @@ export async function createFiringProduct(
     firingType: FiringType;
     price: number;
     allowMembershipBenefit?: boolean;
-    allowPunchPass?: boolean;
   }
 ) {
   return prisma.firingProduct.create({
@@ -23,7 +22,6 @@ export async function createFiringProduct(
       firingType: data.firingType,
       price: data.price,
       allowMembershipBenefit: data.allowMembershipBenefit || false,
-      allowPunchPass: data.allowPunchPass || false,
     },
   });
 }
@@ -37,7 +35,6 @@ export async function updateFiringProduct(
     price?: number;
     isActive?: boolean;
     allowMembershipBenefit?: boolean;
-    allowPunchPass?: boolean;
   }
 ) {
   return prisma.firingProduct.update({
@@ -122,12 +119,11 @@ export async function purchaseFiring(
   projectId: number,
   firingProductId: number,
   customerId: number,
-  payMethod: "stripe" | "membership" | "punchpass",
+  payMethod: "stripe" | "membership",
   options: {
     successUrl?: string;
     cancelUrl?: string;
     subscriptionId?: number;
-    customerPunchPassId?: number;
   }
 ) {
   const project = await prisma.project.findFirst({
@@ -219,44 +215,6 @@ export async function purchaseFiring(
         paidAt: new Date(),
       },
     });
-
-    return { firing };
-  }
-
-  if (payMethod === "punchpass") {
-    if (!firingProduct.allowPunchPass) {
-      throw new Error("This firing product does not accept punch passes");
-    }
-    if (!options.customerPunchPassId) {
-      throw new Error("Punch pass ID required");
-    }
-
-    const punchPass = await prisma.customerPunchPass.findFirst({
-      where: {
-        id: options.customerPunchPassId,
-        customerId,
-        punchesRemaining: { gt: 0 },
-        expiresAt: { gt: new Date() },
-      },
-    });
-    if (!punchPass) throw new Error("Valid punch pass not found");
-
-    const [firing] = await prisma.$transaction([
-      prisma.firingRequest.create({
-        data: {
-          studioId: project.studioId,
-          projectId,
-          firingProductId,
-          firingType: firingProduct.firingType,
-          customerPunchPassId: options.customerPunchPassId,
-          paidAt: new Date(),
-        },
-      }),
-      prisma.customerPunchPass.update({
-        where: { id: options.customerPunchPassId },
-        data: { punchesRemaining: { decrement: 1 } },
-      }),
-    ]);
 
     return { firing };
   }

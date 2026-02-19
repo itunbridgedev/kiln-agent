@@ -146,7 +146,8 @@ export default function ProjectDetailPage() {
   };
 
   const canRequestFiring =
-    project?.status === "CREATED" || project?.status === "BISQUE_DONE";
+    (project?.status === "CREATED" || project?.status === "BISQUE_DONE") &&
+    (project?.images?.length ?? 0) > 0;
 
   if (authLoading || !user) {
     return (
@@ -194,6 +195,12 @@ export default function ProjectDetailPage() {
                   >
                     Request Firing
                   </button>
+                )}
+                {(project.status === "CREATED" || project.status === "BISQUE_DONE") &&
+                  project.images.length === 0 && (
+                  <span className="text-xs text-gray-500 self-center">
+                    Upload a photo to request firing
+                  </span>
                 )}
                 <button
                   onClick={() => setEditing(true)}

@@ -8,18 +8,11 @@ interface FiringProduct {
   firingType: string;
   price: string;
   allowMembershipBenefit: boolean;
-  allowPunchPass: boolean;
 }
 
 interface SubscriptionOption {
   id: number;
   membershipName: string;
-}
-
-interface PunchPassOption {
-  id: number;
-  name: string;
-  punchesRemaining: number;
 }
 
 interface Props {
@@ -29,7 +22,7 @@ interface Props {
   onPurchaseComplete: () => void;
 }
 
-type PayMethod = "stripe" | "membership" | "punchpass";
+type PayMethod = "stripe" | "membership";
 
 export default function FiringPurchaseModal({
   projectId,
@@ -39,14 +32,12 @@ export default function FiringPurchaseModal({
 }: Props) {
   const [products, setProducts] = useState<FiringProduct[]>([]);
   const [subscription, setSubscription] = useState<SubscriptionOption | null>(null);
-  const [punchPasses, setPunchPasses] = useState<PunchPassOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
   const [payMethod, setPayMethod] = useState<PayMethod>("stripe");
-  const [selectedPunchPassId, setSelectedPunchPassId] = useState<number | null>(null);
 
   const expectedType = projectStatus === "CREATED" ? "BISQUE" : "GLAZE";
 
@@ -56,10 +47,9 @@ export default function FiringPurchaseModal({
 
   const loadData = async () => {
     try {
-      const [productsRes, subRes, passesRes] = await Promise.all([
+      const [productsRes, subRes] = await Promise.all([
         fetch("/api/projects/firing-products", { credentials: "include" }),
         fetch("/api/memberships/my-subscription", { credentials: "include" }),
-        fetch("/api/punch-passes/my-passes", { credentials: "include" }),
       ]);
 
       if (productsRes.ok) {
@@ -74,10 +64,6 @@ export default function FiringPurchaseModal({
       if (subRes.ok) {
         const sub = await subRes.json();
         if (sub?.status === "ACTIVE") setSubscription(sub);
-      }
-
-      if (passesRes.ok) {
-        setPunchPasses(await passesRes.json());
       }
     } catch (err) {
       console.error("Error loading firing data:", err);
@@ -104,8 +90,6 @@ export default function FiringPurchaseModal({
         body.cancelUrl = window.location.href + "?firing=cancelled";
       } else if (payMethod === "membership" && subscription) {
         body.subscriptionId = subscription.id;
-      } else if (payMethod === "punchpass" && selectedPunchPassId) {
-        body.customerPunchPassId = selectedPunchPassId;
       }
 
       const response = await fetch(`/api/projects/${projectId}/fire`, {
@@ -207,34 +191,6 @@ export default function FiringPurchaseModal({
                       </div>
                     </div>
                   </label>
-                )}
-
-                {punchPasses.length > 0 && selectedProduct?.allowPunchPass && (
-                  <>
-                    {punchPasses.map((pass) => (
-                      <label
-                        key={pass.id}
-                        className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50"
-                      >
-                        <input
-                          type="radio"
-                          name="payMethod"
-                          value="punchpass"
-                          checked={payMethod === "punchpass" && selectedPunchPassId === pass.id}
-                          onChange={() => {
-                            setPayMethod("punchpass");
-                            setSelectedPunchPassId(pass.id);
-                          }}
-                        />
-                        <div>
-                          <div className="text-sm font-medium">Use Punch Pass</div>
-                          <div className="text-xs text-gray-500">
-                            {pass.name} — {pass.punchesRemaining} punches remaining
-                          </div>
-                        </div>
-                      </label>
-                    ))}
-                  </>
                 )}
               </div>
             </div>

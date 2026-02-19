@@ -10,7 +10,6 @@ interface FiringProduct {
   price: string;
   isActive: boolean;
   allowMembershipBenefit: boolean;
-  allowPunchPass: boolean;
   stripeProductId: string | null;
   stripePriceId: string | null;
   _count?: { firingRequests: number };
@@ -35,7 +34,6 @@ export default function FiringProductManager({ onNavigateToStripe }: Props) {
   const [firingType, setFiringType] = useState("BISQUE");
   const [price, setPrice] = useState("");
   const [allowMembershipBenefit, setAllowMembershipBenefit] = useState(false);
-  const [allowPunchPass, setAllowPunchPass] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const fetchProducts = useCallback(async () => {
@@ -77,7 +75,6 @@ export default function FiringProductManager({ onNavigateToStripe }: Props) {
     setFiringType("BISQUE");
     setPrice("");
     setAllowMembershipBenefit(false);
-    setAllowPunchPass(false);
     setEditingProduct(null);
     setShowForm(false);
   };
@@ -89,7 +86,6 @@ export default function FiringProductManager({ onNavigateToStripe }: Props) {
     setFiringType(product.firingType);
     setPrice(product.price);
     setAllowMembershipBenefit(product.allowMembershipBenefit);
-    setAllowPunchPass(product.allowPunchPass);
     setShowForm(true);
   };
 
@@ -105,7 +101,6 @@ export default function FiringProductManager({ onNavigateToStripe }: Props) {
         firingType,
         price: parseFloat(price),
         allowMembershipBenefit,
-        allowPunchPass,
       };
 
       const url = editingProduct
@@ -269,14 +264,6 @@ export default function FiringProductManager({ onNavigateToStripe }: Props) {
                   onChange={(e) => setAllowMembershipBenefit(e.target.checked)}
                 />
                 Allow membership benefit
-              </label>
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={allowPunchPass}
-                  onChange={(e) => setAllowPunchPass(e.target.checked)}
-                />
-                Allow punch pass
               </label>
             </div>
 

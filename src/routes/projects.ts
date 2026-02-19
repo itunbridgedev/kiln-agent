@@ -199,7 +199,6 @@ router.post(
         successUrl,
         cancelUrl,
         subscriptionId,
-        customerPunchPassId,
       } = req.body;
 
       if (!firingProductId || !payMethod) {
@@ -213,7 +212,7 @@ router.post(
         firingProductId,
         user.id,
         payMethod,
-        { successUrl, cancelUrl, subscriptionId, customerPunchPassId }
+        { successUrl, cancelUrl, subscriptionId }
       );
 
       res.json(result);

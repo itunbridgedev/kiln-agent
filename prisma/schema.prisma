@@ -975,7 +975,6 @@ model CustomerPunchPass {
   updatedAt         DateTime            @updatedAt
   
   openStudioBookings OpenStudioBooking[]
-  firingRequests     FiringRequest[]
 
   @@index([customerId])
   @@index([studioId, customerId])
@@ -1089,7 +1088,6 @@ model FiringProduct {
   isActive        Boolean     @default(true)
 
   allowMembershipBenefit Boolean @default(false)
-  allowPunchPass         Boolean @default(false)
 
   stripeProductId String?
   stripePriceId   String?
@@ -1116,8 +1114,6 @@ model FiringRequest {
   stripeCheckoutSessionId String?
   subscriptionId        Int?
   subscription          MembershipSubscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
-  customerPunchPassId   Int?
-  customerPunchPass     CustomerPunchPass?      @relation(fields: [customerPunchPassId], references: [id], onDelete: SetNull)
 
   paidAt            DateTime?
   requestedAt       DateTime      @default(now())
